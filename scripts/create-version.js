@@ -880,7 +880,8 @@ async function main() {
     const versionHeadline =
       `${paint('cyan', paint('bold', plugin.name))}  ${formatVersionTransition(claude.version, newVersion)}`;
     const manifestPaths = [plugin.claudePath, plugin.codexPath].map((manifestPath) =>
-      paint('dim', path.relative(process.cwd(), manifestPath))
+      // Forward slashes keep the output identical on Windows, where path.sep is a backslash.
+      paint('dim', path.relative(process.cwd(), manifestPath).split(path.sep).join('/'))
     );
 
     if (isDryRun) {

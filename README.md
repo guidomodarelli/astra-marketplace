@@ -257,9 +257,12 @@ providers falsos y no llama a Claude ni a Codex reales.
 `bun run test:sibling-worktree` corre la suite del helper de `sibling-worktree` sobre repos git
 temporales.
 
-Cada test tiene un timeout de 30 segundos, salvo `review-fix-loop`, que usa 60: `test:shell` usa
-`BATS_TEST_TIMEOUT=30` y las suites bash de `review-fix-loop` y `sibling-worktree` corren cada test
-bajo `timeout` (`gtimeout` en macOS).
+Cada test tiene un timeout de 30 segundos: `test:shell` usa `BATS_TEST_TIMEOUT=30` y las suites
+bash de `review-fix-loop` y `sibling-worktree` corren cada test bajo `timeout` (`gtimeout` en macOS).
+La excepción es `bun run test:bootstrap` (parte de `test:shell`), con 120 segundos por test: sus
+tests corren bootstrap y sync completos varias veces, y en Windows algunos tardan más de un minuto.
+Las suites bats corren con `LC_ALL=C.UTF-8`: el shell de `bun run` no pasa la configuración
+regional, y sin UTF-8 bats no ejecuta los tests cuyo nombre lleva tildes.
 Un test que se cuelga falla con `timeout` en vez de bloquear la corrida. Para cambiar el límite en las
 suites bash, exportá `TEST_TIMEOUT_SECONDS`.
 

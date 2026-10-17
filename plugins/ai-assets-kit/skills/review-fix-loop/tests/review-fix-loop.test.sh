@@ -416,8 +416,7 @@ test_review_prompt_requests_labels_and_count() {
 
 # Cada test corre en su propio proceso bajo `timeout`, que corta el grupo de procesos
 # completo: un test colgado falla a los TEST_TIMEOUT_SECONDS en vez de bloquear la suite.
-# 60s en vez de los 30s generales: los tests de fallback encadenan varios providers falsos y el runner de timeout del helper.
-readonly DEFAULT_TEST_TIMEOUT_SECONDS=60
+readonly DEFAULT_TEST_TIMEOUT_SECONDS=30
 readonly TIMEOUT_EXIT_STATUS=124
 readonly SINGLE_TEST_FLAG=--run-single-test
 TEST_TIMEOUT_SECONDS=${TEST_TIMEOUT_SECONDS:-$DEFAULT_TEST_TIMEOUT_SECONDS}
