@@ -31,6 +31,10 @@ wait_for_file_containing() {
 }
 
 teardown() {
+  # Background processes may outlive a timed-out test; stop them so bats can finish.
+  if [[ -n "${background_pids:-}" ]]; then
+    kill $background_pids 2>/dev/null || true
+  fi
   cd "$repository_root"
   rm -rf "$test_root"
 }
@@ -500,6 +504,8 @@ EOF
 }
 
 @test "directory lock protects against pathname replacement during atomic update" {
+  python3 -c "import fcntl" 2>/dev/null ||
+    skip "requiere fcntl: el protocolo de lock de directorio es POSIX"
   python3 - <<'PY'
 with open('AGENTS.md', 'w', encoding='utf-8') as agents_file:
     agents_file.write('# Original instructions\n\n')
@@ -545,10 +551,11 @@ PY
 
   PATH="$fake_bin:$PATH" bash "$skill_dir/scripts/merge-instructions.sh" \
     --provider claude --stack node --skill-dir "$skill_dir" \
-    > "$test_root/merge-output.log" 2>&1 &
+    > "$test_root/merge-output.log" 2>&1 3>&- &
   merge_pid=$!
-  python3 "$writer_script" "$race_marker" > "$test_root/writer-output.log" 2>&1 &
+  python3 "$writer_script" "$race_marker" > "$test_root/writer-output.log" 2>&1 3>&- &
   writer_pid=$!
+  background_pids="$merge_pid $writer_pid"
 
   if wait "$merge_pid"; then
     merge_status=0

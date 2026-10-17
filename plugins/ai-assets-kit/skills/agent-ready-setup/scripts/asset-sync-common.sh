@@ -237,6 +237,12 @@ replace_with_claude_view() {
     record_conflict "could not stage Claude view $destination; neither was changed"
     return 0
   fi
+  # Git Bash without native symlinks copies the file silently; a copy would drift from the shared asset.
+  if [[ ! -L "$temporary_link" ]]; then
+    rm -f -- "$temporary_link"
+    record_conflict "symlinks are not supported here, so $destination was not changed; on Windows enable Developer Mode and export MSYS=winsymlinks:nativestrict"
+    return 0
+  fi
   if ! rm -f -- "$destination" || ! mv -- "$temporary_link" "$destination"; then
     rm -f -- "$temporary_link"
     record_conflict "could not replace Claude view $destination; review it manually"

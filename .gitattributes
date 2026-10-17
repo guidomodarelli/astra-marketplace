@@ -1,0 +1,12 @@
+# Scripts, templates y managed blocks se comparan y ejecutan byte a byte: siempre LF,
+# aunque quien clone tenga core.autocrlf=true (Windows).
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary

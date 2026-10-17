@@ -3,7 +3,6 @@
 
 import argparse
 import contextlib
-import fcntl
 import importlib
 import json
 import os
@@ -14,6 +13,13 @@ import signal
 import subprocess
 import sys
 import tempfile
+
+# Windows Python has no fcntl; msvcrt byte-range locks give the same fail-fast exclusive lock.
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+    import msvcrt
 
 try:
     import tomllib
@@ -251,8 +257,11 @@ def exclusive_lock(lock_path, busy_message):
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("w") as lock_file:
         try:
-            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as error:
+            if fcntl is not None:
+                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            else:
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        except (BlockingIOError, PermissionError) as error:
             raise RuntimeError(busy_message) from error
         yield
 

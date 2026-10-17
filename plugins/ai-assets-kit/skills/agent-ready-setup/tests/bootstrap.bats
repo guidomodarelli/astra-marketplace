@@ -74,6 +74,19 @@ run_marketplace_sync() {
     "$@"
 }
 
+# Git Bash without native symlinks copies instead of linking; these tests check real symlinks.
+skip_without_symlinks() {
+  local probe_target="$test_root/symlink-probe-target"
+  local probe_link="$test_root/symlink-probe-link"
+  : > "$probe_target"
+  ln -s "$probe_target" "$probe_link" 2>/dev/null || true
+  if [[ ! -L "$probe_link" ]]; then
+    rm -f "$probe_target" "$probe_link"
+    skip "requiere symlinks reales (en Windows: modo desarrollador y MSYS=winsymlinks:nativestrict)"
+  fi
+  rm -f "$probe_target" "$probe_link"
+}
+
 @test "normalize-instructions entry point normalizes instructions without projecting assets" {
   printf '%s\n' '# Project instructions' > CLAUDE.md
   mkdir -p docs
@@ -297,6 +310,7 @@ EOF
 }
 
 @test "PR template projection preserves symlinked GitHub directory" {
+  skip_without_symlinks
   mkdir "$test_root/external-github"
   printf '%s\n' 'External template' > "$test_root/external-github/pull_request_template.md"
   cp "$test_root/external-github/pull_request_template.md" "$test_root/expected-template"
@@ -313,6 +327,7 @@ EOF
 }
 
 @test "PR template projection replaces file symlink without changing its target" {
+  skip_without_symlinks
   mkdir .github
   printf '%s\n' 'External template' > "$test_root/external-template"
   cp "$test_root/external-template" "$test_root/expected-template"
@@ -332,6 +347,7 @@ EOF
 }
 
 @test "bootstrap projects Claude, shared, and Codex trees" {
+  skip_without_symlinks
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
@@ -392,6 +408,7 @@ EOF
 }
 
 @test "sync removes managed legacy hooks and stale Claude symlink views" {
+  skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
@@ -411,6 +428,7 @@ EOF
 }
 
 @test "sync preserves custom Claude hooks and migrates custom settings" {
+  skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
@@ -530,6 +548,7 @@ EOF
 }
 
 @test "autonomous sync replaces identical and edited Claude copies with managed views" {
+  skip_without_symlinks
   dynamic_skill_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$dynamic_skill_dir"
 
@@ -612,6 +631,7 @@ EOF
 }
 
 @test "identical legacy Claude copies become canonical symlinks" {
+  skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
@@ -627,6 +647,7 @@ EOF
 }
 
 @test "edited Claude copies of managed rules are replaced with managed views" {
+  skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
@@ -664,6 +685,7 @@ EOF
 }
 
 @test "browser rule is discoverable through both providers for every stack" {
+  skip_without_symlinks
   for provider in claude codex; do
     for stack in frontend go java node; do
       stack_project="$test_root/$provider-$stack-browser"
@@ -734,6 +756,7 @@ EOF
 }
 
 @test "Claude registers each agent and command once while Codex keeps its adapter" {
+  skip_without_symlinks
   source_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$source_dir"
   cat > "$source_dir/scripts/merge-instructions.sh" <<'EOF'
@@ -756,6 +779,7 @@ EOF
 }
 
 @test "sync removes duplicate Claude skill views of agents and commands, even when edited" {
+  skip_without_symlinks
   source_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$source_dir"
   cat > "$source_dir/scripts/merge-instructions.sh" <<'EOF'
@@ -778,6 +802,7 @@ EOF
 }
 
 @test "sync links project rules for Claude and prunes views of deleted ones" {
+  skip_without_symlinks
   source_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$source_dir"
   cat > "$source_dir/scripts/merge-instructions.sh" <<'EOF'
@@ -830,6 +855,7 @@ EOF
 }
 
 @test "backend stacks project common rules, hooks, and settings for every provider" {
+  skip_without_symlinks
   for stack in go java node; do
     stack_project="$test_root/$stack-project"
     mkdir -p "$stack_project"
@@ -1193,6 +1219,7 @@ EOF
 }
 
 @test "rejects symlinked provider roots before writing assets" {
+  skip_without_symlinks
   for provider_root in .claude .agents .codex; do
     outside_root="$test_root/$provider_root"
     mkdir -p "$outside_root"
@@ -1210,6 +1237,7 @@ EOF
 }
 
 @test "rejects symlinked provider subdirectories before writing assets" {
+  skip_without_symlinks
   outside_root="$test_root/outside-rules"
   mkdir -p "$outside_root" .claude
   printf '%s\n' 'sentinel' > "$outside_root/sentinel.txt"
@@ -1701,6 +1729,7 @@ EOF
 }
 
 @test "symlinked managed assets are replaced without touching their target" {
+  skip_without_symlinks
   outside_file="$test_root/outside-security.md"
   printf '%s\n' '# Outside asset' > "$outside_file"
   run_bootstrap node
@@ -1719,6 +1748,7 @@ EOF
 }
 
 @test "a symlink to a directory at a managed path cannot redirect the write" {
+  skip_without_symlinks
   outside_directory="$test_root/outside-directory"
   mkdir -p "$outside_directory"
   run_bootstrap node
@@ -2357,6 +2387,7 @@ EOF
 }
 
 @test "sync hook projects managed assets without bootstrap" {
+  skip_without_symlinks
   fake_bin="$test_root/bin"
   source_dir="$test_root/agent-ready-setup"
   event_log="$test_root/events.log"
@@ -2536,7 +2567,7 @@ EOF
   source_dir="$test_root/agent-ready-setup"
   cp -R "$skill_dir"/. "$source_dir"/
   mkdir -p .agents/.agent-ready-assets.lock
-  (sleep 30) &
+  (sleep 30) 3>&- &
   stale_pid=$!
   kill "$stale_pid"
   wait "$stale_pid" 2>/dev/null || true
@@ -2584,7 +2615,7 @@ EOF
 
 @test "bootstrap reclaims asset lock left by terminated process" {
   mkdir -p .agents/.agent-ready-assets.lock
-  (sleep 30) &
+  (sleep 30) 3>&- &
   stale_pid=$!
   kill "$stale_pid"
   wait "$stale_pid" 2>/dev/null || true
@@ -2685,6 +2716,7 @@ EOF
 }
 
 @test "Codex migration preserves malformed or symlinked input without deleting legacy file" {
+  skip_without_symlinks
   mkdir -p .codex/hooks
   printf '%s\n' 'invalid json' > .codex/hooks/hooks.json
   printf '%s\n' '{"hooks":{}}' > .codex/hooks.json

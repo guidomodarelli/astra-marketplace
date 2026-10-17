@@ -393,7 +393,12 @@ import stat
 import sys
 import tempfile
 
-import fcntl
+# Windows Python has no fcntl. There the agent-ready merge lock (MERGE_LOCK_DIRECTORY)
+# serializes merges, and the hash and inode checks below reject concurrent edits.
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 
 target_path, replacement_path, expected_hash = sys.argv[1:]
@@ -411,12 +416,14 @@ try:
     directory_flags = os.O_RDONLY
     if hasattr(os, "O_DIRECTORY"):
         directory_flags |= os.O_DIRECTORY
-    directory_file = os.open(target_directory, directory_flags)
-    # Keep pathname checks and replacement under one directory lock.
-    fcntl.flock(directory_file, fcntl.LOCK_EX)
+    if fcntl is not None:
+        directory_file = os.open(target_directory, directory_flags)
+        # Keep pathname checks and replacement under one directory lock.
+        fcntl.flock(directory_file, fcntl.LOCK_EX)
 
     target_file = os.fdopen(os.open(target_path, open_flags), "r+b")
-    fcntl.flock(target_file.fileno(), fcntl.LOCK_EX)
+    if fcntl is not None:
+        fcntl.flock(target_file.fileno(), fcntl.LOCK_EX)
     target_file.seek(0)
     original_content = target_file.read()
     current_hash = hashlib.sha256(original_content).hexdigest()
@@ -436,7 +443,8 @@ try:
         dir=target_directory,
     )
     with os.fdopen(temporary_descriptor, "wb") as temporary_file:
-        os.fchmod(temporary_file.fileno(), target_mode)
+        if hasattr(os, "fchmod"):
+            os.fchmod(temporary_file.fileno(), target_mode)
         temporary_file.write(replacement_content)
         temporary_file.flush()
         os.fsync(temporary_file.fileno())
@@ -456,10 +464,15 @@ try:
         )
         sys.exit(2)
 
+    if fcntl is None:
+        # Windows refuses to replace a file that is still open.
+        target_file.close()
+        target_file = None
     os.replace(temporary_path, target_path)
     temporary_path = None
 
-    os.fsync(directory_file)
+    if directory_file is not None:
+        os.fsync(directory_file)
 except SystemExit:
     raise
 except Exception as error:
