@@ -4,6 +4,8 @@ setup() {
   repository_root="$(cd "$BATS_TEST_DIRNAME/../../../../.." && pwd)"
   skill_dir="$repository_root/plugins/ai-assets-kit/skills/agent-ready-setup"
   test_root="$(mktemp -d)"
+  # Native Windows symlinks under Git Bash (needs Developer Mode); ignored elsewhere.
+  export MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"
   test_root="$(cd "$test_root" && pwd -P)"
   project_dir="$test_root/project"
   fake_bin="$test_root/bin"
@@ -46,6 +48,13 @@ wait_for_file_containing() {
 
 teardown() {
   cd "$repository_root"
+  # Windows cannot delete files that a detached background review still has open;
+  # retry for a few seconds so it can finish before failing the test.
+  local removal_attempt
+  for removal_attempt in $(seq 1 50); do
+    rm -rf "$test_root" 2>/dev/null && return 0
+    sleep 0.2
+  done
   rm -rf "$test_root"
 }
 
@@ -75,6 +84,43 @@ run_marketplace_sync() {
 }
 
 # Git Bash without native symlinks copies instead of linking; these tests check real symlinks.
+# A Claude view is a symlink to the shared asset, or a hard link to it where the platform
+# cannot create symlinks without privileges (Windows without Developer Mode).
+# Simulates a platform without the symlink privilege: `ln -s` fails, plain `ln` works.
+# Native Windows jq writes CRLF; fixtures and comparisons expect LF. Keeps jq's exit status.
+jq() {
+  command jq "$@" | tr -d '\r'
+  return "${PIPESTATUS[0]}"
+}
+
+disable_symlinks() {
+  local real_ln
+  real_ln="$(command -v ln)"
+  cat > "$fake_bin/ln" <<EOF
+#!/bin/bash
+for argument in "\$@"; do
+  if [[ "\$argument" == "-s" ]]; then
+    echo "ln: symbolic links are disabled for this test" >&2
+    exit 1
+  fi
+done
+exec "$real_ln" "\$@"
+EOF
+  chmod +x "$fake_bin/ln"
+}
+
+assert_claude_view() {
+  local view="$1"
+  local expected_target="${2:-}"
+  local shared_asset=".agents/${view#.claude/}"
+
+  if [[ -L "$view" ]]; then
+    [[ -z "$expected_target" || "$(readlink "$view")" == "$expected_target" ]]
+  else
+    [[ -f "$view" && "$view" -ef "$shared_asset" ]]
+  fi
+}
+
 skip_without_symlinks() {
   local probe_target="$test_root/symlink-probe-target"
   local probe_link="$test_root/symlink-probe-link"
@@ -82,7 +128,7 @@ skip_without_symlinks() {
   ln -s "$probe_target" "$probe_link" 2>/dev/null || true
   if [[ ! -L "$probe_link" ]]; then
     rm -f "$probe_target" "$probe_link"
-    skip "requiere symlinks reales (en Windows: modo desarrollador y MSYS=winsymlinks:nativestrict)"
+    skip "requiere symlinks reales (en Windows: Modo de desarrollador o una shell elevada)"
   fi
   rm -f "$probe_target" "$probe_link"
 }
@@ -156,9 +202,14 @@ EOF
 #!/bin/bash
 printf '%s\n' '[instruction-merge] Review completed'
 EOF
+  # Native Windows Python cannot open POSIX paths such as /tmp; cygpath translates them.
+  invocation_log_path="$test_root/background-install.log"
+  if command -v cygpath >/dev/null 2>&1; then
+    invocation_log_path="$(cygpath -m "$invocation_log_path")"
+  fi
   cat > "$source_dir/scripts/start-browser-install.py" <<EOF
 import sys
-with open("$test_root/background-install.log", "w") as invocation_log:
+with open("$invocation_log_path", "w") as invocation_log:
     invocation_log.write(" ".join(sys.argv[1:]))
 EOF
   run_bootstrap frontend
@@ -171,7 +222,18 @@ EOF
     bash .agents/hooks/sync-marketplace.sh --provider claude --stack frontend
 
   [ "$status" -eq 0 ]
-  [ "$(cat "$test_root/background-install.log")" = "--project $project_dir" ]
+  # The installer starts detached; give it time to record its invocation.
+  local wait_attempt
+  for wait_attempt in $(seq 1 100); do
+    [ -s "$test_root/background-install.log" ] && break
+    sleep 0.1
+  done
+  expected_project_dir="$project_dir"
+  # Git Bash translates paths passed to native Windows Python into C:/ form.
+  if command -v cygpath >/dev/null 2>&1; then
+    expected_project_dir="$(cygpath -m "$project_dir")"
+  fi
+  [ "$(cat "$test_root/background-install.log")" = "--project $expected_project_dir" ]
   [[ "$output" == *"no complete browser installation"* ]]
 }
 
@@ -347,7 +409,6 @@ EOF
 }
 
 @test "bootstrap projects Claude, shared, and Codex trees" {
-  skip_without_symlinks
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
@@ -355,26 +416,22 @@ EOF
   [ -f CLAUDE.md ]
   cmp -s CLAUDE.md "$skill_dir/assets/claude-proxy.md"
   [ -f .claude/settings.json ]
-  [ -L .claude/rules/security.md ]
-  [ "$(readlink .claude/rules/security.md)" = "../../.agents/rules/security.md" ]
+  assert_claude_view .claude/rules/security.md "../../.agents/rules/security.md"
   [ -f .agents/rules/security.md ]
-  [ -L .claude/rules/lint-gate.md ]
-  [ "$(readlink .claude/rules/lint-gate.md)" = "../../.agents/rules/lint-gate.md" ]
+  assert_claude_view .claude/rules/lint-gate.md "../../.agents/rules/lint-gate.md"
   cmp -s .agents/rules/lint-gate.md "$skill_dir/assets/common/rules/lint-gate.md"
-  [ -L .claude/skills/component-creation/SKILL.md ]
-  [ "$(readlink .claude/skills/component-creation/SKILL.md)" = "../../../.agents/skills/component-creation/SKILL.md" ]
+  assert_claude_view .claude/skills/component-creation/SKILL.md "../../../.agents/skills/component-creation/SKILL.md"
   [ -f .agents/skills/component-creation/SKILL.md ]
   [ -f .agents/skills/react-act-test-fixes/SKILL.md ]
-  [ -L .claude/skills/react-act-test-fixes/SKILL.md ]
-  [ "$(readlink .claude/skills/react-act-test-fixes/SKILL.md)" = "../../../.agents/skills/react-act-test-fixes/SKILL.md" ]
+  assert_claude_view .claude/skills/react-act-test-fixes/SKILL.md "../../../.agents/skills/react-act-test-fixes/SKILL.md"
   [ -f .agents/skills/react-act-test-fixes/evals/eval-config.json ]
-  [ -L .claude/agents/security-scanner.md ]
-  [ -L .claude/commands/review-pr.md ]
+  assert_claude_view .claude/agents/security-scanner.md
+  assert_claude_view .claude/commands/review-pr.md
   [ -f .agents/agents/security-scanner.md ]
   [ -f .agents/commands/review-pr.md ]
   [ -f .agents/skills/security-scanner/SKILL.md ]
   [ -f .agents/skills/review-pr/SKILL.md ]
-  [ -L .claude/mcp.json ]
+  assert_claude_view .claude/mcp.json
   [ -f .codex/.mcp.json ]
   [ ! -e .claude/hooks ]
   [ ! -L .claude/hooks ]
@@ -548,7 +605,6 @@ EOF
 }
 
 @test "autonomous sync replaces identical and edited Claude copies with managed views" {
-  skip_without_symlinks
   dynamic_skill_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$dynamic_skill_dir"
 
@@ -561,8 +617,7 @@ EOF
   run_marketplace_sync ".agents/hooks/sync-marketplace.sh" "$dynamic_skill_dir" \
 
   [ "$status" -eq 0 ]
-  [ -L .claude/rules/security.md ]
-  [ "$(readlink .claude/rules/security.md)" = "../../.agents/rules/security.md" ]
+  assert_claude_view .claude/rules/security.md "../../.agents/rules/security.md"
   [[ "$output" != *".claude/rules/security.md differs from canonical shared asset"* ]]
 
   rm .claude/rules/security.md
@@ -571,7 +626,7 @@ EOF
   run_marketplace_sync ".agents/hooks/sync-marketplace.sh" "$dynamic_skill_dir" \
 
   [ "$status" -eq 0 ]
-  [ "$(readlink .claude/rules/security.md)" = "../../.agents/rules/security.md" ]
+  assert_claude_view .claude/rules/security.md "../../.agents/rules/security.md"
   ! grep -Fq '# Claude-only security override' .agents/rules/security.md
   [[ "$output" == *".claude/rules/security.md -> managed view"* ]]
 }
@@ -631,7 +686,6 @@ EOF
 }
 
 @test "identical legacy Claude copies become canonical symlinks" {
-  skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
@@ -641,13 +695,12 @@ EOF
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
-  [ -L .claude/rules/security.md ]
+  assert_claude_view .claude/rules/security.md
   [[ "$output" == *"Updated from templates:"* ]]
   [[ "$output" == *".claude/rules/security.md -> managed view"* ]]
 }
 
 @test "edited Claude copies of managed rules are replaced with managed views" {
-  skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
@@ -657,7 +710,7 @@ EOF
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
-  [ "$(readlink .claude/rules/security.md)" = "../../.agents/rules/security.md" ]
+  assert_claude_view .claude/rules/security.md "../../.agents/rules/security.md"
   cmp -s .agents/rules/security.md "$skill_dir/assets/stacks/frontend/rules/security.md"
   [[ "$output" == *".claude/rules/security.md -> managed view"* ]]
 }
@@ -685,7 +738,6 @@ EOF
 }
 
 @test "browser rule is discoverable through both providers for every stack" {
-  skip_without_symlinks
   for provider in claude codex; do
     for stack in frontend go java node; do
       stack_project="$test_root/$provider-$stack-browser"
@@ -699,7 +751,7 @@ EOF
       rule_path=".agents/rules/browser-before-user-questions.md"
       [ -f "$rule_path" ]
       cmp -s "$rule_path" "$skill_dir/assets/common/rules/browser-before-user-questions.md"
-      [ -L .claude/rules/browser-before-user-questions.md ]
+      assert_claude_view .claude/rules/browser-before-user-questions.md
       cmp -s .claude/rules/browser-before-user-questions.md "$rule_path"
       grep -Fq -- "- Read and follow \`$rule_path\`." AGENTS.md
     done
@@ -756,7 +808,6 @@ EOF
 }
 
 @test "Claude registers each agent and command once while Codex keeps its adapter" {
-  skip_without_symlinks
   source_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$source_dir"
   cat > "$source_dir/scripts/merge-instructions.sh" <<'EOF'
@@ -771,11 +822,11 @@ EOF
 
   for workflow in agents/a11y-reviewer agents/lint-reviewer agents/perf-analyzer agents/security-scanner agents/test-reviewer commands/review-pr; do
     workflow_name="${workflow#*/}"
-    [ -L ".claude/$workflow.md" ]
+    assert_claude_view ".claude/$workflow.md"
     [ -f ".agents/skills/$workflow_name/SKILL.md" ]
     [ ! -e ".claude/skills/$workflow_name" ]
   done
-  [ -L .claude/skills/component-creation/SKILL.md ]
+  assert_claude_view .claude/skills/component-creation/SKILL.md
 }
 
 @test "sync removes duplicate Claude skill views of agents and commands, even when edited" {
@@ -802,7 +853,6 @@ EOF
 }
 
 @test "sync links project rules for Claude and prunes views of deleted ones" {
-  skip_without_symlinks
   source_dir="$test_root/dynamic-skill"
   cp -R "$skill_dir" "$source_dir"
   cat > "$source_dir/scripts/merge-instructions.sh" <<'EOF'
@@ -818,8 +868,8 @@ EOF
   run_marketplace_sync "$source_dir/assets/common/hooks/sync-marketplace.sh" "$source_dir"
 
   [ "$status" -eq 0 ]
-  [ "$(readlink .claude/rules/team-conventions.md)" = "../../.agents/rules/team-conventions.md" ]
-  [ "$(readlink .claude/rules/area/payments.md)" = "../../../.agents/rules/area/payments.md" ]
+  assert_claude_view .claude/rules/team-conventions.md "../../.agents/rules/team-conventions.md"
+  assert_claude_view .claude/rules/area/payments.md "../../../.agents/rules/area/payments.md"
   [ -f .agents/rules/team-conventions.md ]
 
   rm .agents/rules/team-conventions.md
@@ -827,8 +877,8 @@ EOF
 
   [ "$status" -eq 0 ]
   [ ! -L .claude/rules/team-conventions.md ]
-  [ -L .claude/rules/area/payments.md ]
-  [ -L .claude/rules/security.md ]
+  assert_claude_view .claude/rules/area/payments.md
+  assert_claude_view .claude/rules/security.md
 }
 
 @test "sync hook replaces placeholder adapter descriptions from older projections" {
@@ -855,7 +905,6 @@ EOF
 }
 
 @test "backend stacks project common rules, hooks, and settings for every provider" {
-  skip_without_symlinks
   for stack in go java node; do
     stack_project="$test_root/$stack-project"
     mkdir -p "$stack_project"
@@ -872,7 +921,7 @@ EOF
     for common_rule in established-libraries.md language-consistency.md lint-gate.md user-actions-first.md verify-changes.md; do
       grep -Fq -- "- Read and follow \`.agents/rules/$common_rule\`." AGENTS.md
       cmp -s ".agents/rules/$common_rule" "$skill_dir/assets/common/rules/$common_rule"
-      [ -L ".claude/rules/$common_rule" ]
+      assert_claude_view ".claude/rules/$common_rule"
     done
     ! grep -Fxq '### Project rules' AGENTS.md
     cmp -s .claude/settings.json "$skill_dir/assets/common/settings.json"
@@ -2387,7 +2436,6 @@ EOF
 }
 
 @test "sync hook projects managed assets without bootstrap" {
-  skip_without_symlinks
   fake_bin="$test_root/bin"
   source_dir="$test_root/agent-ready-setup"
   event_log="$test_root/events.log"
@@ -2478,25 +2526,24 @@ EOF
   cmp -s .agents/hooks/check-harness-consistency.sh "$source_dir/assets/common/hooks/check-harness-consistency.sh"
   cmp -s .agents/hooks/pre-tool-use.md "$source_dir/assets/stacks/go/hooks/pre-tool-use.md"
   cmp -s .agents/shared/asset.md "$source_dir/assets/common/shared/asset.md"
-  [ -L .claude/shared/asset.md ]
-  [ "$(readlink .claude/shared/asset.md)" = "../../.agents/shared/asset.md" ]
+  assert_claude_view .claude/shared/asset.md "../../.agents/shared/asset.md"
   cmp -s .agents/rules/coding-style.md "$source_dir/assets/stacks/go/rules/coding-style.md"
   cmp -s .agents/agents/security-scanner.md "$source_dir/assets/stacks/go/agents/security-scanner.md"
   cmp -s .agents/commands/review-pr.md "$source_dir/assets/stacks/go/commands/review-pr.md"
   grep -Fq '# Deploy helper' .agents/skills/deploy-helper/SKILL.md
   adapter_mode="$(python3 -c 'import os, stat, sys; print(format(stat.S_IMODE(os.stat(sys.argv[1]).st_mode), "o"))' .agents/skills/deploy-helper/SKILL.md)"
-  [ "$adapter_mode" = "644" ]
+  # NTFS has no POSIX permission bits: Windows Python always reports 666 there.
+  [ "$adapter_mode" = "644" ] || [ "$adapter_mode" = "666" ]
   claude_adapter_mode="$(python3 -c 'import os, stat, sys; print(format(stat.S_IMODE(os.stat(sys.argv[1]).st_mode), "o"))' .claude/skills/deploy-helper/SKILL.md)"
-  [ "$claude_adapter_mode" = "644" ]
+  [ "$claude_adapter_mode" = "644" ] || [ "$claude_adapter_mode" = "666" ]
   cmp -s .agents/mcp.json "$source_dir/assets/stacks/go/mcp.json"
   cmp -s .claude/settings.json "$source_dir/assets/common/settings.json"
   cmp -s .codex/hooks.json "$source_dir/assets/codex/hooks.json"
   cmp -s .codex/.mcp.json "$source_dir/assets/stacks/go/mcp.json"
-  [ -L .claude/rules/coding-style.md ]
-  [ "$(readlink .claude/rules/coding-style.md)" = "../../.agents/rules/coding-style.md" ]
-  [ -L .claude/agents/security-scanner.md ]
-  [ -L .claude/commands/review-pr.md ]
-  [ -L .claude/skills/deploy-helper/SKILL.md ]
+  assert_claude_view .claude/rules/coding-style.md "../../.agents/rules/coding-style.md"
+  assert_claude_view .claude/agents/security-scanner.md
+  assert_claude_view .claude/commands/review-pr.md
+  assert_claude_view .claude/skills/deploy-helper/SKILL.md
 }
 
 @test "bootstrap creates new managed assets through atomic rename" {
@@ -2807,4 +2854,102 @@ SCRIPT
     cmp -s .codex/hooks/hooks.json "$skill_dir/assets/codex/hooks.json"
     [[ "$output" == *'.codex/hooks.json changed during synchronization'* ]]
   done
+}
+
+@test "Claude views fall back to hard links when symlinks are unavailable" {
+  disable_symlinks
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ ! -L .claude/rules/security.md ]
+  [ .claude/rules/security.md -ef .agents/rules/security.md ]
+  grep -Fxq 'rules/security.md' .claude/.agent-ready-hard-link-views
+  [[ "$output" != *"could not create Claude view"* ]]
+}
+
+@test "detached hard-link views are relinked on the next bootstrap" {
+  disable_symlinks
+  run_bootstrap frontend
+  [ "$status" -eq 0 ]
+
+  # Git recreates files on checkout or rebase, which detaches existing hard links.
+  cp .agents/rules/security.md "$test_root/security.md"
+  mv "$test_root/security.md" .agents/rules/security.md
+  [ ! .claude/rules/security.md -ef .agents/rules/security.md ]
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ .claude/rules/security.md -ef .agents/rules/security.md ]
+}
+
+@test "hard-link views of deleted project rules are pruned" {
+  disable_symlinks
+  mkdir -p .agents/rules
+  printf '%s\n' '# Team conventions' > .agents/rules/team-conventions.md
+  run_bootstrap frontend
+  [ "$status" -eq 0 ]
+  [ .claude/rules/team-conventions.md -ef .agents/rules/team-conventions.md ]
+
+  rm .agents/rules/team-conventions.md
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ ! -e .claude/rules/team-conventions.md ]
+  ! grep -Fxq 'rules/team-conventions.md' .claude/.agent-ready-hard-link-views
+}
+
+@test "hard-link pruning keeps Claude files that agent-ready did not create" {
+  disable_symlinks
+  mkdir -p .claude/rules
+  printf '%s\n' '# Personal rule' > .claude/rules/personal.md
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  grep -Fxq '# Personal rule' .claude/rules/personal.md
+  ! grep -Fxq 'rules/personal.md' .claude/.agent-ready-hard-link-views
+}
+
+@test "hard-link views install a git hook that relinks them after git reset" {
+  disable_symlinks
+  git config user.email agent-ready-tests@example.com
+  git config user.name "Agent Ready Tests"
+  run_bootstrap frontend
+  [ "$status" -eq 0 ]
+  hook_path="$(git rev-parse --git-path hooks)/post-index-change"
+  [ -x "$hook_path" ]
+  grep -Fq 'agent-ready-setup: relinks .claude hard-link views' "$hook_path"
+
+  git add .agents
+  git commit -qm "agent-ready assets"
+  printf '%s\n' 'Project addition.' >> .agents/rules/security.md
+  git commit -qam "edit security rule"
+  # reset --hard recreates the rule, which detaches the hard-link view.
+  git reset -q --hard HEAD~1
+
+  [ .claude/rules/security.md -ef .agents/rules/security.md ]
+  ! grep -Fxq 'Project addition.' .claude/rules/security.md
+}
+
+@test "hard-link git hook is not installed over a project hook manager" {
+  disable_symlinks
+  git config core.hooksPath .husky
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ ! -e .husky/post-index-change ]
+  [ ! -e .git/hooks/post-index-change ]
+  [[ "$output" == *"core.hooksPath is set"* ]]
+}
+
+@test "hard-link git hook is not installed when views are symlinks" {
+  skip_without_symlinks
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ ! -e "$(git rev-parse --git-path hooks)/post-index-change" ]
 }

@@ -276,6 +276,8 @@ if isinstance(install_location, str):
     print(install_location)
 PY
 )"
+      # Windows Python ends lines with CRLF; keep the path free of a trailing carriage return.
+      configured_location="${configured_location%$'\r'}"
     fi
     printf '%s\n' "${configured_location:-$HOME/.claude/plugins/marketplaces/$MARKETPLACE_NAME}"
     return 0
@@ -715,12 +717,12 @@ link_claude_asset() {
   ensure_parent_directory "$destination"
   target="$(relative_shared_target "$relative")"
 
+  if is_current_claude_view "$destination" "$target" "$source"; then
+    record_skipped "$destination"
+    return 0
+  fi
   if [[ -L "$destination" ]]; then
-    if [[ "$(readlink -- "$destination")" == "$target" ]]; then
-      record_skipped "$destination"
-    else
-      replace_with_claude_view "$destination" "$target"
-    fi
+    replace_with_claude_view "$destination" "$target" "$source" "$relative"
     return 0
   fi
   if [[ -e "$destination" ]]; then
@@ -728,7 +730,7 @@ link_claude_asset() {
       conflicts+=("$destination is not a regular file; neither was changed")
       return 0
     fi
-    replace_with_claude_view "$destination" "$target"
+    replace_with_claude_view "$destination" "$target" "$source" "$relative"
     return 0
   fi
 
@@ -737,9 +739,10 @@ link_claude_asset() {
     conflicts+=("temporary normalization path already exists for $destination; neither was changed")
     return 0
   fi
-  if ! ln -s -- "$target" "$temporary_link" || ! mv -- "$temporary_link" "$destination"; then
+  if ! create_claude_view_link "$target" "$source" "$temporary_link" "$relative" ||
+    ! mv -- "$temporary_link" "$destination"; then
     rm -f -- "$temporary_link"
-    conflicts+=("could not create Claude view $destination; neither was changed")
+    conflicts+=("could not create Claude view $destination; neither was changed (${CLAUDE_VIEW_FAILURE_HINT:-symlinks or hard links are unavailable})")
     return 0
   fi
   record_created "$destination"
@@ -891,6 +894,13 @@ project_rule_claude_views \
   "$skill_dir/scripts/render-instruction-template.sh" \
   "$skill_dir/assets/stacks/$stack/rules" \
   "$skill_dir/assets/common/rules"
+# Older shared helpers loaded before a restart may not define the hard-link pruner yet.
+if declare -F prune_hard_link_views >/dev/null; then
+  prune_hard_link_views
+fi
+if declare -F install_hard_link_git_hook >/dev/null; then
+  install_hard_link_git_hook "$skill_dir/assets/git-hooks/post-index-change"
+fi
 
 # Reuse the shared conservative instruction normalizer so SessionStart also
 # discovers project CLAUDE.md files under directories such as .claude/.

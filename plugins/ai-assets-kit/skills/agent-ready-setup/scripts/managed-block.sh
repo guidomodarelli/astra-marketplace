@@ -22,6 +22,8 @@ LEGACY_TEMPLATE_HASH_FILES=(
 )
 TEMPORARY_HASH_FILE=""
 MERGE_LOCK_DIRECTORY=".agents/.agent-ready-instructions.lock"
+# Where fcntl is missing (Windows), AGENTS.md writers coordinate through this file in the git dir.
+AGENTS_WRITE_LOCK_NAME="agent-ready-agents-md.lock"
 LOCK_ACQUIRED=0
 
 # shellcheck disable=SC2329
@@ -338,7 +340,8 @@ end_indexes = [index for index, line in enumerate(lines) if line == block_end]
 
 
 def write(path, content_lines):
-    with open(path, "w", encoding="utf-8") as output_file:
+    # newline: Windows text mode would write CRLF and break byte-exact managed blocks.
+    with open(path, "w", encoding="utf-8", newline="\n") as output_file:
         output_file.write("\n".join(content_lines).rstrip("\n") + "\n")
 
 
@@ -386,19 +389,45 @@ read_agents_layout() {
 }
 
 write_if_unchanged() {
-  python3 - "$AGENTS_FILE" "$MERGED_FILE" "$original_agents_hash" <<'PY'
+  AGENT_READY_AGENTS_WRITE_LOCK="$GIT_DIRECTORY/$AGENTS_WRITE_LOCK_NAME" \
+    python3 - "$AGENTS_FILE" "$MERGED_FILE" "$original_agents_hash" <<'PY'
 import hashlib
 import os
 import stat
 import sys
 import tempfile
+import time
 
-# Windows Python has no fcntl. There the agent-ready merge lock (MERGE_LOCK_DIRECTORY)
-# serializes merges, and the hash and inode checks below reject concurrent edits.
+# Windows Python has no fcntl: an exclusive msvcrt lock on AGENT_READY_AGENTS_WRITE_LOCK
+# plays the role of the directory flock for cooperating writers.
 try:
     import fcntl
 except ImportError:
     fcntl = None
+    import msvcrt
+
+LOCK_RETRY_INTERVAL_SECONDS = 0.05
+
+
+def acquire_windows_lock(lock_path):
+    """Blocks until the cooperative lock file is held, like fcntl.LOCK_EX."""
+    lock_file = open(lock_path, "a+b")
+    while True:
+        try:
+            lock_file.seek(0)
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            return lock_file
+        except PermissionError:
+            time.sleep(LOCK_RETRY_INTERVAL_SECONDS)
+
+
+def release_windows_lock(lock_file):
+    """Unlocks and closes a lock taken by acquire_windows_lock."""
+    try:
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+    finally:
+        lock_file.close()
 
 
 target_path, replacement_path, expected_hash = sys.argv[1:]
@@ -410,16 +439,19 @@ if hasattr(os, "O_NOFOLLOW"):
 
 target_file = None
 directory_file = None
+windows_lock_file = None
 temporary_path = None
 try:
     target_directory = os.path.dirname(os.path.abspath(target_path)) or "."
     directory_flags = os.O_RDONLY
     if hasattr(os, "O_DIRECTORY"):
         directory_flags |= os.O_DIRECTORY
+    # Keep pathname checks and replacement under one lock.
     if fcntl is not None:
         directory_file = os.open(target_directory, directory_flags)
-        # Keep pathname checks and replacement under one directory lock.
         fcntl.flock(directory_file, fcntl.LOCK_EX)
+    else:
+        windows_lock_file = acquire_windows_lock(os.environ["AGENT_READY_AGENTS_WRITE_LOCK"])
 
     target_file = os.fdopen(os.open(target_path, open_flags), "r+b")
     if fcntl is not None:
@@ -465,7 +497,7 @@ try:
         sys.exit(2)
 
     if fcntl is None:
-        # Windows refuses to replace a file that is still open.
+        # Windows refuses to replace a file that is still open; the cooperative lock stays held.
         target_file.close()
         target_file = None
     os.replace(temporary_path, target_path)
@@ -481,6 +513,8 @@ except Exception as error:
 finally:
     if directory_file is not None:
         os.close(directory_file)
+    if windows_lock_file is not None:
+        release_windows_lock(windows_lock_file)
     if temporary_path is not None:
         try:
             os.unlink(temporary_path)

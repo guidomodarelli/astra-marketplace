@@ -32,7 +32,9 @@ operación. El bootstrap distribuye assets según responsabilidad:
   declara su propio frontmatter `name` y `description`.
 - `.claude/`: configuración Claude Code, dimensiones del Agent Ready Score y
   symlinks relativos hacia assets canónicos de `.agents/`; `settings.json` queda
-  provider-specific.
+  provider-specific. Donde el sistema no permite symlinks sin privilegios (Windows
+  sin Modo de desarrollador ni shell elevada), las vistas son hard links al mismo
+  archivo y nunca copias; ver `references/sync-and-upgrade.md`.
 - `.codex/`: bridge provider-specific para MCP (`.mcp.json`) y hooks Codex
   (`hooks.json`, junto a configuración de proyecto).
 - `.github/pull_request_template.md`: template estático común para descripción,
@@ -155,7 +157,8 @@ bash "$SKILL_DIR/scripts/merge-instructions.sh" \
 instalación reconocible, termina con error y exige provider explícito.
 
 El script actualiza assets compartidos gestionados bajo `.agents/`, crea o
-conserva symlinks relativos para assets no-hook bajo `.claude/` y prepara bridge
+conserva symlinks relativos (o hard links, donde no hay symlinks) para assets
+no-hook bajo `.claude/` y prepara bridge
 `.codex/`.
 Los scripts de hooks permanecen únicamente bajo `.agents/hooks/`. Bootstrap y
 SessionStart migran `.codex/hooks/hooks.json` a `.codex/hooks.json`: combinan

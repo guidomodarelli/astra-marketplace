@@ -1,0 +1,31 @@
+#!/bin/sh
+# agent-ready-setup: relinks .claude hard-link views detached by git.
+#
+# Installed only when Claude views fall back to hard links (Windows without the
+# symlink privilege). Git runs it after every index write, including reset, stash,
+# cherry-pick, revert and merge or rebase aborts, which recreate .agents files and
+# detach the views that link to them. Checking each listed view with -ef is cheap,
+# and only the views agent-ready created (listed in the manifest) are relinked.
+CLAUDE_DIR=".claude"
+SHARED_DIR=".agents"
+MANIFEST_NAME=".agent-ready-hard-link-views"
+
+project_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$project_root" || exit 0
+manifest="$CLAUDE_DIR/$MANIFEST_NAME"
+[ -f "$manifest" ] && [ ! -L "$manifest" ] || exit 0
+
+while IFS= read -r relative; do
+  case "$relative" in
+    "" | /* | ../* | */../* | */..) continue ;;
+  esac
+  source_path="$SHARED_DIR/$relative"
+  view_path="$CLAUDE_DIR/$relative"
+  [ -f "$source_path" ] && [ ! -L "$source_path" ] || continue
+  [ ! -L "$view_path" ] || continue
+  [ "$view_path" -ef "$source_path" ] && continue
+  if ! ln -f "$source_path" "$view_path" 2>/dev/null; then
+    printf '[agent-ready] Aviso: no se pudo reenlazar %s; corré el sync de agent-ready.\n' "$view_path" >&2
+  fi
+done < "$manifest"
+exit 0

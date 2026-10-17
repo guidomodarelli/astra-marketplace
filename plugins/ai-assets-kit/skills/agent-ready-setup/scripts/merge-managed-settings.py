@@ -176,6 +176,8 @@ def merge_managed_template(current, expected, allow_nested_template_match):
 
 
 def main():
+    # Windows stdout defaults to CRLF and the locale code page; the generated JSON is LF UTF-8.
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     arguments = parse_arguments()
     try:
         with open(arguments.template_path, encoding="utf-8") as template_file:

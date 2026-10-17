@@ -4,6 +4,8 @@ setup() {
   repository_root="$(cd "$BATS_TEST_DIRNAME/../../../../.." && pwd)"
   skill_dir="$repository_root/plugins/ai-assets-kit/skills/agent-ready-setup"
   test_root="$(mktemp -d)"
+  # Native Windows symlinks under Git Bash (needs Developer Mode); ignored elsewhere.
+  export MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"
   project_dir="$test_root/project"
   fake_bin="$test_root/bin"
   mkdir -p "$project_dir" "$fake_bin" "$test_root/tmp"
@@ -36,6 +38,13 @@ teardown() {
     kill $background_pids 2>/dev/null || true
   fi
   cd "$repository_root"
+  # Windows cannot delete files that a detached background review still has open;
+  # retry for a few seconds so it can finish before failing the test.
+  local removal_attempt
+  for removal_attempt in $(seq 1 50); do
+    rm -rf "$test_root" 2>/dev/null && return 0
+    sleep 0.2
+  done
   rm -rf "$test_root"
 }
 
@@ -65,7 +74,8 @@ write_review_response() {
   cat > "$fake_bin/claude" <<EOF
 #!/bin/bash
 printf '%s\\n' called >> "$test_root/provider-calls.log"
-printf '%s\\n' "\$*" > "$test_root/provider-prompt.log"
+printf '%s\\n' "\$*" > "$test_root/provider-args.log"
+{ cat "$test_root/provider-args.log"; cat; } > "$test_root/provider-prompt.log"
 cat "$test_root/provider-response.json"
 EOF
   chmod +x "$fake_bin/claude"
@@ -85,6 +95,19 @@ provider_call_count() {
   else
     printf '0\n'
   fi
+}
+
+# Git Bash without native symlinks copies instead of linking; these tests check real symlinks.
+skip_without_symlinks() {
+  local probe_target="$test_root/symlink-probe-target"
+  local probe_link="$test_root/symlink-probe-link"
+  : > "$probe_target"
+  ln -s "$probe_target" "$probe_link" 2>/dev/null || true
+  if [[ ! -L "$probe_link" ]]; then
+    rm -f "$probe_target" "$probe_link"
+    skip "requiere symlinks reales (en Windows: Modo de desarrollador o una shell elevada)"
+  fi
+  rm -f "$probe_target" "$probe_link"
 }
 
 @test "legacy AGENTS receives the verbatim managed block and keeps project content" {
@@ -335,6 +358,8 @@ EOF
   grep -Fq '# Existing project instructions' "$test_root/provider-prompt.log"
   grep -Fq '<!-- BEGIN AGENT-READY MANAGED -->' "$test_root/provider-prompt.log"
   ! grep -Fq '{{AGENT_READY_' "$test_root/provider-prompt.log"
+  # Documents travel through stdin, never as one oversized command-line argument.
+  ! grep -Fq '# Existing project instructions' "$test_root/provider-args.log"
 }
 
 @test "new rule files enter the managed block and rule changes trigger a new review" {
@@ -389,6 +414,7 @@ EOF
 }
 
 @test "project rules are listed in the managed block and reviewed with template rules" {
+  skip_without_symlinks
   mkdir -p .agents/rules/area
   printf '%s\n' '# Team conventions' 'Deploy only on Tuesdays.' > .agents/rules/team-conventions.md
   printf '%s\n' '# Area rule' > .agents/rules/area/payments.md
@@ -504,8 +530,6 @@ EOF
 }
 
 @test "directory lock protects against pathname replacement during atomic update" {
-  python3 -c "import fcntl" 2>/dev/null ||
-    skip "requiere fcntl: el protocolo de lock de directorio es POSIX"
   python3 - <<'PY'
 with open('AGENTS.md', 'w', encoding='utf-8') as agents_file:
     agents_file.write('# Original instructions\n\n')
@@ -520,23 +544,42 @@ EOF
   race_marker="$test_root/race-detected"
   writer_script="$test_root/replace-after-merge.py"
   cat > "$writer_script" <<'PY'
-import fcntl
 import glob
 import os
 import sys
 import time
 
+# Same protocol as managed-block.sh: directory flock on POSIX, msvcrt lock file on Windows.
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+    import msvcrt
+
 
 race_marker = sys.argv[1]
+windows_lock_path = sys.argv[2]
 deadline = time.monotonic() + 30
 while not glob.glob('.AGENTS.md.agent-ready-merge.*'):
     if time.monotonic() >= deadline:
         sys.exit('merge temporary file was not created')
     time.sleep(0.001)
 
-directory_descriptor = os.open('.', os.O_RDONLY)
+directory_descriptor = None
+windows_lock_file = None
 try:
-    fcntl.flock(directory_descriptor, fcntl.LOCK_EX)
+    if fcntl is not None:
+        directory_descriptor = os.open('.', os.O_RDONLY)
+        fcntl.flock(directory_descriptor, fcntl.LOCK_EX)
+    else:
+        windows_lock_file = open(windows_lock_path, 'a+b')
+        while True:
+            try:
+                windows_lock_file.seek(0)
+                msvcrt.locking(windows_lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+                break
+            except PermissionError:
+                time.sleep(0.01)
     if glob.glob('.AGENTS.md.agent-ready-merge.*'):
         open(race_marker, 'w').close()
     replacement_path = '.concurrent-agents.md'
@@ -546,14 +589,18 @@ try:
         os.fsync(replacement_file.fileno())
     os.replace(replacement_path, 'AGENTS.md')
 finally:
-    os.close(directory_descriptor)
+    if directory_descriptor is not None:
+        os.close(directory_descriptor)
+    if windows_lock_file is not None:
+        windows_lock_file.close()
 PY
 
   PATH="$fake_bin:$PATH" bash "$skill_dir/scripts/merge-instructions.sh" \
     --provider claude --stack node --skill-dir "$skill_dir" \
     > "$test_root/merge-output.log" 2>&1 3>&- &
   merge_pid=$!
-  python3 "$writer_script" "$race_marker" > "$test_root/writer-output.log" 2>&1 3>&- &
+  windows_lock_path="$(git rev-parse --absolute-git-dir)/agent-ready-agents-md.lock"
+  python3 "$writer_script" "$race_marker" "$windows_lock_path" > "$test_root/writer-output.log" 2>&1 3>&- &
   writer_pid=$!
   background_pids="$merge_pid $writer_pid"
 
@@ -752,7 +799,12 @@ EOF
   grep -Fq -- "Sync hook updated; restarting with latest version." <<< "$output"
   [ -f .agents/hooks/sync-marketplace.sh ]
   cmp -s .agents/hooks/sync-marketplace.sh "$source_dir/assets/common/hooks/sync-marketplace.sh"
-  grep -Fq -- "--provider claude --stack frontend --skill-dir $source_dir" "$merge_log"
+  expected_skill_dir="$source_dir"
+  # Git Bash translates paths passed to native Windows Python (run-detached.py) into C:/ form.
+  if command -v cygpath >/dev/null 2>&1 && grep -Fq -- "$(cygpath -m "$source_dir")" "$merge_log"; then
+    expected_skill_dir="$(cygpath -m "$source_dir")"
+  fi
+  grep -Fq -- "--provider claude --stack frontend --skill-dir $expected_skill_dir" "$merge_log"
 }
 
 @test "automatic sync hook preserves session when the managed block needs human review" {

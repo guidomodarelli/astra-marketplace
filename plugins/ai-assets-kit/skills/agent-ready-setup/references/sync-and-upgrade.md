@@ -85,6 +85,14 @@ La proyección automática de assets:
   el template, así nunca modifica el destino del link.
 - Elimina symlinks administrados stale bajo `.claude/` y limpia `.claude/hooks/`
   legacy solo cuando queda vacío.
+- Sin privilegio para crear symlinks (Windows sin Modo de desarrollador ni shell
+  elevada), crea cada vista como hard link al asset de `.agents/`, nunca como
+  copia, y la registra en `.claude/.agent-ready-hard-link-views`. Cada sync
+  reenlaza las vistas que git desconectó al recrear el asset y poda, solo entre
+  las registradas, las de assets borrados. Mientras existan vistas por hard link
+  instala el hook de git `post-index-change`, que las reenlaza después de reset,
+  stash, cherry-pick, revert o abortar un merge o rebase. Si el proyecto usa
+  `core.hooksPath` o ya tiene ese hook, no lo pisa y lo reporta como conflicto.
 - Migra referencias `.claude/hooks/` dentro de `.claude/settings.json` como JSON
   y normaliza el comando administrado a `.agents/hooks/` sin flags de fase,
   preservando campos custom y reportando settings inválidos.

@@ -40,6 +40,8 @@ for root in sorted(roots):
 
 project_root=$(git rev-parse --show-toplevel)
 while IFS= read -r harness_root; do
+  # Windows Python ends lines with CRLF.
+  harness_root="${harness_root%$'\r'}"
   printf '[harness-check] %s modified — running consistency check...\n' "$harness_root"
   (
     cd -- "$project_root/$harness_root"

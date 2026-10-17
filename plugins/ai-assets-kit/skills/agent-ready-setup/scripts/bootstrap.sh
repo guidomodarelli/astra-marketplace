@@ -219,6 +219,8 @@ if isinstance(install_location, str):
     print(install_location)
 PY
 )"
+      # Windows Python ends lines with CRLF; keep the path free of a trailing carriage return.
+      configured_location="${configured_location%$'\r'}"
     fi
     printf '%s\n' "${configured_location:-$HOME/.claude/plugins/marketplaces/$MARKETPLACE_NAME}"
     return 0
@@ -638,12 +640,12 @@ link_claude_asset() {
   ensure_parent_directory "$destination"
   target=$(relative_shared_target "$relative")
 
+  if is_current_claude_view "$destination" "$target" "$source"; then
+    record_skipped "$destination"
+    return 0
+  fi
   if [[ -L "$destination" ]]; then
-    if [[ "$(readlink -- "$destination")" == "$target" ]]; then
-      record_skipped "$destination"
-    else
-      replace_with_claude_view "$destination" "$target"
-    fi
+    replace_with_claude_view "$destination" "$target" "$source" "$relative"
     return 0
   fi
 
@@ -652,11 +654,14 @@ link_claude_asset() {
       CONFLICTS+=("$destination is not a regular file; neither was changed")
       return 0
     fi
-    replace_with_claude_view "$destination" "$target"
+    replace_with_claude_view "$destination" "$target" "$source" "$relative"
     return 0
   fi
 
-  ln -s -- "$target" "$destination"
+  if ! create_claude_view_link "$target" "$source" "$destination" "$relative"; then
+    CONFLICTS+=("could not create Claude view $destination; neither was changed ($CLAUDE_VIEW_FAILURE_HINT)")
+    return 0
+  fi
   record_created "$destination -> $source"
 }
 
@@ -851,6 +856,8 @@ project_asset_tree() {
 project_asset_tree "$COMMON_SRC"
 project_asset_tree "$SRC"
 project_rule_claude_views "$TEMPLATE_RENDERER" "$SRC/rules" "$COMMON_SRC/rules"
+prune_hard_link_views
+install_hard_link_git_hook "$SKILL_DIR/assets/git-hooks/post-index-change"
 
 cleanup_legacy_claude_hooks
 cleanup_stale_claude_links

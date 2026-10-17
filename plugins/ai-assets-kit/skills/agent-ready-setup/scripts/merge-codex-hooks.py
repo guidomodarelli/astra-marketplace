@@ -81,6 +81,8 @@ def read_configuration(path):
 
 def main():
     """Print merged configuration; caller persists and verifies it before removing legacy input."""
+    # Windows stdout defaults to CRLF and the locale code page; the generated JSON is LF UTF-8.
+    sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     try:
         template, destination, legacy = (read_configuration(path) for path in sys.argv[1:])
         managed_commands = {handler.get("command")

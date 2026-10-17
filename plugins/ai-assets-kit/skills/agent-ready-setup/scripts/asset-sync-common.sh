@@ -74,9 +74,13 @@ has_current_sync_lock_owner() {
   [[ "$owner_pid" == "$$" ]] || return 1
 
   IFS= read -r owner_start_time < <(sed -n '2p' "$SYNC_LOCK_OWNER_FILE") || true
-  [[ -n "$owner_start_time" ]] || return 1
   current_start_time="$(get_process_start_time "$$")"
-  [[ -n "$current_start_time" && "$current_start_time" == "$owner_start_time" ]]
+  # Git Bash ps has no -o, so neither side has a start time. exec keeps the PID there
+  # while the Windows process (and its start time) changes; the PID already matched.
+  if [[ -z "$owner_start_time" && -z "$current_start_time" ]]; then
+    return 0
+  fi
+  [[ -n "$owner_start_time" && -n "$current_start_time" && "$current_start_time" == "$owner_start_time" ]]
 }
 
 # shellcheck disable=SC2329
@@ -221,26 +225,151 @@ replace_managed_symlink() {
   record_updated "$destination (symlink replaced with template)"
 }
 
-# Replaces a modified Claude view (regular file or foreign symlink) with the
-# managed symlink to the canonical shared asset.
+# Claude views are symlinks to the shared asset where the platform allows them. Without
+# the symlink privilege (Windows without Developer Mode or elevation) they fall back to a
+# hard link to the same file, which needs no privilege; never to a copy that would drift.
+# Hard-link views are listed in this manifest: once their asset is deleted they look
+# like any project file, and the manifest is what allows pruning them safely.
+# Why a Claude view could not be created; shared by every consumer that reports it.
+CLAUDE_VIEW_FAILURE_HINT="symlinks need Developer Mode or an elevated shell on Windows, and hard links need the view and the asset on the same volume"
+
+hard_link_views_manifest() {
+  printf '%s/.agent-ready-hard-link-views' "$CLAUDE_DIR"
+}
+
+remember_hard_link_view() {
+  local relative="$1"
+  local manifest
+
+  [[ -n "$relative" ]] || return 0
+  manifest="$(hard_link_views_manifest)"
+  [[ ! -L "$manifest" ]] || return 0
+  grep -Fxq -- "$relative" "$manifest" 2>/dev/null || printf '%s\n' "$relative" >> "$manifest"
+}
+
+# True when path already is the managed view of the shared asset: a symlink with the
+# expected relative target, or the same file as the asset through a hard link.
+is_current_claude_view() {
+  local path="$1"
+  local target="$2"
+  local source="$3"
+
+  if [[ -L "$path" ]]; then
+    [[ "$(readlink -- "$path")" == "$target" ]]
+    return
+  fi
+  [[ -n "$source" && -f "$path" && -f "$source" && ! -L "$source" && "$path" -ef "$source" ]]
+}
+
+# Creates link_path as the Claude view of the shared asset. Git Bash copies on `ln -s`
+# by default; nativestrict makes it create a real Windows symlink or fail instead.
+create_claude_view_link() {
+  local target="$1"
+  local source="$2"
+  local link_path="$3"
+  local relative="${4:-}"
+
+  if MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict" ln -s -- "$target" "$link_path" 2>/dev/null &&
+    [[ -L "$link_path" ]]; then
+    return 0
+  fi
+  [[ -L "$link_path" ]] || rm -f -- "$link_path"
+  if [[ -n "$source" && -f "$source" && ! -L "$source" ]] &&
+    ln -- "$source" "$link_path" 2>/dev/null && [[ "$link_path" -ef "$source" ]]; then
+    remember_hard_link_view "$relative"
+    return 0
+  fi
+  rm -f -- "$link_path"
+  return 1
+}
+
+# First line of the agent-ready post-index-change hook; identifies a hook it may update.
+AGENT_READY_GIT_HOOK_MARKER="# agent-ready-setup: relinks .claude hard-link views detached by git."
+
+# Installs the post-index-change hook that relinks hard-link views after git operations
+# that recreate .agents files (reset, stash, cherry-pick, revert, aborts). Only needed
+# while hard-link views exist; a hook manager (core.hooksPath) or a project hook is
+# never overwritten. Consumers define record_conflict and record_created.
+install_hard_link_git_hook() {
+  local hook_template="$1"
+  local manifest
+  local hooks_directory
+  local hook_path
+  local temporary_hook
+
+  manifest="$(hard_link_views_manifest)"
+  [[ -s "$manifest" && ! -L "$manifest" && -f "$hook_template" ]] || return 0
+  if [[ -n "$(git config --get core.hooksPath 2>/dev/null)" ]]; then
+    record_conflict "core.hooksPath is set, so the hook that relinks .claude hard-link views was not installed; run $hook_template from your post-index-change hook"
+    return 0
+  fi
+  hooks_directory="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
+  hook_path="$hooks_directory/post-index-change"
+  if [[ -e "$hook_path" || -L "$hook_path" ]]; then
+    if [[ -L "$hook_path" ]] || ! grep -Fq -- "$AGENT_READY_GIT_HOOK_MARKER" "$hook_path"; then
+      record_conflict "$hook_path already exists, so the hook that relinks .claude hard-link views was not installed; run $hook_template from it"
+      return 0
+    fi
+    cmp -s "$hook_template" "$hook_path" && return 0
+  fi
+  mkdir -p -- "$hooks_directory" || return 0
+  temporary_hook="$hook_path.agent-ready.$$"
+  if cp -- "$hook_template" "$temporary_hook" && chmod +x "$temporary_hook" && mv -f -- "$temporary_hook" "$hook_path"; then
+    record_created "$hook_path"
+  else
+    rm -f -- "$temporary_hook"
+    record_conflict "could not install $hook_path; hard-link views relink on the next sync instead"
+  fi
+}
+
+# Removes hard-link views whose shared asset was deleted and forgets the ones that are
+# no longer hard links. Consumers define record_removed.
+prune_hard_link_views() {
+  local manifest
+  local relative
+  local view_path
+  local remaining=""
+
+  manifest="$(hard_link_views_manifest)"
+  [[ -f "$manifest" && ! -L "$manifest" ]] || return 0
+  while IFS= read -r relative; do
+    case "$relative" in
+      ""|/*|../*|*/../*|*/..) continue ;;
+    esac
+    view_path="$CLAUDE_DIR/$relative"
+    [[ -f "$view_path" && ! -L "$view_path" ]] || continue
+    if [[ -e "$SHARED_DIR/$relative" || -L "$SHARED_DIR/$relative" ]]; then
+      remaining+="$relative"$'\n'
+      continue
+    fi
+    if rm -f -- "$view_path"; then
+      record_removed "$view_path"
+    else
+      remaining+="$relative"$'\n'
+    fi
+  done < "$manifest"
+  if [[ -n "$remaining" ]]; then
+    printf '%s' "$remaining" > "$manifest"
+  else
+    rm -f -- "$manifest"
+  fi
+}
+
+# Replaces a modified Claude view (regular file, foreign symlink, or detached hard
+# link) with the managed view of the canonical shared asset.
 replace_with_claude_view() {
   local destination="$1"
   local target="$2"
+  local source="${3:-}"
+  local relative="${4:-}"
   local temporary_link="${destination}.agent-ready-link.$$"
 
   if [[ -e "$temporary_link" || -L "$temporary_link" ]]; then
     record_conflict "temporary normalization path already exists for $destination; neither was changed"
     return 0
   fi
-  if ! ln -s -- "$target" "$temporary_link"; then
-    rm -f -- "$temporary_link"
-    record_conflict "could not stage Claude view $destination; neither was changed"
-    return 0
-  fi
-  # Git Bash without native symlinks copies the file silently; a copy would drift from the shared asset.
-  if [[ ! -L "$temporary_link" ]]; then
-    rm -f -- "$temporary_link"
-    record_conflict "symlinks are not supported here, so $destination was not changed; on Windows enable Developer Mode and export MSYS=winsymlinks:nativestrict"
+  if ! create_claude_view_link "$target" "$source" "$temporary_link" "$relative"; then
+    record_conflict "could not create Claude view $destination; neither was changed ($CLAUDE_VIEW_FAILURE_HINT)"
     return 0
   fi
   if ! rm -f -- "$destination" || ! mv -- "$temporary_link" "$destination"; then

@@ -51,9 +51,15 @@ REQUIRED_EXECUTABLES = ("chrome-devtools-mcp", "playwright-mcp", "agent-browser"
 NO_INSTALLATION_EXIT_CODE = 3
 
 
+def user_home():
+    """Return HOME when set, like the shell scripts; Windows Python otherwise uses USERPROFILE."""
+    home = os.environ.get("HOME")
+    return Path(home) if home else Path.home()
+
+
 def tools_root():
     """Return the per-user browser-tools directory for the current HOME."""
-    return Path.home() / TOOLS_HOME_RELATIVE_PATH
+    return user_home() / TOOLS_HOME_RELATIVE_PATH
 
 
 def ensure_safe_path(path):
@@ -84,18 +90,20 @@ def atomic_write(path, content, original=None):
     ensure_safe_path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if original is not None:
-        current = path.read_text() if path.exists() else ""
+        current = path.read_text(encoding="utf-8") if path.exists() else ""
         if current != original:
             raise RuntimeError(f"Browser setup preserved concurrent changes: {path}")
         if current == content:
             return
-    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as staged:
+    # Explicit LF and UTF-8: Windows text mode would write CRLF in the locale encoding.
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False,
+                                     encoding="utf-8", newline="\n") as staged:
         staged.write(content)
         staged_path = Path(staged.name)
     try:
         os.chmod(staged_path, path.stat().st_mode & 0o777 if path.exists() else 0o600)
         ensure_safe_path(path)
-        if original is not None and (path.read_text() if path.exists() else "") != original:
+        if original is not None and (path.read_text(encoding="utf-8") if path.exists() else "") != original:
             raise RuntimeError(f"Browser setup preserved concurrent changes: {path}")
         os.replace(staged_path, path)
     finally:
@@ -286,7 +294,7 @@ def write_launchers(binaries, browser):
 def write_if_changed(path, content):
     """Skip rewrites of unchanged generated files so repeated syncs stay quiet."""
     ensure_safe_path(path)
-    if path.is_file() and path.read_text() == content:
+    if path.is_file() and path.read_text(encoding="utf-8") == content:
         return
     atomic_write(path, content)
 
@@ -397,8 +405,8 @@ def ignore_browser_metadata(project):
 def register_servers(project, binaries, browser, allow_dependency_install=True):
     """Register portable project servers; user configuration is only read."""
     claude_config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
-    claude_user_path = Path(claude_config_dir) / ".claude.json" if claude_config_dir else Path.home() / ".claude.json"
-    codex_user_path = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))) / "config.toml"
+    claude_user_path = Path(claude_config_dir) / ".claude.json" if claude_config_dir else user_home() / ".claude.json"
+    codex_user_path = Path(os.environ.get("CODEX_HOME", str(user_home() / ".codex"))) / "config.toml"
     failures = []
     toml_editor_missing = None
     for provider, destination, user_path, parser, key in (
