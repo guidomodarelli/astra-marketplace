@@ -1,7 +1,7 @@
 {
   "name": "ai-assets-kit",
   "description": "Colección de skills de AI Assets para agentes AI: setup Agent Ready con rules de plataforma y otros artefactos reutilizables.",
-  "version": "1.26.0",
+  "version": "1.27.0",
   "author": {
     "name": "Guido Modarelli"
   },
