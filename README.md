@@ -274,10 +274,10 @@ lo que cubre el cambio y dejá la suite completa a la CI:
 
 | Cambio | Comando local |
 |---|---|
-| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `bats plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `bats --filter 'rules' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
-| Un flujo puntual de `agent-ready-setup` | `bats --filter '<parte del nombre del test>' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `bun x bats plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `bun x bats --filter 'rules' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Un flujo puntual de `agent-ready-setup` | `bun x bats --filter '<parte del nombre del test>' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
 | Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `bun run test:bootstrap` completo |
-| `review-fix-loop`, `sibling-worktree`, `create-version` o el eval runner | Su suite (`bun run test:review-fix-loop`, `bun run test:sibling-worktree`, `bats tests/create-version.bats`, `bats skill-eval-runner/tests/*.bats`) |
+| `review-fix-loop`, `sibling-worktree`, `create-version` o el eval runner | Su suite (`bun run test:review-fix-loop`, `bun run test:sibling-worktree`, `bun x bats tests/create-version.bats`, `bun x bats skill-eval-runner/tests/*.bats`) |
 
 Anteponé `LC_ALL=C.UTF-8` a cada `bats` (ver más abajo). En Windows, `bats --jobs` no funciona:
 Git Bash no trae `flock` ni GNU `parallel`.
