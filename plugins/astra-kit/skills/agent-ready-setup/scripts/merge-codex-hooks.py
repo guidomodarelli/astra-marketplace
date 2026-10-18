@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Combine legacy/current Codex hooks and refresh managed handlers without losing custom hooks."""
+"""Merge the Codex hooks template into the project hooks without losing custom hooks."""
 
 import json
 import sys
@@ -39,17 +39,11 @@ def merge_configuration(current, incoming, managed_commands):
 
 def refresh_managed_handlers(configuration, template):
     """Refresh known managed commands while keeping handler options and custom groups."""
-    legacy_commands = {
-        "SessionStart": "bash .agents/hooks/sync-marketplace.sh --provider codex",
-        "PostToolUse": "bash .agents/hooks/check-harness-consistency.sh",
-    }
     for event, groups in configuration.get("hooks", {}).items():
         template_groups = template.get("hooks", {}).get(event, [])
         managed_handlers = {handler.get("command"): handler
                             for group in template_groups for handler in group.get("hooks", [])
                             if handler.get("type") == "command"}
-        if event in legacy_commands and template_groups and template_groups[0].get("hooks"):
-            managed_handlers[legacy_commands[event]] = template_groups[0]["hooks"][0]
         for group in groups:
             for handler in group.get("hooks", []):
                 managed = managed_handlers.get(handler.get("command"))
@@ -80,20 +74,18 @@ def read_configuration(path):
 
 
 def main():
-    """Print merged configuration; caller persists and verifies it before removing legacy input."""
+    """Print merged configuration; the caller persists it after checking the source is unchanged."""
     # Windows stdout defaults to CRLF and the locale code page; the generated JSON is LF UTF-8.
     sys.stdout.reconfigure(encoding="utf-8", newline="\n")
     try:
-        template, destination, legacy = (read_configuration(path) for path in sys.argv[1:])
+        template, destination = (read_configuration(path) for path in sys.argv[1:])
         managed_commands = {handler.get("command")
                             for groups in template.get("hooks", {}).values()
                             for group in groups for handler in group.get("hooks", [])
                             if handler.get("type") == "command"}
-        current = merge_configuration(refresh_managed_handlers(destination, template),
-                                      refresh_managed_handlers(legacy, template), managed_commands)
-        merged = merge_configuration(current, template, managed_commands)
+        merged = merge_configuration(refresh_managed_handlers(destination, template), template, managed_commands)
     except (OSError, ValueError, TypeError) as error:
-        print(f"Codex hook migration failed: {error}", file=sys.stderr)
+        print(f"Codex hook merge failed: {error}", file=sys.stderr)
         return 1
     if merged == template:
         sys.stdout.write(Path(sys.argv[1]).read_text(encoding="utf-8"))

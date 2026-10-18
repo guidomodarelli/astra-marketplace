@@ -46,17 +46,15 @@ después de aplicar el bloque literal con `scripts/apply-managed-block.sh` (un
 5. En un `AGENTS.md` legacy sin marcadores, la IA elimina secciones que el
    bloque reemplaza (lista de rules, centralización) y la lista de skills
    escrita a mano, porque Claude y Codex descubren skills de forma nativa; y ubica
-   el placeholder. Si la revisión falla, el bloque se agrega al final y solo se
-   quita la lista legacy entre marcadores `AGENT-READY RULE REFERENCES`, que ya
-   no se generan.
+   el placeholder. Si la revisión falla, el bloque se agrega al final sin tocar
+   el contenido del proyecto.
 6. Si los marcadores están duplicados o desordenados, no modifica el archivo y
    termina con código `2` para revisión humana.
 
 La revisión completada se registra en
 `.git/info/agent-ready-instructions-reviewed.sha256` (hash de `AGENTS.md` más
 el contenido de las rules del template y propias). Mientras ninguno cambie, el sync no vuelve a
-invocar IA. Hashes legacy (`.agents/.agent-ready-instructions-template.sha256`
-y `.git/info/agent-ready-instructions-template.sha256`) se eliminan. La
+invocar IA. La
 escritura es atómica y se cancela si `AGENTS.md` cambia durante el proceso.
 
 El modelo y el nivel de razonamiento de la revisión se pueden cambiar con

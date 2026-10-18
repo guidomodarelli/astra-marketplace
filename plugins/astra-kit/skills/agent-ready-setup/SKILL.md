@@ -161,9 +161,8 @@ conserva symlinks relativos (o hard links, donde no hay symlinks) para assets
 no-hook bajo `.claude/` y prepara bridge
 `.codex/`.
 Los scripts de hooks permanecen únicamente bajo `.agents/hooks/`. Bootstrap y
-SessionStart migran `.codex/hooks/hooks.json` a `.codex/hooks.json`: combinan
-hooks de ambas ubicaciones, preservan personalizaciones y retiran archivo anterior
-tras verificar escritura. JSON inválido, symlinks y cambios concurrentes se
+SessionStart combinan el template con `.codex/hooks.json` y preservan los hooks
+y opciones propios del proyecto. JSON inválido, symlinks y cambios concurrentes se
 preservan como conflictos. Codex requiere confiar hooks nuevos o modificados
 mediante `/hooks`; generar archivo no concede confianza. Hook de consistencia
 consume `tool_input.file_path` de Claude y cabeceras de `tool_input.command` de

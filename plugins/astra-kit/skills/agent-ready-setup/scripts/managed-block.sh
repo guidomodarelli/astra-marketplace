@@ -17,9 +17,6 @@ TEMPORARY_DIRECTORY=""
 GIT_DIRECTORY=""
 GIT_INFO_DIRECTORY=""
 REVIEW_HASH_FILE=""
-LEGACY_TEMPLATE_HASH_FILES=(
-  ".agents/.agent-ready-instructions-template.sha256"
-)
 TEMPORARY_HASH_FILE=""
 MERGE_LOCK_DIRECTORY=".agents/.agent-ready-instructions.lock"
 # Where fcntl is missing (Windows), AGENTS.md writers coordinate through this file in the git dir.
@@ -153,14 +150,9 @@ prepare_managed_block_files() {
   SCHEMA_FILE="$TEMPORARY_DIRECTORY/result-schema.json"
   RESULT_FILE="$TEMPORARY_DIRECTORY/provider-result.json"
   REVIEW_HASH_FILE="$GIT_INFO_DIRECTORY/agent-ready-instructions-reviewed.sha256"
-  LEGACY_TEMPLATE_HASH_FILES+=("$GIT_INFO_DIRECTORY/agent-ready-instructions-template.sha256")
   readonly MANAGED_BLOCK_START='<!-- BEGIN AGENT-READY MANAGED -->'
   readonly MANAGED_BLOCK_END='<!-- END AGENT-READY MANAGED -->'
   readonly MANAGED_BLOCK_PLACEHOLDER='<!-- AGENT-READY MANAGED BLOCK -->'
-  # Earlier versions wrapped the rule list in these markers; they are only
-  # recognized to migrate legacy files and never rendered again.
-  readonly RULE_REFERENCE_START='<!-- BEGIN AGENT-READY RULE REFERENCES -->'
-  readonly RULE_REFERENCE_END='<!-- END AGENT-READY RULE REFERENCES -->'
 }
 
 sha256_file() {
@@ -213,23 +205,6 @@ write_review_hash() {
     return 1
   fi
   TEMPORARY_HASH_FILE=""
-}
-
-# Earlier versions cached a template hash that no longer describes the review
-# state; removing it prevents stale caches from skipping a required review.
-remove_legacy_template_hashes() {
-  local legacy_hash_file
-
-  for legacy_hash_file in "${LEGACY_TEMPLATE_HASH_FILES[@]}"; do
-    if [[ -L "$legacy_hash_file" || ( -e "$legacy_hash_file" && ! -f "$legacy_hash_file" ) ]]; then
-      echo "ERROR: legacy template hash is not a regular file: $legacy_hash_file; merge stopped" >&2
-      return 1
-    fi
-    if ! rm -f -- "$legacy_hash_file"; then
-      echo "ERROR: could not remove legacy template hash: $legacy_hash_file; merge stopped" >&2
-      return 1
-    fi
-  done
 }
 
 run_template_renderer() {
@@ -285,7 +260,7 @@ compute_review_hash() {
   sha256_file "$digest_input"
 }
 
-# Takes the merge lock and removes legacy hashes before any AGENTS.md write.
+# Takes the merge lock and validates the review hash path before any AGENTS.md write.
 start_managed_block_update() {
   acquire_status=0
   acquire_merge_lock || acquire_status=$?
@@ -293,7 +268,7 @@ start_managed_block_update() {
     exit "$acquire_status"
   fi
 
-  if ! remove_legacy_template_hashes || ! validate_review_hash_path; then
+  if ! validate_review_hash_path; then
     exit 1
   fi
 }
@@ -323,12 +298,11 @@ create_agents_from_template_if_missing() {
 # 4: malformed markers.
 split_agents_file() {
   python3 - "$AGENTS_FILE" "$MANAGED_BLOCK_FILE" "$PROJECT_CONTENT_FILE" "$DETERMINISTIC_FILE" \
-    "$MANAGED_BLOCK_START" "$MANAGED_BLOCK_END" "$MANAGED_BLOCK_PLACEHOLDER" \
-    "$RULE_REFERENCE_START" "$RULE_REFERENCE_END" <<'PY'
+    "$MANAGED_BLOCK_START" "$MANAGED_BLOCK_END" "$MANAGED_BLOCK_PLACEHOLDER" <<'PY'
 import sys
 
 (agents_path, block_path, project_path, deterministic_path,
- block_start, block_end, placeholder, rule_start, rule_end) = sys.argv[1:]
+ block_start, block_end, placeholder) = sys.argv[1:]
 
 with open(agents_path, encoding="utf-8") as agents_file:
     lines = agents_file.read().splitlines()
@@ -348,10 +322,6 @@ def write(path, content_lines):
 if not start_indexes and not end_indexes:
     write(project_path, lines)
     legacy_lines = list(lines)
-    rule_starts = [index for index, line in enumerate(legacy_lines) if line == rule_start]
-    rule_ends = [index for index, line in enumerate(legacy_lines) if line == rule_end]
-    if len(rule_starts) == 1 and len(rule_ends) == 1 and rule_starts[0] < rule_ends[0]:
-        del legacy_lines[rule_starts[0]:rule_ends[0] + 1]
     while legacy_lines and not legacy_lines[-1].strip():
         legacy_lines.pop()
     write(deterministic_path, legacy_lines + ([""] if legacy_lines else []) + block)

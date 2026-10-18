@@ -3,7 +3,6 @@
 
 import argparse
 import json
-import re
 import sys
 
 
@@ -17,42 +16,6 @@ def parse_arguments():
     parser.add_argument("template_path")
     parser.add_argument("settings_path")
     return parser.parse_args()
-
-
-def canonical_managed_sync_command(value):
-    # Legacy installs registered the hook without "--provider claude".
-    managed_command_pattern = re.compile(
-        r"^(?:Bash\((?:\.claude/hooks|\.agents/hooks)/sync-marketplace\.sh"
-        r"(?: --provider claude)?(?: --(?:sync|update|sync-instructions|merge-instructions))?"
-        r"(?: --yes)?\)|bash (?:\.claude/hooks|\.agents/hooks)/sync-marketplace\.sh"
-        r"(?: --provider claude)?(?: --(?:sync|update|sync-instructions|merge-instructions))?"
-        r"(?: --yes)?)$"
-    )
-    if managed_command_pattern.match(value):
-        if value.startswith("Bash("):
-            return "Bash(.agents/hooks/sync-marketplace.sh --provider claude)"
-        return "bash .agents/hooks/sync-marketplace.sh --provider claude"
-    return None
-
-
-def migrate(value):
-    if isinstance(value, dict):
-        return {key: migrate(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [migrate(item) for item in value]
-    if not isinstance(value, str):
-        return value
-
-    canonical_value = canonical_managed_sync_command(value)
-    if canonical_value is not None:
-        return canonical_value
-
-    if value.startswith("Bash(.claude/hooks/") or value.startswith(
-        "bash .claude/hooks/"
-    ):
-        return value.replace(".claude/hooks/", ".agents/hooks/", 1)
-
-    return value
 
 
 def has_custom_keys(current, expected):
@@ -188,14 +151,11 @@ def main():
         return 1
 
     allow_nested_template_match = arguments.allow_nested_template_match
-    migrated_settings = migrate(settings)
-    if not has_custom_keys(migrated_settings, template):
+    if not has_custom_keys(settings, template):
         return 10
 
     json.dump(
-        merge_managed_template(
-            migrated_settings, template, allow_nested_template_match
-        ),
+        merge_managed_template(settings, template, allow_nested_template_match),
         sys.stdout,
         indent=2,
     )

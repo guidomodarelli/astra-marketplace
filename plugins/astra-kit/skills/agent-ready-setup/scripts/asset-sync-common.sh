@@ -24,37 +24,29 @@ write_sync_lock_owner() {
   fi
 }
 
-is_legacy_sync_lock_stale() {
-  [[ -d "$SYNC_LOCK_DIRECTORY" && ! -L "$SYNC_LOCK_DIRECTORY" ]] || return 1
-  find "$SYNC_LOCK_DIRECTORY" -prune -type d \
-    -mmin "+$SYNC_LOCK_STALE_AFTER_MINUTES" -print -quit 2>/dev/null | grep -q .
-}
-
+# A lock is stale only when its owner metadata names a process that ended or
+# was replaced; a lock without readable owner metadata stays ambiguous.
 is_sync_lock_stale() {
   local owner_pid
   local owner_start_time=""
   local current_start_time
 
   [[ -d "$SYNC_LOCK_DIRECTORY" && ! -L "$SYNC_LOCK_DIRECTORY" ]] || return 1
+  [[ -f "$SYNC_LOCK_OWNER_FILE" && ! -L "$SYNC_LOCK_OWNER_FILE" ]] || return 1
 
-  if [[ -f "$SYNC_LOCK_OWNER_FILE" && ! -L "$SYNC_LOCK_OWNER_FILE" ]]; then
-    IFS= read -r owner_pid < "$SYNC_LOCK_OWNER_FILE" || owner_pid=""
-    if [[ "$owner_pid" =~ ^[1-9][0-9]*$ ]]; then
-      if ! kill -0 "$owner_pid" 2>/dev/null; then
-        return 0
-      fi
-
-      IFS= read -r owner_start_time < <(sed -n '2p' "$SYNC_LOCK_OWNER_FILE") || true
-      if [[ -n "$owner_start_time" ]]; then
-        current_start_time="$(get_process_start_time "$owner_pid")"
-        [[ -n "$current_start_time" && "$current_start_time" != "$owner_start_time" ]] && return 0
-      fi
-
-      return 1
-    fi
+  IFS= read -r owner_pid < "$SYNC_LOCK_OWNER_FILE" || owner_pid=""
+  [[ "$owner_pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  if ! kill -0 "$owner_pid" 2>/dev/null; then
+    return 0
   fi
 
-  is_legacy_sync_lock_stale
+  IFS= read -r owner_start_time < <(sed -n '2p' "$SYNC_LOCK_OWNER_FILE") || true
+  if [[ -n "$owner_start_time" ]]; then
+    current_start_time="$(get_process_start_time "$owner_pid")"
+    [[ -n "$current_start_time" && "$current_start_time" != "$owner_start_time" ]] && return 0
+  fi
+
+  return 1
 }
 
 reclaim_stale_sync_lock() {
@@ -313,19 +305,6 @@ git_supports_config_hooks() {
   [[ "$GIT_CONFIG_HOOKS_SUPPORTED" == "1" ]]
 }
 
-# Removes the post-index-change file that older agent-ready versions installed in the hooks
-# directory; the config-based hook replaces it. Files without the agent-ready marker stay.
-remove_legacy_hard_link_git_hook() {
-  local hooks_directory
-  local hook_path
-
-  hooks_directory="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
-  hook_path="$hooks_directory/$AGENT_READY_GIT_HOOK_EVENT"
-  [[ -f "$hook_path" && ! -L "$hook_path" ]] || return 0
-  grep -Fq -- "$AGENT_READY_GIT_HOOK_MARKER" "$hook_path" || return 0
-  rm -f -- "$hook_path" && record_removed "$hook_path"
-}
-
 # Registers the hook that relinks hard-link views after git operations that recreate
 # .agents files (reset, stash, cherry-pick, revert, aborts). Only needed while hard-link
 # views exist. Without config-based hooks it falls back to a file in the hooks directory,
@@ -342,7 +321,6 @@ install_hard_link_git_hook() {
   [[ -s "$manifest" && ! -L "$manifest" ]] || return 0
 
   if git_supports_config_hooks; then
-    remove_legacy_hard_link_git_hook
     if [[ "$(git config --get "hook.$AGENT_READY_GIT_HOOK_NAME.event" 2>/dev/null)" == "$AGENT_READY_GIT_HOOK_EVENT" &&
       "$(git config --get "hook.$AGENT_READY_GIT_HOOK_NAME.command" 2>/dev/null)" == "$AGENT_READY_GIT_HOOK_COMMAND" ]]; then
       return 0
@@ -499,13 +477,6 @@ project_rule_claude_views() {
   done < <(find "$CLAUDE_DIR/rules" -type l -print0)
 }
 
-# Templates carry their own provider frontmatter, so adapters are verbatim
-# copies. Kept for hooks projected by older versions that call it before
-# restarting with the updated hook.
-render_skill_adapter() {
-  cat -- "$1"
-}
-
 merge_managed_settings() {
   local template_path="$1"
   local settings_path="$2"
@@ -539,61 +510,31 @@ destination_matches_snapshot() {
   fi
 }
 
-# Migrate both hook sources into Codex's discoverable file. Remove the old file
-# only after the merged output is persisted and both source snapshots still match.
+# Merge the template into Codex's hooks file, keeping custom hooks. Persist the
+# merged output only when the destination still matches the snapshot it came from.
 sync_codex_hooks() {
   local template="$1"
   local destination="$CODEX_DIR/hooks.json"
-  local legacy="$CODEX_DIR/hooks/hooks.json"
   local staged_hooks
-  local hook_path
-  local legacy_snapshot=""
-  local destination_snapshot=""
+  local destination_snapshot
 
   validate_destination_parent "$destination" || return 0
-  validate_destination_parent "$legacy" || return 0
-  for hook_path in "$destination" "$legacy"; do
-    if [[ -L "$hook_path" || ( -e "$hook_path" && ! -f "$hook_path" ) ]]; then
-      record_conflict "$hook_path is a symlink or non-file; Codex hooks preserved"
-      return 0
-    fi
-  done
-  if [[ ! -e "$destination" && ! -e "$legacy" ]]; then
+  if [[ -L "$destination" || ( -e "$destination" && ! -f "$destination" ) ]]; then
+    record_conflict "$destination is a symlink or non-file; Codex hooks preserved"
+    return 0
+  fi
+  if [[ ! -e "$destination" ]]; then
     sync_file "$template" "$destination" "$template" absent
     return 0
   fi
 
   staged_hooks="$(mktemp "${TMPDIR:-/tmp}/agent-ready-codex-hooks.XXXXXX")"
-  if [[ -f "$legacy" ]]; then
-    legacy_snapshot="$(mktemp "${TMPDIR:-/tmp}/agent-ready-legacy-hooks.XXXXXX")"
-    cp -- "$legacy" "$legacy_snapshot"
-  fi
-  if [[ -f "$destination" ]]; then
-    destination_snapshot="$(mktemp "${TMPDIR:-/tmp}/agent-ready-current-hooks.XXXXXX")"
-    cp -- "$destination" "$destination_snapshot"
-  fi
-  if python3 "$ASSET_SYNC_SKILL_DIR/scripts/merge-codex-hooks.py" \
-    "$template" "${destination_snapshot:-$destination}" "${legacy_snapshot:-$legacy}" > "$staged_hooks"; then
-    if { [[ -z "$destination_snapshot" && ! -e "$destination" && ! -L "$destination" ]] || \
-         { [[ ! -L "$destination" ]] && cmp -s "$destination" "$destination_snapshot"; }; } && \
-       { [[ -z "$legacy_snapshot" ]] || { [[ ! -L "$legacy" ]] && cmp -s "$legacy" "$legacy_snapshot"; }; }; then
-      sync_file "$staged_hooks" "$destination" "$template" "${destination_snapshot:-absent}"
-      if [[ -n "$legacy_snapshot" && ! -L "$destination" && ! -L "$legacy" ]] && \
-        cmp -s "$destination" "$staged_hooks" && cmp -s "$legacy" "$legacy_snapshot"; then
-        if rm -- "$legacy"; then
-          record_removed "$legacy"
-          rmdir -- "$CODEX_DIR/hooks" 2>/dev/null || true
-        else
-          record_conflict "could not remove migrated $legacy; merged hooks saved in $destination"
-        fi
-      fi
-    else
-      record_conflict "Codex hooks changed during migration; original files preserved"
-    fi
+  destination_snapshot="$(mktemp "${TMPDIR:-/tmp}/agent-ready-current-hooks.XXXXXX")"
+  cp -- "$destination" "$destination_snapshot"
+  if python3 "$ASSET_SYNC_SKILL_DIR/scripts/merge-codex-hooks.py"     "$template" "$destination_snapshot" > "$staged_hooks"; then
+    sync_file "$staged_hooks" "$destination" "$template" "$destination_snapshot"
   else
-    record_conflict "Codex hooks contain invalid configuration; original files preserved"
+    record_conflict "Codex hooks contain invalid configuration; original file preserved"
   fi
-  rm -f -- "$staged_hooks"
-  [[ -z "$legacy_snapshot" ]] || rm -f -- "$legacy_snapshot"
-  [[ -z "$destination_snapshot" ]] || rm -f -- "$destination_snapshot"
+  rm -f -- "$staged_hooks" "$destination_snapshot"
 }
