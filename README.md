@@ -73,7 +73,7 @@ Los nombres disponibles viven en `.claude-plugin/marketplace.json` y `.agents/pl
 
 ```bash
 # Claude Code, desde GitHub
-claude plugin marketplace add --scope user guidomodarelli/ai-assets-marketplace
+claude plugin marketplace add --scope user guidomodarelli/astra-marketplace
 claude plugin install --scope user <plugin-name>@astra-marketplace
 
 # Codex, desde la raíz de un clone local de este repo

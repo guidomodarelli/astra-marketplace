@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "ai-assets-marketplace",
+      "name": "astra-marketplace",
       "devDependencies": {
         "bats": "1.13.0",
       },
