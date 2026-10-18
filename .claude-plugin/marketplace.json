@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "ai-assets-marketplace",
+  "name": "astra-marketplace",
   "owner": {
     "name": "Guido Modarelli"
   },
@@ -10,16 +10,16 @@
   },
   "plugins": [
     {
-      "name": "ai-assets-kit",
-      "source": "./plugins/ai-assets-kit",
-      "description": "Colección de skills de AI Assets para agentes AI: setup Agent Ready con rules de plataforma y otros artefactos reutilizables.",
+      "name": "astra-kit",
+      "source": "./plugins/astra-kit",
+      "description": "Colección de skills de Astra para agentes AI: setup Agent Ready con rules de plataforma y otros artefactos reutilizables.",
       "author": {
         "name": "Guido Modarelli"
       },
       "repository": "https://github.com/guidomodarelli/ai-assets-marketplace",
       "category": "productivity",
       "keywords": [
-        "ai-assets",
+        "astra",
         "skills",
         "agent-ready",
         "frontend",

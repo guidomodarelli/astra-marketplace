@@ -5,7 +5,7 @@ bats_require_minimum_version 1.13.0
 load 'test_helper/eval-runner'
 
 setup() {
-    unset AI_ASSETS_MARKETPLACE_EVAL_MODEL
+    unset ASTRA_MARKETPLACE_EVAL_MODEL
     unset CLAUDE_RESPONSE_FILE
     setup_eval_runner_fixture
 }

@@ -1,0 +1,31 @@
+{
+  "name": "astra-kit",
+  "version": "1.27.0",
+  "description": "Colección de skills de Astra para agentes AI: setup Agent Ready con rules de plataforma y otros artefactos reutilizables.",
+  "author": {
+    "name": "Guido Modarelli",
+    "email": "",
+    "url": ""
+  },
+  "repository": "https://github.com/guidomodarelli/ai-assets-marketplace",
+  "license": "MIT",
+  "category": "productivity",
+  "keywords": [
+    "astra",
+    "skills",
+    "agent-ready",
+    "frontend",
+    "testing"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Astra Agent Ready",
+    "shortDescription": "Colección de skills de Astra para agentes AI.",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Bash"
+    ]
+  }
+}

@@ -1,12 +1,12 @@
 {
-  "name": "ai-assets-marketplace",
+  "name": "astra-marketplace",
   "interface": {
-    "displayName": "AI Assets Marketplace"
+    "displayName": "Astra Marketplace"
   },
   "plugins": [
     {
-      "name": "ai-assets-kit",
-      "source": "./plugins/ai-assets-kit",
+      "name": "astra-kit",
+      "source": "./plugins/astra-kit",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
