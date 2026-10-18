@@ -27,6 +27,26 @@ Baseline security rules for SSR React applications. These rules are always activ
 - Use allowlist strategy for client-controlled inputs and public middleend DTOs — define what is permitted, reject everything else.
 - Never trust user-provided identifiers directly — retrieve user identity from session or JWT claims.
 
+### Validation decision order
+
+1. Check the HTTP status and the available transport metadata.
+2. Apply an adapter-approved safe fallback, then structural narrowing only if control flow still requires it.
+3. For client input, run schema validation at the middleend boundary, before the handler.
+4. For the public middleend DTO, run its guard or contract validation before handing it to the client or consumer.
+5. Never turn an observation of an upstream response into full revalidation of that response.
+
+Never request upstream response validation in reviews, fixes, verifications, or closeouts.
+
+### Validation tests
+
+- Invalid client input is rejected at the middleend boundary.
+- A valid public DTO reaches the consumer, and an unusable DTO is rejected safely.
+- Upstream responses are consumed without schema revalidation.
+- `PROCESSING`/`FINISHED`, `array`/`object`, or `null` are distinguished only where they change control flow.
+- Handlers do not validate again what the boundary already validated.
+- Raw upstream payloads never reach responses, logs, or public errors.
+- Tests exercise the real validator and its observable contract; do not mock the validator.
+
 ## XSS Prevention
 
 - Never use `dangerouslySetInnerHTML` with untrusted content — use `DOMPurify` if HTML rendering is required.
