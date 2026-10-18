@@ -17,7 +17,7 @@ Work test-first for every change in behavior (features, bug fixes, and architect
 3. **Refactor** — only once the behavior is covered: improve naming, remove duplication, and tighten boundaries without changing behavior.
 4. **Green** — the cycle ends when the new behavior is covered by passing tests.
 
-This order also governs the generator skills (`component-creation`, `service`, `api-endpoint`): when a skill lists the test step after the implementation steps, write that test first and then implement.
+This order also governs the generator skills (`component-creation`, `service`, `api-endpoint`): when a skill lists the test step after the implementation steps, write that test first and then implement. When a skill has no test step (for example `api-endpoint`), add the test the layer requires (an integration test for a handler or server hook) before implementing, and run it.
 
 ## What to test by layer
 
