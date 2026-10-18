@@ -10,6 +10,12 @@ These rules apply when a critical or async action modifies, loads, or requests d
 - Clear `errorMessage`, `validationMessage`, the error tracking context, timers, listeners, and `AbortController`s when the resource, facility, access, or filter changes, when a modal closes or reopens, and when a new attempt or retry starts.
 - Never show an error from a previous resource while a new resource is loading or ready, and never let a previous result update a new selection.
 
+## Incremental mutations
+
+- Prefer incremental responses over full route refreshes: when the mutated UI can be updated from a safe result, the route handler or server action returns the minimum view model needed to update the affected state.
+- Refresh the whole route only when it is justified by broad cache invalidation, data that cannot be rebuilt safely from the result, a security or authorization change, or critical cross-view synchronization. Document the reason next to the refresh.
+- Tests for user-triggered mutations assert that the interaction does not refresh the whole route, unless the documented exception applies.
+
 ## Error tracking feedback
 
 - Use the project's error tracking feedback component (for example, a snackbar wired to the error monitoring tool) only when a real error tracking context exists and the failure is actionable or unexpected and needs tracking in the error monitoring tool. Never fabricate a context from the component; without one, show a safe visual fallback.

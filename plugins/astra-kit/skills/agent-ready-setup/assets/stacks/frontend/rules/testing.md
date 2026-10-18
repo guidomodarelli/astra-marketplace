@@ -6,8 +6,24 @@ Standards for writing and reviewing tests. The `test-reviewer` agent uses this f
 
 ## Framework
 
-- Use **Jest + React Testing Library (RTL)** for unit and integration tests.
-- Use the exact test runner configured in `package.json` — do not assume Jest if Vitest is configured.
+- Use the test runner configured in `package.json` (Jest or Vitest) with **React Testing Library (RTL)** for unit and integration tests — do not assume Jest if Vitest is configured.
+
+## TDD cycle
+
+Work test-first for every feature, bug fix, and architectural change, always in this order:
+
+1. **Testing** — write the smallest failing test at the right layer, defining the expected behavior first. One clear behavior per test.
+2. **Code** — implement the minimum code that makes it pass, respecting the module boundaries; do not skip ports, mappers, or value objects to move faster.
+3. **Refactor** — only once the behavior is covered: improve naming, remove duplication, and tighten boundaries without changing behavior.
+4. **Green** — the cycle ends when the new behavior is covered by passing tests.
+
+## What to test by layer
+
+- **`domain`** — unit tests for entities, value objects, and pure business rules.
+- **`application`** — unit tests for use cases with doubles for the domain ports.
+- **`infrastructure`** — integration tests for adapters, DTO mappers, auth wiring, and provider or database boundaries.
+- **Routes and UI** — RTL tests for server/client boundaries, rendering, and critical user flows.
+- **End-to-end** — smoke coverage for critical authentication and authorization flows.
 
 ## Coverage
 
@@ -50,5 +66,6 @@ Avoid snapshot tests as the primary assertion strategy — they detect change, n
 ## Structure
 
 - Test file location: colocated in `__tests__/` next to the file under test, or `*.spec.tsx` alongside it.
+- Exception: never place tests inside a Next.js App Router `app/` directory, where colocated files can become route artifacts. Put tests for pages, layouts, loading states, and route handlers in a separate tests tree that mirrors `app/`.
 - Description format: start with a verb describing behavior — `"shows the error banner when the API returns 500"`.
 - Follow AAA: Arrange → Act → Assert. No logic (conditionals, loops) inside test bodies.
