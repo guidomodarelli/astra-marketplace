@@ -155,7 +155,7 @@ Leé y seguí literalmente las instrucciones de `${CLAUDE_PLUGIN_ROOT}/skills/<p
 
 ## Local Testing
 
-Run the canonical shell test commands documented in [`README.md` → “Correr tests shell localmente”](README.md#-correr-tests-shell-localmente).
+Run the canonical shell test commands documented in [`README.md` → “Correr tests shell localmente”](README.md#-correr-tests-shell-localmente). During a task, run only the suites that cover the change, following “Qué suite correr según el cambio” in the README; the full suite runs in CI (`.github/workflows/tests.yml`) on every pull request.
 
 ```bash
 # One-time setup: install the eval runner (provider-agnostic)
