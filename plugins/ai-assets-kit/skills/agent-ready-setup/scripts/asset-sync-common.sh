@@ -286,10 +286,51 @@ create_claude_view_link() {
 # First line of the agent-ready post-index-change hook; identifies a hook it may update.
 AGENT_READY_GIT_HOOK_MARKER="# agent-ready-setup: relinks .claude hard-link views detached by git."
 
-# Installs the post-index-change hook that relinks hard-link views after git operations
-# that recreate .agents files (reset, stash, cherry-pick, revert, aborts). Only needed
-# while hard-link views exist; a hook manager (core.hooksPath) or a project hook is
-# never overwritten. Consumers define record_conflict and record_created.
+# Config-based hook (git config hook.<name>.event) that relinks hard-link views. Git runs it
+# next to the hooks of core.hooksPath (husky, lefthook) or .git/hooks, without touching them.
+AGENT_READY_GIT_HOOK_NAME="agent-ready-relink"
+AGENT_READY_GIT_HOOK_EVENT="post-index-change"
+AGENT_READY_GIT_HOOK_COMMAND="sh .agents/hooks/relink-hard-link-views.sh"
+
+# True when git runs hooks defined in config. Probed once per run in a scratch repository,
+# because the feature depends on the git version.
+git_supports_config_hooks() {
+  local probe_directory
+
+  if [[ -z "${GIT_CONFIG_HOOKS_SUPPORTED:-}" ]]; then
+    GIT_CONFIG_HOOKS_SUPPORTED=0
+    if probe_directory="$(mktemp -d "${TMPDIR:-/tmp}/agent-ready-hook-probe.XXXXXX")"; then
+      if git init -q "$probe_directory/repository" 2>/dev/null &&
+        git -C "$probe_directory/repository" config hook.probe.event "$AGENT_READY_GIT_HOOK_EVENT" &&
+        git -C "$probe_directory/repository" config hook.probe.command "echo ran > probe-ran" &&
+        git -C "$probe_directory/repository" hook run "$AGENT_READY_GIT_HOOK_EVENT" -- 0 0 >/dev/null 2>&1 &&
+        [[ -f "$probe_directory/repository/probe-ran" ]]; then
+        GIT_CONFIG_HOOKS_SUPPORTED=1
+      fi
+      rm -rf -- "$probe_directory"
+    fi
+  fi
+  [[ "$GIT_CONFIG_HOOKS_SUPPORTED" == "1" ]]
+}
+
+# Removes the post-index-change file that older agent-ready versions installed in the hooks
+# directory; the config-based hook replaces it. Files without the agent-ready marker stay.
+remove_legacy_hard_link_git_hook() {
+  local hooks_directory
+  local hook_path
+
+  hooks_directory="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
+  hook_path="$hooks_directory/$AGENT_READY_GIT_HOOK_EVENT"
+  [[ -f "$hook_path" && ! -L "$hook_path" ]] || return 0
+  grep -Fq -- "$AGENT_READY_GIT_HOOK_MARKER" "$hook_path" || return 0
+  rm -f -- "$hook_path" && record_removed "$hook_path"
+}
+
+# Registers the hook that relinks hard-link views after git operations that recreate
+# .agents files (reset, stash, cherry-pick, revert, aborts). Only needed while hard-link
+# views exist. Without config-based hooks it falls back to a file in the hooks directory,
+# never overwriting a hook manager (core.hooksPath) or a project hook. Consumers define
+# record_conflict, record_created and record_removed.
 install_hard_link_git_hook() {
   local hook_template="$1"
   local manifest
@@ -298,13 +339,30 @@ install_hard_link_git_hook() {
   local temporary_hook
 
   manifest="$(hard_link_views_manifest)"
-  [[ -s "$manifest" && ! -L "$manifest" && -f "$hook_template" ]] || return 0
+  [[ -s "$manifest" && ! -L "$manifest" ]] || return 0
+
+  if git_supports_config_hooks; then
+    remove_legacy_hard_link_git_hook
+    if [[ "$(git config --get "hook.$AGENT_READY_GIT_HOOK_NAME.event" 2>/dev/null)" == "$AGENT_READY_GIT_HOOK_EVENT" &&
+      "$(git config --get "hook.$AGENT_READY_GIT_HOOK_NAME.command" 2>/dev/null)" == "$AGENT_READY_GIT_HOOK_COMMAND" ]]; then
+      return 0
+    fi
+    if git config "hook.$AGENT_READY_GIT_HOOK_NAME.event" "$AGENT_READY_GIT_HOOK_EVENT" &&
+      git config "hook.$AGENT_READY_GIT_HOOK_NAME.command" "$AGENT_READY_GIT_HOOK_COMMAND"; then
+      record_created "git config hook.$AGENT_READY_GIT_HOOK_NAME ($AGENT_READY_GIT_HOOK_EVENT)"
+    else
+      record_conflict "could not register git config hook.$AGENT_READY_GIT_HOOK_NAME; hard-link views relink on the next sync instead"
+    fi
+    return 0
+  fi
+
+  [[ -f "$hook_template" ]] || return 0
   if [[ -n "$(git config --get core.hooksPath 2>/dev/null)" ]]; then
-    record_conflict "core.hooksPath is set, so the hook that relinks .claude hard-link views was not installed; run $hook_template from your post-index-change hook"
+    record_conflict "core.hooksPath is set and this git has no config-based hooks, so the hook that relinks .claude hard-link views was not installed; run $hook_template from your $AGENT_READY_GIT_HOOK_EVENT hook"
     return 0
   fi
   hooks_directory="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
-  hook_path="$hooks_directory/post-index-change"
+  hook_path="$hooks_directory/$AGENT_READY_GIT_HOOK_EVENT"
   if [[ -e "$hook_path" || -L "$hook_path" ]]; then
     if [[ -L "$hook_path" ]] || ! grep -Fq -- "$AGENT_READY_GIT_HOOK_MARKER" "$hook_path"; then
       record_conflict "$hook_path already exists, so the hook that relinks .claude hard-link views was not installed; run $hook_template from it"

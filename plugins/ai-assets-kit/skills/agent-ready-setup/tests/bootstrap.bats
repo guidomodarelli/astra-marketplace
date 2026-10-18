@@ -365,7 +365,7 @@ EOF
     [ "$status" -eq 0 ]
     cmp -s .github/pull_request_template.md "$skill_dir/assets/common/github/pull_request_template.md"
     for settings_file in .claude/settings.json .codex/hooks.json; do
-      jq -e '[.hooks[][] | .hooks[] | select(.type == "command") | .statusMessage] | length == 2 and all(.[]; type == "string" and length > 0)' \
+      jq -e '[.hooks[][] | .hooks[] | select(.type == "command")] | length >= 2 and all(.[]; (.statusMessage | type) == "string" and (.statusMessage | length) > 0)' \
         "$settings_file" >/dev/null
     done
   done
@@ -2912,29 +2912,78 @@ SCRIPT
   ! grep -Fxq 'rules/personal.md' .claude/.agent-ready-hard-link-views
 }
 
-@test "hard-link views install a git hook that relinks them after git reset" {
-  disable_symlinks
+# Real git, except `git hook run`, which fails as on versions without config-based hooks.
+disable_config_hooks() {
+  local real_git
+  real_git="$(command -v git)"
+  cat > "$fake_bin/git" <<EOF
+#!/bin/bash
+for argument in "\$@"; do
+  if [[ "\$argument" == "hook" ]]; then
+    exit 1
+  fi
+done
+exec "$real_git" "\$@"
+EOF
+  chmod +x "$fake_bin/git"
+}
+
+commit_agents_and_detach_security_rule() {
   git config user.email agent-ready-tests@example.com
   git config user.name "Agent Ready Tests"
-  run_bootstrap frontend
-  [ "$status" -eq 0 ]
-  hook_path="$(git rev-parse --git-path hooks)/post-index-change"
-  [ -x "$hook_path" ]
-  grep -Fq 'agent-ready-setup: relinks .claude hard-link views' "$hook_path"
-
   git add .agents
   git commit -qm "agent-ready assets"
   printf '%s\n' 'Project addition.' >> .agents/rules/security.md
   git commit -qam "edit security rule"
   # reset --hard recreates the rule, which detaches the hard-link view.
   git reset -q --hard HEAD~1
+}
+
+@test "hard-link views register a config-based git hook that relinks them after git reset" {
+  disable_symlinks
+  run_bootstrap frontend
+  [ "$status" -eq 0 ]
+  [ "$(git config --get hook.agent-ready-relink.event)" = "post-index-change" ]
+  [ "$(git config --get hook.agent-ready-relink.command)" = "sh .agents/hooks/relink-hard-link-views.sh" ]
+  [ ! -e "$(git rev-parse --git-path hooks)/post-index-change" ]
+
+  commit_agents_and_detach_security_rule
 
   [ .claude/rules/security.md -ef .agents/rules/security.md ]
   ! grep -Fxq 'Project addition.' .claude/rules/security.md
 }
 
-@test "hard-link git hook is not installed over a project hook manager" {
+@test "config-based relink hook coexists with a project hook manager" {
   disable_symlinks
+  git config core.hooksPath .husky
+  mkdir -p .husky
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ "$(git config --get core.hooksPath)" = ".husky" ]
+  [ -z "$(ls -A .husky)" ]
+  [ "$(git config --get hook.agent-ready-relink.event)" = "post-index-change" ]
+  commit_agents_and_detach_security_rule
+  [ .claude/rules/security.md -ef .agents/rules/security.md ]
+}
+
+@test "relink hook falls back to a hooks-directory file when git lacks config-based hooks" {
+  disable_symlinks
+  disable_config_hooks
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  hook_path="$(git rev-parse --git-path hooks)/post-index-change"
+  [ -x "$hook_path" ]
+  grep -Fq 'agent-ready-setup: relinks .claude hard-link views' "$hook_path"
+  [ -z "$(git config --get hook.agent-ready-relink.event)" ]
+}
+
+@test "relink hook fallback is not installed over a project hook manager" {
+  disable_symlinks
+  disable_config_hooks
   git config core.hooksPath .husky
 
   run_bootstrap frontend
@@ -2945,11 +2994,43 @@ SCRIPT
   [[ "$output" == *"core.hooksPath is set"* ]]
 }
 
-@test "hard-link git hook is not installed when views are symlinks" {
+@test "config-based relink hook replaces the hook file of older versions" {
+  disable_symlinks
+  hook_path="$(git rev-parse --git-path hooks)/post-index-change"
+  mkdir -p "$(dirname "$hook_path")"
+  cp "$skill_dir/assets/git-hooks/post-index-change" "$hook_path"
+
+  run_bootstrap frontend
+
+  [ "$status" -eq 0 ]
+  [ ! -e "$hook_path" ]
+  [ "$(git config --get hook.agent-ready-relink.event)" = "post-index-change" ]
+}
+
+@test "Claude prompt hook relinks views detached without any git hook" {
+  disable_symlinks
+  run_bootstrap frontend
+  [ "$status" -eq 0 ]
+  jq -e '.hooks.UserPromptSubmit[0].hooks[0].command == "sh .agents/hooks/relink-hard-link-views.sh"' .claude/settings.json >/dev/null
+
+  # `git apply` without --index rewrites files and fires no git hook at all.
+  cp .agents/rules/security.md "$test_root/security.md"
+  mv "$test_root/security.md" .agents/rules/security.md
+  [ ! .claude/rules/security.md -ef .agents/rules/security.md ]
+
+  run sh .agents/hooks/relink-hard-link-views.sh
+
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ .claude/rules/security.md -ef .agents/rules/security.md ]
+}
+
+@test "relink hook is not registered when views are symlinks" {
   skip_without_symlinks
 
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
+  [ -z "$(git config --get hook.agent-ready-relink.event)" ]
   [ ! -e "$(git rev-parse --git-path hooks)/post-index-change" ]
 }

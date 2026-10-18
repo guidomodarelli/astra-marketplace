@@ -90,9 +90,16 @@ La proyección automática de assets:
   copia, y la registra en `.claude/.agent-ready-hard-link-views`. Cada sync
   reenlaza las vistas que git desconectó al recrear el asset y poda, solo entre
   las registradas, las de assets borrados. Mientras existan vistas por hard link
-  instala el hook de git `post-index-change`, que las reenlaza después de reset,
-  stash, cherry-pick, revert o abortar un merge o rebase. Si el proyecto usa
-  `core.hooksPath` o ya tiene ese hook, no lo pisa y lo reporta como conflicto.
+  registra en la config local de git el hook `hook.agent-ready-relink`
+  (`post-index-change`), que corre `.agents/hooks/relink-hard-link-views.sh` después
+  de reset, stash, cherry-pick, revert o abortar un merge o rebase. Al ser un hook
+  por config convive con `core.hooksPath` (husky, lefthook) y con hooks propios sin
+  tocarlos. Si la versión de git no soporta hooks por config, instala el archivo
+  `.git/hooks/post-index-change`; con `core.hooksPath` o un hook propio no lo pisa
+  y lo reporta como conflicto.
+- El hook `UserPromptSubmit` de Claude Code corre el mismo script en cada prompt.
+  Cubre `git apply` sin `--index`, que reescribe archivos sin disparar ningún hook
+  de git. No imprime nada salvo avisos, porque Claude agrega la salida al prompt.
 - Migra referencias `.claude/hooks/` dentro de `.claude/settings.json` como JSON
   y normaliza el comando administrado a `.agents/hooks/` sin flags de fase,
   preservando campos custom y reportando settings inválidos.
