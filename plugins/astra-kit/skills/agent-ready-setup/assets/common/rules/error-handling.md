@@ -13,7 +13,7 @@ Every failure must end in a deliberate outcome that someone can see and trace.
 - Use structured logs with the operation name and the identifiers needed to debug it: correlation identifiers such as `requestId` or `traceId`, and safe business identifiers.
 - Log unexpected failures once, at the boundary that owns the user-facing response.
 - For retries and external provider calls, record each attempt and the final outcome with the same trace context. The layer that owns the retry loop records the attempts; if the project forbids logging in that layer (for example in services), return the attempt metadata to the boundary and log it there.
-- What may appear in logs is defined by the stack's `security.md` rule when it has one; otherwise, never log secrets, tokens, cookies, authorization headers, raw provider payloads, or PII.
+- Never log secrets, tokens, cookies, authorization headers, raw provider payloads, or PII. The stack's `security.md` may add stricter rules (for example how to truncate identifiers); the stricter rule wins.
 
 ## Error codes
 
