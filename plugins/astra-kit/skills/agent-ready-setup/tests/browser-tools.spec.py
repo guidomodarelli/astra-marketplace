@@ -77,7 +77,9 @@ class BrowserToolsTests(unittest.TestCase):
 
     def test_should_run_installed_tools_through_generated_launchers(self):
         self.write_fake_binaries()
-        browser_setup.write_launchers(self.binaries, self.browser)
+        # A display keeps launchers headed on Linux CI too; the headless path has its own test.
+        with patch.dict(os.environ, {"DISPLAY": ":0"}):
+            browser_setup.write_launchers(self.binaries, self.browser)
         self.register()
         claude, codex = self.project_servers()
         claude_command = claude["agent-browser"]["command"].replace("${HOME}", str(self.root))
