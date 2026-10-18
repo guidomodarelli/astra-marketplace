@@ -14,7 +14,7 @@ These rules apply when a critical or async action modifies, loads, or requests d
 
 - Prefer incremental responses over full route refreshes: when the mutated UI can be updated from a safe result, the route handler or server action returns the minimum view model needed to update the affected state.
 - Refresh the whole route only when it is justified by broad cache invalidation, data that cannot be rebuilt safely from the result, a security or authorization change, or critical cross-view synchronization. Document the reason next to the refresh.
-- Tests for user-triggered mutations assert that the interaction does not refresh the whole route, unless the documented exception applies.
+- Tests for user-triggered mutations assert the observable outcome of an incremental update: the affected UI shows the result while unrelated state (form input, scroll, focus, open panels) is preserved. Do not assert on calls to framework refresh helpers; cover the whole-route behavior in an integration or end-to-end test when it matters.
 
 ## Error tracking feedback
 

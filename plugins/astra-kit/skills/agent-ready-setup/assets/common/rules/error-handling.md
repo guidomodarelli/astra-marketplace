@@ -20,7 +20,7 @@ Every failure must end in a deliberate outcome that someone can see and trace.
 When the project keeps a catalog of technical error codes:
 
 - Give every technical error from server-side flows and external integrations (APIs, providers, databases) a stable code from that single catalog. Do not create ad-hoc or duplicated codes.
-- Return the code next to the error message in technical error responses; success responses stay unchanged.
-- Do not attach codes to request, form, or business validation errors.
+- Return the code next to the error message in technical error responses; success responses stay unchanged. When a skill's example returns only `{ error }` for a technical failure, add the catalog code in projects that keep one.
+- Do not attach catalog codes to request, form, or business validation errors. Validation responses keep the codes their own contract defines (for example a validator's issue codes).
 - A catalog code is an opaque support reference, not an infrastructure detail: the UI may show it as secondary text below the generic message, never instead of it, and never together with status codes, provider names, or other technical details.
 - When a new flow can produce technical errors, or you find one without a code, add its code in the same task.

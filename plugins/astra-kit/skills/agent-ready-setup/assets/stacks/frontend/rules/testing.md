@@ -10,7 +10,7 @@ Standards for writing and reviewing tests. The `test-reviewer` agent uses this f
 
 ## TDD cycle
 
-Work test-first for every feature, bug fix, and architectural change, always in this order:
+Work test-first for every change in behavior (features, bug fixes, and architectural changes that alter behavior), always in this order. For a refactor that preserves behavior, skip the failing-test step: confirm the affected behavior is covered by passing tests before you start, add the missing behavioral coverage first if it is not, and keep those tests green throughout.
 
 1. **Testing** — write the smallest failing test at the right layer, defining the expected behavior first. One clear behavior per test.
 2. **Code** — implement the minimum code that makes it pass, respecting the module boundaries; do not skip ports, mappers, or value objects to move faster.
