@@ -1,0 +1,143 @@
+{
+  "schema_version": 2,
+  "skill": "node-runtime-debugging",
+  "description": "Evalúa la depuración runtime de servidores Node.js y BFF: observar valores reales con node --inspect y requests auténticos antes de elegir fuentes o agregar fallbacks, captura segura y acotada, inspector en loopback, BLOCKED explícito sin mocks y cierre con evidencia y limpieza.",
+  "test_cases": [
+    {
+      "id": "verify-source-before-fallback",
+      "description": "Ante la elección entre dos fuentes de un valor, observa el request real con node --inspect y un breakpoint antes de agregar un fallback con ?? u ||.",
+      "input": "Usando node-runtime-debugging: en el BFF Express de `apps/checkout-bff`, el handler `getShippingOptions` necesita el país del usuario. El tipo de `req` sugiere que existe `req.session.user.countryId`, pero un compañero propone usar `req.platform.countryId ?? req.session.user.countryId ?? 'AR'` por las dudas. No ejecutes ni edites nada: describí cómo decidirías qué fuente usar y si corresponde el fallback.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "--inspect",
+          "description": "Inicia o usa el proceso real con node --inspect"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "breakpoint",
+            "punto de interrupción",
+            "punto de interrupcion"
+          ],
+          "description": "Pausa en el handler o adapter donde se consume el valor"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "request real",
+            "requests reales",
+            "real request",
+            "flujo real",
+            "escenario real",
+            "sesión real",
+            "sesion real"
+          ],
+          "description": "Dispara un request real con sesión e identidad auténticas"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|not|nunca|never|evit|avoid).*(fallback|default|inventar|invent|'AR'|hardcode)|(fallback|default|'AR').*(sin evidencia|without evidence|no se justifica|not justified|demostrar|demonstrate|prove)",
+          "description": "No agrega fallback ni default de país sin evidencia runtime"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "middleware",
+            "origen",
+            "propietario",
+            "owner",
+            "source of"
+          ],
+          "description": "Identifica el origen de cada candidato, incluido el middleware que lo crea"
+        }
+      ]
+    },
+    {
+      "id": "safe-capture-and-cleanup",
+      "description": "Captura solo una proyección sanitizada de campos, mantiene el inspector en loopback, limita la pausa y limpia breakpoints y procesos propios.",
+      "input": "Usando node-runtime-debugging: tengo que confirmar qué valor de `req.headers['x-site-id']` y de `req.user.siteId` llega al controller `listPromotions` del BFF en staging-local. Un compañero sugiere arrancar con `node --inspect=0.0.0.0:9229` y hacer `console.log(req)` para ver todo. No ejecutes ni edites nada: describí cómo harías la captura de forma segura y cómo cerrarías la sesión de debugging.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "127.0.0.1",
+            "loopback",
+            "localhost"
+          ],
+          "description": "Mantiene el inspector escuchando en loopback y no en 0.0.0.0"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|evit|avoid).*(volcar|dump|console\\.log\\(req\\)|req completo|entire req|full req|headers completos|cookies|tokens)",
+          "description": "No vuelca req, headers, cookies ni tokens completos"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "proyección",
+            "proyeccion",
+            "projection",
+            "campos concretos",
+            "specific fields",
+            "sanitiz"
+          ],
+          "description": "Evalúa solo una proyección acotada y sanitizada de campos"
+        },
+        {
+          "type": "regex",
+          "pattern": "(retir|quit|remov|limpi|clean).*(breakpoint|instrumentaci|instrumentation)|(breakpoint|instrumentaci).*(retir|quit|remov|limpi|clean)",
+          "description": "Retira breakpoints e instrumentación temporal al terminar"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "timeout",
+            "reanud",
+            "resume",
+            "bloquear",
+            "block"
+          ],
+          "description": "Limita la pausa y reanuda para no provocar timeouts"
+        }
+      ]
+    },
+    {
+      "id": "blocked-without-runtime-no-mock",
+      "description": "Si no puede levantar el runtime real por falta de autenticación, declara BLOCKED con intento y causa, no presenta un mock como verificación y pide solo lo indispensable.",
+      "input": "Usando node-runtime-debugging: quiero decidir si el adapter `fetchLoyaltyPoints` del BFF debe leer `customerId` desde `req.session` o desde la respuesta del servicio de identidad. El servidor local arranca, pero toda ruta autenticada devuelve 401 porque no tengo credenciales de un usuario de prueba. Alguien propone armar un test con un `req` fabricado y dar el comportamiento por verificado. No ejecutes ni edites nada: describí cómo procederías y qué reportarías.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "BLOCKED",
+          "description": "Declara BLOCKED con el intento realizado y la causa concreta"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|not|nunca|never).*(mock|req fabricado|fabricated req|fake req|test sint|synthetic test|arnés|arnes|harness).*(verific|comproba|reemplaz|replace|verified)|(mock|fabricad|sintétic|sintetic|synthetic).*(no|not).*(reemplaz|replace|verific|comproba|prueba|prove)",
+          "description": "No presenta un req fabricado o un mock como comprobación runtime"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "credencial",
+            "credential",
+            "usuario de prueba",
+            "test user",
+            "fixture autorizado",
+            "authorized fixture",
+            "autenticación",
+            "autenticacion",
+            "authentication"
+          ],
+          "description": "Pide únicamente el dato o acción indispensable para autenticarse"
+        },
+        {
+          "type": "regex",
+          "pattern": "limitaci|limitation|no verificad|not verified|sin verificar|unverified|no se puede declarar|cannot be declared",
+          "description": "Explicita la limitación y no declara verificada la decisión sin runtime"
+        }
+      ]
+    }
+  ]
+}

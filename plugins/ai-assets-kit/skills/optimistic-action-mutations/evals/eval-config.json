@@ -1,0 +1,108 @@
+{
+  "schema_version": 2,
+  "skill": "optimistic-action-mutations",
+  "description": "Evalúa mutaciones optimistas: feedback visual inmediato con debounce solo del flush, intención pendiente por entidad con baseline persistido, rollback al baseline capturado, protección ante respuestas viejas y contrato de servidor mínimo e idempotente.",
+  "test_cases": [
+    {
+      "id": "like-toggle-rapid-clicks-debounce",
+      "description": "Diseña un like/unlike con UI inmediata, debounce del envío, intención pendiente por mensaje y rollback al baseline capturado.",
+      "input": "Usando optimistic-action-mutations: en un chat de Next.js, `MessageLikeButton` hoy hace `await fetch('/api/messages/:id/like', { method: 'POST' })` en cada click y recién después actualiza `likedByViewer` y `likeCount`. Los usuarios hacen doble o triple click y se mandan varios requests, y el contador salta. Quiero que el botón responda al instante y que solo se persista la última intención. No ejecutes ni edites nada: describí el diseño del estado, el flujo de envío y cómo manejarías los errores.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["baseline"],
+          "description": "Captura un baseline del último estado persistido"
+        },
+        {
+          "type": "regex",
+          "pattern": "debounce.{0,120}(flush|envío|envio|request|petici)|(flush|envío|envio|request|petici).{0,120}debounce",
+          "description": "Aplica el debounce al envío y no al feedback visual"
+        },
+        {
+          "type": "contains_any",
+          "values": ["rollback", "revert", "restaur", "restore"],
+          "description": "Restaura el estado ante fallas"
+        },
+        {
+          "type": "contains_any",
+          "values": ["inmediat", "immediate", "instant", "al instante"],
+          "description": "Aplica el estado optimista inmediatamente"
+        },
+        {
+          "type": "contains_any",
+          "values": ["Math.max", "no negativ", "non-negative", "negative", "acotad", "bounded"],
+          "description": "Actualiza el contador con aritmética acotada"
+        },
+        {
+          "type": "regex",
+          "pattern": "(igual|equals|coincide|same|matches|vuelve).{0,80}baseline|baseline.{0,80}(igual|equals|coincide|same|sin cambios|no request|skip|omit|cancel)",
+          "description": "Omite el request cuando la intención vuelve al baseline"
+        }
+      ]
+    },
+    {
+      "id": "poll-vote-in-flight-reconcile",
+      "description": "Reconcilia votos de encuesta cuando el usuario cambia de opción mientras hay un request en curso, ignorando respuestas viejas y usando el servidor como fuente de verdad.",
+      "input": "Usando optimistic-action-mutations: en `PollCard` el usuario vota la opción A, el request tarda 2 segundos y mientras tanto cambia a la opción B. A veces la respuesta de A llega y pisa la selección B, y los porcentajes quedan mal. Además, si navega a otro post antes de que vuelva la respuesta, se actualiza la encuesta equivocada. No ejecutes ni edites nada: describí cómo modelarías la intención pendiente y cómo reconciliarías las respuestas.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["shouldFlushAfterRequest", "isRequestInFlight", "in flight", "in-flight", "en curso", "en vuelo"],
+          "description": "Modela el request en curso y el flush posterior"
+        },
+        {
+          "type": "contains_any",
+          "values": ["stale", "obsolet", "vieja", "viejas", "desactualizad", "antigua"],
+          "description": "Ignora respuestas viejas de otra ruta o entidad"
+        },
+        {
+          "type": "regex",
+          "pattern": "(nuevo|new).{0,40}baseline|baseline.{0,60}(nuevo|new|promov|promot)",
+          "description": "Promueve la respuesta a nuevo baseline y vuelve a aplicar la última intención"
+        },
+        {
+          "type": "contains_any",
+          "values": ["fuente de verdad", "source of truth", "server truth", "verdad del servidor"],
+          "description": "Usa la respuesta del servidor como fuente de verdad para conteos y porcentajes"
+        },
+        {
+          "type": "contains_any",
+          "values": ["por entidad", "per entity", "por id", "keyed", "por poll", "por encuesta", "pollId", "entity id"],
+          "description": "Guarda la intención pendiente por id de entidad"
+        }
+      ]
+    },
+    {
+      "id": "pin-endpoint-minimal-idempotent-contract",
+      "description": "Define el contrato de servidor de un pin/unpin: respuesta mínima para reconciliar, escritura idempotente bajo concurrencia y sin refresh completo de la ruta.",
+      "input": "Usando optimistic-action-mutations: tengo una server action `togglePinMessage(messageId)` que hace `insert` en `pinned_messages` y después `revalidatePath('/channel/[id]')` para refrescar toda la página. Con clicks rápidos aparecen errores de clave duplicada y el orden de los mensajes fijados parpadea. No ejecutes ni edites nada: describí cómo rediseñarías el contrato del servidor y qué debería devolver la mutación.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["idempot", "upsert", "on conflict"],
+          "description": "Hace la escritura idempotente o con upsert"
+        },
+        {
+          "type": "contains_any",
+          "values": ["pinnedAt", "timestamp", "orden", "ordering", "sort"],
+          "description": "Devuelve timestamps u orden para reconciliar el listado"
+        },
+        {
+          "type": "regex",
+          "pattern": "(evit|no |sin |avoid|instead|en lugar|reemplaz).{0,80}(revalidatePath|refresh|recarg|refresco)",
+          "description": "Evita el refresh completo de la ruta como reconciliación por defecto"
+        },
+        {
+          "type": "contains_any",
+          "values": ["transac", "constraint", "restricción", "restriccion", "unique", "únic", "unic", "lock"],
+          "description": "Protege la escritura con transacciones, constraints o locks"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["mostrar el error de la base", "show the raw database error", "devolver el error crudo"],
+          "description": "No propone exponer errores crudos de base de datos en la UI"
+        }
+      ]
+    }
+  ]
+}

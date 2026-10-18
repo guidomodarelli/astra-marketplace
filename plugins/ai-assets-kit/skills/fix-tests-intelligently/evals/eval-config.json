@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "skill": "fix-tests-intelligently",
+  "description": "Evalúa el diagnóstico de tests fallidos: decidir con evidencia del historial de git si el test está desactualizado o la implementación regresionó, respetar el alcance de edición pedido y rechazar atajos como saltear tests o debilitar assertions.",
+  "test_cases": [
+    {
+      "id": "stale-test-after-intentional-rename",
+      "description": "Ante un campo renombrado intencionalmente en producción, usa el historial de git como evidencia, concluye que el test está desactualizado y actualiza la expectativa sin debilitarla.",
+      "input": "Usando fix-tests-intelligently: el test `src/orders/mapOrder.test.ts` falla porque espera `{ id: '1', customerName: 'Ana' }` y `mapOrder` ahora devuelve `{ id: '1', buyerName: 'Ana' }`. Hace dos días alguien commiteó \"renombra customerName a buyerName según el nuevo contrato de la API\" y actualizó los call sites, pero no este test. Arreglá el test. No ejecutes ni edites nada: describí cómo diagnosticarías la causa, dónde aplicarías el fix y qué evidencia citarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "git (log|show|blame|diff)|commit|historial|history",
+          "description": "Revisa el historial de git o el commit del renombre como evidencia"
+        },
+        {
+          "type": "regex",
+          "pattern": "(test|expectativa|expectation|assertion).{0,80}(desactualizad|obsolet|stale|outdated|deprecad)|(desactualizad|obsolet|stale|outdated|deprecad).{0,80}(test|expectativa|expectation|assertion)",
+          "description": "Concluye que la causa raíz está en el test desactualizado"
+        },
+        {
+          "type": "contains",
+          "value": "buyerName",
+          "description": "Actualiza la expectativa al nuevo nombre del campo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(ejecut|correr|corré|run|rerun|volver a correr).{0,60}(test|suite)|(test|suite).{0,60}(pasen|pase|pass|green|verde)",
+          "description": "Plantea correr los tests relevantes después del cambio"
+        }
+      ]
+    },
+    {
+      "id": "implementation-regression-with-scope-gate",
+      "description": "Cuando el test representa el contrato correcto y la implementación regresionó, identifica el fix en producción y frena antes de editar código de producción sin autorización explícita.",
+      "input": "Usando fix-tests-intelligently: arreglá los tests que fallan. `calculateDiscount.test.ts` espera que un cupón del 10% sobre 200 devuelva 180, pero ahora devuelve 200. El último commit sobre `src/pricing/calculateDiscount.ts` fue un refactor titulado \"extrae helper de redondeo\" que no debía cambiar comportamiento, y la documentación de producto confirma que el descuento debe aplicarse. No ejecutes ni edites nada: describí dónde está la causa raíz, qué archivos tocarías y qué harías antes de modificarlos.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(regresi|regression|bug).{0,120}(implementaci|implementation|producci|production|calculateDiscount|refactor)|(implementaci|implementation|producci|production|calculateDiscount|refactor).{0,120}(regresi|regression|bug)",
+          "description": "Identifica una regresión en la implementación como causa raíz"
+        },
+        {
+          "type": "contains_any",
+          "values": ["confirm", "autoriz", "permiso", "authoriz", "approval", "aprobaci", "pregunt", "ask"],
+          "description": "Pide confirmación antes de editar código de producción"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca|never|not|don't|do not).{0,60}(modific|cambi|edit|change|toc).{0,40}(test|assertion|expectativa|180)",
+          "description": "Aclara que no corresponde cambiar la expectativa del test"
+        }
+      ]
+    },
+    {
+      "id": "reject-skip-and-weaker-matchers",
+      "description": "Ante un pedido de dejar la suite verde rápido, rechaza saltear el test, borrar assertions o usar matchers más débiles y busca la causa real.",
+      "input": "Usando fix-tests-intelligently: el pipeline está rojo y necesito mergear hoy. `UserProfile.test.tsx` falla en `expect(screen.getByRole('heading', { name: 'Hola, Ana' })).toBeInTheDocument()` porque ahora se renderiza 'Hola, Ana!'. Un compañero propone poner `it.skip` o cambiar a `getByText(/Hola/)`. No ejecutes ni edites nada: describí qué harías y qué descartarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|evit|descart|rechaz|never|avoid|reject|don't|do not).{0,80}(skip|saltear|deshabilit|disable|mute|silenci)",
+          "description": "Descarta saltear o deshabilitar el test como atajo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(debil|débil|weak|laxo|loose|imprecis|menos precis|less precise|less specific|menos específic|menos especific|/Hola/)",
+          "description": "Rechaza reemplazar la assertion por un matcher más débil"
+        },
+        {
+          "type": "regex",
+          "pattern": "git (log|show|blame|diff)|commit|historial|history|intenci|intent|especificaci|spec|requisito|requirement|contrato|contract",
+          "description": "Busca evidencia de la intención antes de decidir si el cambio de copy fue deliberado"
+        }
+      ]
+    }
+  ]
+}

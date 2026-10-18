@@ -1,0 +1,83 @@
+{
+  "schema_version": 2,
+  "skill": "simplify",
+  "description": "Evalúa limpiezas de calidad sobre un diff: colapsar duplicación sin ocultar intención, quitar indirección innecesaria, ubicar constantes y helpers reutilizando módulos existentes, preservar el comportamiento, no derivar en bug hunting y validar con tests o typecheck.",
+  "test_cases": [
+    {
+      "id": "collapse-duplication-and-wrapper",
+      "description": "Detecta mapping duplicado y un wrapper de un solo caller sin responsabilidad propia, propone cambios que preservan el comportamiento y nombra la validación.",
+      "input": "Usando simplify: el diff actual agrega dos componentes que repiten el mismo mapping y un wrapper nuevo.\n\n```tsx\n// OrdersTable.tsx\nconst rows = orders.map((order) => ({ id: order.id, label: `${order.code} - ${order.customerName}`, total: order.totalCents / 100 }));\n\n// OrdersExport.tsx\nconst rows = orders.map((order) => ({ id: order.id, label: `${order.code} - ${order.customerName}`, total: order.totalCents / 100 }));\n\n// ordersService.ts\nexport function getOrdersWrapper(filters: OrderFilters) {\n  return getOrders(filters);\n}\n```\n\n`getOrdersWrapper` tiene un solo caller. Simplificá los cambios. No ejecutes ni edites nada: describí qué limpiarías, por qué preserva el comportamiento y cómo lo validarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["duplica", "duplicat", "repetid", "repeated"],
+          "description": "Identifica el mapping duplicado"
+        },
+        {
+          "type": "regex",
+          "pattern": "getOrdersWrapper.*(elimin|quit|remov|inline|innecesari|unnecessary|redundant)|(elimin|quit|remov|inline|innecesari|unnecessary|redundant).*getOrdersWrapper",
+          "description": "Propone quitar el wrapper de un solo caller sin responsabilidad propia"
+        },
+        {
+          "type": "contains_any",
+          "values": ["comportamiento", "behavior", "behaviour", "misma salida", "same output"],
+          "description": "Justifica que la limpieza preserva el comportamiento"
+        },
+        {
+          "type": "contains_any",
+          "values": ["test", "tsc", "typecheck", "type-check", "lint"],
+          "description": "Indica la validación a correr sobre el área tocada"
+        }
+      ]
+    },
+    {
+      "id": "quality-only-scope",
+      "description": "Mantiene el alcance en calidad: ante un posible bug o una pregunta de seguridad lo deriva a otra revisión en lugar de convertir la simplificación en bug hunting.",
+      "input": "Usando simplify: el diff agrega esta función en `src/reports/pagination.ts`:\n\n```ts\nexport function getPageItems(items: Item[], page: number, pageSize: number) {\n  const start = page * pageSize - pageSize + 1;\n  const result = [];\n  for (let index = start; index < start + pageSize; index++) {\n    if (items[index] !== undefined && items[index] !== null) {\n      result.push(items[index]);\n    }\n  }\n  return result;\n}\n```\n\nSospecho que además hay un off-by-one y quiero saber si tiene problemas de seguridad. Simplificala. No ejecutes ni edites nada: describí qué simplificarías y cómo tratarías la sospecha de bug y la pregunta de seguridad.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["slice", "filter", "loop", "bucle", "defensiv", "defensive", "redundant", "redundante"],
+          "description": "Propone simplificar el loop o la verificación redundante"
+        },
+        {
+          "type": "contains_any",
+          "values": ["fuera de alcance", "fuera del alcance", "out of scope", "no es parte", "not part of", "code-review", "code review", "otra skill", "another skill", "revisión aparte", "revision aparte", "separate review", "solo calidad", "quality-only", "quality only"],
+          "description": "Deja el bug hunting y la revisión de seguridad fuera del alcance de la skill"
+        },
+        {
+          "type": "contains_any",
+          "values": ["comportamiento", "behavior", "behaviour"],
+          "description": "Aclara que la limpieza no debe cambiar el comportamiento previsto"
+        }
+      ]
+    },
+    {
+      "id": "constants-utils-placement",
+      "description": "Reubica un status repetido en el módulo de constantes existente y mueve un helper puro reutilizado al directorio de utilidades existente sin crear módulos catch-all.",
+      "input": "Usando simplify: el diff agrega el literal `'PENDING_REVIEW'` en `src/orders/OrderBadge.tsx`, `src/orders/useOrderActions.ts` y `src/invoices/InvoiceRow.tsx`. Ya existe `src/constants/orderStatus.ts` con `ORDER_STATUS.APPROVED` y `ORDER_STATUS.REJECTED`. También agrega `formatShortDate(date: Date)`, una función pura definida dentro de `OrderBadge.tsx` y copiada en `InvoiceRow.tsx`; existe `src/shared/date-utils/` con otros formateadores. Simplificá los cambios. No ejecutes ni edites nada: describí dónde ubicarías cada cosa y por qué.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["orderStatus", "ORDER_STATUS"],
+          "description": "Reutiliza el módulo de constantes existente para el status"
+        },
+        {
+          "type": "contains",
+          "value": "date-utils",
+          "description": "Reutiliza el directorio de utilidades existente para el helper puro"
+        },
+        {
+          "type": "contains_any",
+          "values": ["existente", "existing", "ya existe", "already exists", "reutiliz", "reus", "reuse"],
+          "description": "Prefiere reutilizar ubicaciones existentes antes de crear nuevas"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["src/common/", "src/utils/common", "src/helpers/misc", "constants/common"],
+          "description": "No crea un módulo catch-all genérico"
+        }
+      ]
+    }
+  ]
+}

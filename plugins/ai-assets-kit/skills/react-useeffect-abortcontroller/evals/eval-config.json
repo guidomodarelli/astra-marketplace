@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "skill": "react-useeffect-abortcontroller",
+  "description": "Evalúa efectos async de React que evitan race conditions: AbortController creado en el efecto con signal propagado, cleanup que siempre aborta, guard isActive como red de seguridad, errores de cancelación ignorados explícitamente y mensajes de error específicos.",
+  "test_cases": [
+    {
+      "id": "replace-canceled-flag-with-abortcontroller",
+      "description": "Reemplaza un flag booleano de cancelación por AbortController con signal propagado, cleanup que aborta y guard isActive complementario.",
+      "input": "Usando react-useeffect-abortcontroller: tengo este efecto en `RolePermissions.jsx` que se dispara cada vez que cambia `roleId`, y a veces se muestran los permisos del rol anterior.\n\n```jsx\nuseEffect(() => {\n  let canceled = false;\n  async function loadPermissions() {\n    const permissions = await getRolePermissions(roleId);\n    if (!canceled) setPermissions(permissions);\n  }\n  loadPermissions();\n  return () => { canceled = true; };\n}, [roleId]);\n```\n\n`getRolePermissions` usa axios internamente. No ejecutes ni edites nada: describí cómo reescribirías el efecto y por qué.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "AbortController",
+          "description": "Usa AbortController como mecanismo principal de cancelación"
+        },
+        {
+          "type": "regex",
+          "pattern": "signal",
+          "description": "Propaga controller.signal al cliente HTTP"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\.abort\\(\\)",
+          "description": "El cleanup del efecto llama a controller.abort()"
+        },
+        {
+          "type": "contains_any",
+          "values": ["isActive", "guard", "red de seguridad", "safety net", "microtask"],
+          "description": "Mantiene un guard local como red de seguridad, no como mecanismo principal"
+        },
+        {
+          "type": "regex",
+          "pattern": "flag.*(no alcanza|insuficiente|no cancela|not enough|doesn.t cancel|does not cancel|sigue en vuelo|in-flight|in flight)|(no alcanza|insuficiente|no cancela|not enough|doesn.t cancel|does not cancel).*(flag|canceled)",
+          "description": "Explica que el flag booleano no cancela el request en vuelo"
+        }
+      ]
+    },
+    {
+      "id": "client-wrapper-without-signal",
+      "description": "Cuando el wrapper REST del proyecto no acepta signal, propone extenderlo para recibir { signal } y reenviarlo al request subyacente.",
+      "input": "Usando react-useeffect-abortcontroller: en `useOrderSearch.js` hay un `useEffect` que llama a `restClient.get('/orders', { params: { query } })` cada vez que cambia `query`. El wrapper `restClient` del proyecto hoy solo acepta `params` y no expone ninguna forma de cancelar. Quiero evitar que una respuesta vieja pise a una nueva. No ejecutes ni edites nada: describí qué cambiarías en el hook y en el wrapper.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "AbortController",
+          "description": "Crea un AbortController dentro del efecto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(wrapper|restClient|cliente|client).*(signal)|(signal).*(wrapper|restClient|cliente|client)",
+          "description": "Extiende el wrapper para aceptar y reenviar signal"
+        },
+        {
+          "type": "contains_any",
+          "values": ["reenvi", "forward", "propag", "pasar", "pass"],
+          "description": "Reenvía el signal al request subyacente"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\.abort\\(\\)",
+          "description": "Aborta el request anterior en el cleanup"
+        }
+      ]
+    },
+    {
+      "id": "cancellation-errors-and-specific-logging",
+      "description": "Ignora explícitamente los errores de cancelación y deja mensajes de error específicos con operación e identificadores.",
+      "input": "Usando react-useeffect-abortcontroller: ya agregué AbortController a un efecto de `UserProfile.tsx` que carga el perfil por `userId` con axios, pero ahora cada cambio rápido de usuario dispara `logger.error('Error', error)` y muestra un toast de error aunque el request solo se haya cancelado. No ejecutes ni edites nada: describí cómo manejarías el catch y qué mensaje de error dejarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["ERR_CANCELED", "CanceledError", "AbortError"],
+          "description": "Detecta explícitamente los errores de cancelación"
+        },
+        {
+          "type": "contains_any",
+          "values": ["ignor", "return", "descart", "silenci", "skip", "omit"],
+          "description": "Ignora la cancelación sin loguearla ni mostrar error"
+        },
+        {
+          "type": "contains",
+          "value": "userId",
+          "description": "Incluye el identificador clave en el mensaje de error"
+        },
+        {
+          "type": "regex",
+          "pattern": "(UserProfile|fetch|load|carg|perfil|profile)[^\\n]*(failed|fall)",
+          "description": "El mensaje de error nombra la operación que falló"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "skill": "widget-ui-proposals",
+  "description": "Evalúa propuestas y previews de UI/UX con widgets visuales: grid de opciones componibles con botones Aplicar que llaman a sendPrompt, recomendación y trade-offs en el chat y no dentro del widget, preview con datos realistas y aplicación solo de las opciones elegidas.",
+  "test_cases": [
+    {
+      "id": "variants-grid-with-apply-buttons",
+      "description": "Ante un pedido de varias alternativas, propone un único widget con cards componibles, botones Aplicar con sendPrompt, cards recomendadas y la recomendación rankeada en el chat.",
+      "input": "Usando widget-ui-proposals: quiero probar varias variantes para el header de la tabla de pedidos de `OrdersTable.tsx`. Hoy tiene un input de búsqueda, tres selects de filtros y un botón Exportar todo en una sola fila que en mobile se rompe. Mostrame opciones. No ejecutes ni edites nada: describí qué widget mostrarías, qué tendría cada opción y qué pondrías en el chat.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["show_widget", "widget"],
+          "description": "Muestra las opciones en un widget visual y no como lista en prosa"
+        },
+        {
+          "type": "contains",
+          "value": "sendPrompt",
+          "description": "Cada card tiene un botón Aplicar que llama a sendPrompt"
+        },
+        {
+          "type": "contains_any",
+          "values": ["Recomendada", "recomendad", "recommended"],
+          "description": "Marca una o dos cards como recomendadas"
+        },
+        {
+          "type": "contains_any",
+          "values": ["componible", "combinar", "combinables", "combin", "composable", "combine"],
+          "description": "Plantea opciones distintas y componibles entre sí"
+        },
+        {
+          "type": "regex",
+          "pattern": "(chat|respuesta|response).*(recomend|trade-off|tradeoff|explica|ranking|rank)|(recomend|trade-off|tradeoff|explica|ranking|rank).*(chat|respuesta|response)",
+          "description": "Deja la recomendación y los trade-offs en el chat, fuera del widget"
+        }
+      ]
+    },
+    {
+      "id": "preview-before-applying-change",
+      "description": "Ante un pedido de cómo quedaría un cambio concreto, propone un widget de preview con datos realistas y la estructura del componente real antes de editar código.",
+      "input": "Usando widget-ui-proposals: ¿cómo quedaría la card de producto de `ProductCard.jsx` si muevo el precio arriba del título, agrego un badge de descuento y paso el botón Agregar al carrito a ancho completo? No ejecutes ni edites nada: describí qué mostrarías antes de tocar el código y cómo seguirías después.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["preview", "mockup", "maqueta", "vista previa"],
+          "description": "Muestra un preview o mockup del resultado final"
+        },
+        {
+          "type": "contains_any",
+          "values": ["datos realistas", "datos de ejemplo", "sample data", "realistic data", "datos reales", "datos de muestra"],
+          "description": "Usa datos de ejemplo realistas en el preview"
+        },
+        {
+          "type": "regex",
+          "pattern": "(antes de|before).*(edit|cambi|tocar|implement|aplicar|code|código|codigo)|(confirm|valid|aprob).*(direcci|direction|cambio)",
+          "description": "Confirma la dirección con el preview antes de editar el código"
+        },
+        {
+          "type": "contains_any",
+          "values": ["lint", "typecheck", "tests", "quality gates", "gates"],
+          "description": "Tras implementar, corre los quality gates del proyecto"
+        }
+      ]
+    },
+    {
+      "id": "apply-only-selected-options",
+      "description": "Cuando el usuario elige algunas opciones de un widget previo, implementa solo esas, no aplica las no elegidas y ofrece un preview actualizado con la siguiente tanda.",
+      "input": "Usando widget-ui-proposals: del widget anterior con seis mejoras para el formulario de checkout elegí solo la opción 2 (agrupar dirección en un fieldset colapsable) y la opción 5 (resumen sticky en desktop). Las otras me parecieron bien pero no las quiero ahora. No ejecutes ni edites nada: describí cómo seguirías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(solo|únicamente|unicamente|only).*(2|5|elegid|seleccionad|chosen|selected|picked)",
+          "description": "Implementa únicamente las opciones elegidas"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|not|sin).*(aplic|implement|apply).*(resto|otras|demás|demas|others|rest|no elegid)|(resto|otras|demás|demas|others|rest).*(no|not|sin).*(aplic|implement|apply)",
+          "description": "No aplica las opciones que el usuario no eligió"
+        },
+        {
+          "type": "contains_any",
+          "values": ["preview actualizado", "nuevo preview", "updated preview", "widget actualizado", "nuevo widget", "siguiente tanda", "próxima tanda", "proxima tanda", "next batch"],
+          "description": "Ofrece un preview actualizado o la siguiente tanda de opciones"
+        },
+        {
+          "type": "contains_any",
+          "values": ["lint", "typecheck", "tests", "quality gates", "gates"],
+          "description": "Valida los cambios con los quality gates del proyecto"
+        }
+      ]
+    }
+  ]
+}

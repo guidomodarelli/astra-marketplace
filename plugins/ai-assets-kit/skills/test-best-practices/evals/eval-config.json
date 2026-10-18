@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "skill": "test-best-practices",
+  "description": "Evalúa convenciones de tests React: usar el wrapper de test-utils del proyecto con providers en vez de mockear i18n, no mockear componentes de plataforma, preferir toStrictEqual sobre comparaciones parciales y parametrizar variantes por locale con describe.each.",
+  "test_cases": [
+    {
+      "id": "component-test-with-wrapper-no-platform-mocks",
+      "description": "Escribe el test de un componente importando render desde el wrapper de test-utils, sin mockear el design system y pasando el locale por las opciones del wrapper.",
+      "input": "Usando test-best-practices: tengo que testear `src/components/ProductCard.tsx`, que usa `Card` y `Button` del design system interno `@acme/ui` y textos traducidos con i18n. El proyecto tiene `@/tests/utils`, que reexporta Testing Library y configura i18n, store y router. Un borrador actual hace `jest.mock('@acme/ui')` y `jest.mock('react-i18next')`. No ejecutes ni edites nada: describí cómo escribirías el test y qué cambiarías del borrador.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "@/tests/utils",
+          "description": "Importa render desde el wrapper de test-utils del proyecto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|don't|do not|evit|avoid|quit|remov|elimin|sac).{0,80}(mock).{0,80}(@acme/ui|design system|plataforma|platform)|(@acme/ui|design system|plataforma|platform).{0,80}(no|nunca|never|real|sin mock|without mock)",
+          "description": "No mockea los componentes del design system y los renderiza reales"
+        },
+        {
+          "type": "regex",
+          "pattern": "(locale|idioma|i18n).{0,120}(opci|option|wrapper|render)|(opci|option|wrapper|render).{0,120}(locale|i18n)",
+          "description": "Pasa el locale por las opciones del wrapper en lugar de mockear i18n"
+        },
+        {
+          "type": "contains_any",
+          "values": ["getByRole", "screen.", "toBeInTheDocument", "toHaveAttribute"],
+          "description": "Afirma salida observable con queries de Testing Library"
+        }
+      ]
+    },
+    {
+      "id": "strict-equality-over-partial-assertions",
+      "description": "Reemplaza assertions parciales con toHaveProperty y toContain por una comparación completa con toStrictEqual sin assertions redundantes.",
+      "input": "Usando test-best-practices: revisá estas assertions del test de un hook `useCartSummary`:\n\n```ts\nconst { result } = renderHook(() => useCartSummary(items));\nexpect(result.current).toHaveProperty('total');\nexpect(result.current.total).toBe(150);\nexpect(result.current.label).toContain('3 productos');\nexpect(result.current.currency).toEqual('ARS');\n```\n\nEl valor esperado es estable y conocido: `{ total: 150, label: '3 productos en el carrito', currency: 'ARS' }`. No ejecutes ni edites nada: describí cómo reescribirías las assertions y por qué.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "toStrictEqual",
+          "description": "Usa toStrictEqual para comparar el objeto completo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(evit|avoid|no us|don't use|do not use|reemplaz|replace|elimin|remov|quit|sac).{0,80}(toHaveProperty|toContain|parcial|partial)|(toHaveProperty|toContain|parcial|partial).{0,80}(evit|avoid|innecesari|unnecessar|redundant|reemplaz|replace)",
+          "description": "Descarta toHaveProperty y comparaciones parciales"
+        },
+        {
+          "type": "contains",
+          "value": "3 productos en el carrito",
+          "description": "Afirma el valor exacto completo en lugar de una subcadena"
+        }
+      ]
+    },
+    {
+      "id": "locale-variants-with-describe-each",
+      "description": "Elimina la duplicación entre tests por locale con describe.each, opciones de render armadas en beforeEach y literales esperados extraídos sin concatenaciones.",
+      "input": "Usando test-best-practices: en `DealsBanner.test.tsx` hay tres tests casi idénticos que renderizan `<DealsBanner />` con `{ locale: 'es-AR' }`, `{ locale: 'pt-BR' }` y `{ locale: 'es-MX' }` y verifican los títulos 'Ofertas del día', 'Ofertas do dia' y 'Ofertas del día MX'. El wrapper de render está en `@/tests/utils`. No ejecutes ni edites nada: describí cómo refactorizarías el archivo.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "describe.each",
+          "description": "Parametriza las variantes por locale con describe.each"
+        },
+        {
+          "type": "contains",
+          "value": "beforeEach",
+          "description": "Arma las opciones de render en beforeEach para cada caso"
+        },
+        {
+          "type": "regex",
+          "pattern": "(sin|no|without|avoid|evit).{0,60}(concaten|transform|interpol)|(literal|valor esperado|expected (value|text)|texto esperado).{0,80}(caso|case|array|tabla|table|extra)",
+          "description": "Extrae los literales esperados por caso sin concatenarlos ni transformarlos"
+        }
+      ]
+    }
+  ]
+}

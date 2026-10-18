@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "skill": "react-render-performance-patterns",
+  "description": "Evalúa optimizaciones de render en React: diagnóstico con Profiler antes de memoizar, separación de updates urgentes y no urgentes con startTransition, identidades estables con useCallback/useMemo/React.memo, equality guards y gotchas de reset de TanStack Table.",
+  "test_cases": [
+    {
+      "id": "typing-lag-filter-start-transition",
+      "description": "Ante lag al tipear en un filtro de tabla grande, mantiene urgente el update del input y difiere el filtrado con startTransition o useDeferredValue.",
+      "input": "Usando react-render-performance-patterns: en `InvoicesTable` hay un input de búsqueda que en cada tecla hace `setQuery(value)` y la tabla de 3000 filas se re-filtra y re-renderiza entera. Al tipear, las letras aparecen con medio segundo de retraso. No ejecutes ni edites nada: describí cómo diagnosticarías el problema y qué cambios harías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["startTransition", "useTransition", "useDeferredValue"],
+          "description": "Usa transitions o valores diferidos para la parte costosa"
+        },
+        {
+          "type": "regex",
+          "pattern": "(urgent|urgente|fuera de|outside).{0,120}(input|draft|tecla|keystroke|transition)",
+          "description": "Mantiene el update del input fuera de la transition como urgente"
+        },
+        {
+          "type": "contains_any",
+          "values": ["Profiler", "DevTools", "medir", "measure", "perfil", "profil"],
+          "description": "Mide o perfila antes de optimizar"
+        },
+        {
+          "type": "contains_any",
+          "values": ["interrump", "interrupt"],
+          "description": "Explica que la transition es interrumpible por la siguiente tecla"
+        }
+      ]
+    },
+    {
+      "id": "memo-child-unstable-props",
+      "description": "Detecta que React.memo no sirve con props inestables y estabiliza handlers y columnas con useCallback y useMemo, evitando memoizar valores triviales.",
+      "input": "Usando react-render-performance-patterns: envolví `PaymentRow` en `React.memo`, pero el Profiler sigue mostrando que las 500 filas se re-renderizan cada vez que cambia un contador del toolbar. El padre hace `<PaymentRow onSelect={() => toggle(row.id)} columns={[...baseColumns, actionsColumn]} />` y además le puse `useMemo` a `const label = firstName + ' ' + lastName`. No ejecutes ni edites nada: explicá por qué no funciona y qué cambiarías.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "useCallback",
+          "description": "Estabiliza el handler con useCallback"
+        },
+        {
+          "type": "contains",
+          "value": "useMemo",
+          "description": "Memoiza el array de columnas con useMemo"
+        },
+        {
+          "type": "contains_any",
+          "values": ["identidad", "identity", "referencia", "reference", "referential", "referencial"],
+          "description": "Explica que las props inline rompen la igualdad referencial"
+        },
+        {
+          "type": "regex",
+          "pattern": "(trivial|barat|cheap|innecesari|unnecessary|overhead|no vale|not worth).{0,120}(label|concat|string|useMemo|memo)|(label|concat|string|useMemo|memo).{0,120}(trivial|barat|cheap|innecesari|unnecessary|overhead|no vale|not worth)",
+          "description": "Señala que memoizar la concatenación trivial es overhead"
+        }
+      ]
+    },
+    {
+      "id": "tanstack-max-update-depth",
+      "description": "Resuelve 'Maximum update depth exceeded' en TanStack Table desactivando auto-resets innecesarios, evitando depender de la identidad de `table` y agregando equality guards.",
+      "input": "Usando react-render-performance-patterns: uso TanStack Table v8 sin paginación. Al tipear en un filtro aparece `Maximum update depth exceeded` y la página se congela. Tengo `const rows = useMemo(() => table.getRowModel().rows.map(renderRow), [table])` y el handler del filtro hace `setColumnFilters(computeNext(prev))` en cada tecla aunque el resultado sea igual. No ejecutes ni edites nada: describí la causa y los cambios.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["autoResetPageIndex", "autoResetExpanded", "auto-reset", "autoReset"],
+          "description": "Desactiva los auto-resets que generan el loop"
+        },
+        {
+          "type": "regex",
+          "pattern": "(identidad|identity|referencia|reference|misma|same).{0,120}table|table.{0,120}(identidad|identity|referencia|reference|misma|same|stale|obsolet)",
+          "description": "Explica que depender de la identidad de table deja el memo stale"
+        },
+        {
+          "type": "contains_any",
+          "values": ["getRowModel().rows", "rowModelRows", "getState()", "columnVisibility", "sorting"],
+          "description": "Depende de los slices de estado o del row model reales"
+        },
+        {
+          "type": "regex",
+          "pattern": "(prev|anterior|previous).{0,80}(igual|equal|referencia|reference)|(igual|equal|equality).{0,80}(prev|anterior|previous|guard)",
+          "description": "Agrega un equality guard que devuelve la referencia previa"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["JSON.stringify(prev) === JSON.stringify", "usar JSON.stringify para comparar"],
+          "description": "No propone JSON.stringify como chequeo de igualdad en el hot path"
+        }
+      ]
+    }
+  ]
+}

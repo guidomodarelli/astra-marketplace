@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "skill": "generate-commit-messages",
+  "description": "Evalúa la redacción y aplicación de commits: respeto de la configuración de commitlint, alcance limitado a lo stageado o `git add -A` cuando no hay nada stageado, formato de identificadores con «...», escape de variables con `$` y aviso explícito de tests no validados sin correr quality gates.",
+  "test_cases": [
+    {
+      "id": "conventional-commitlint-staged-only",
+      "description": "Con commitlint basado en config-conventional y cambios stageados y sin stagear, inspecciona commitlint, usa header con tipo y commitea solo lo stageado.",
+      "input": "Usando generate-commit-messages: el repo tiene `commitlint.config.js` con `extends: ['@commitlint/config-conventional']` y `rules: { 'header-max-length': [2, 'always', 72] }`. En el index tengo stageado `src/payments/retryPolicy.ts`, donde la función `computeBackoff` ahora aplica jitter y un tope de 30 segundos. Además hay cambios sin stagear en `README.md` que no son parte de este commit. Generá el mensaje y commiteá. No ejecutes ni edites nada: describí qué revisarías, qué alcance commitearías y el mensaje exacto que usarías.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "commitlint",
+          "description": "Revisa la configuración de commitlint antes de redactar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(feat|fix|refactor|perf|chore)(\\([a-z0-9_-]+\\))?!?: ",
+          "description": "Usa un header conventional con prefijo de tipo"
+        },
+        {
+          "type": "contains_any",
+          "values": ["stagead", "staged", "index", "preparad"],
+          "description": "Limita el commit a los cambios stageados"
+        },
+        {
+          "type": "regex",
+          "pattern": "README.*(no |fuera|exclu|sin stagear|unstaged|not )|(no |fuera|exclu|sin stagear|unstaged|not ).*README",
+          "description": "Deja fuera los cambios sin stagear de README.md"
+        },
+        {
+          "type": "contains",
+          "value": "«computeBackoff»",
+          "description": "Envuelve el nombre de la función con «...» en lugar de backticks"
+        }
+      ]
+    },
+    {
+      "id": "no-staged-changes-stage-all",
+      "description": "Sin cambios stageados ni commitlint, stagea todo con `git add -A`, commitea sin pedir confirmación e incluye una descripción con razones e impacto.",
+      "input": "Usando generate-commit-messages: no hay nada stageado. En el working tree renombré la función `parseAmount` a `parseCurrencyAmount` en `src/utils/money.js` y actualicé sus tres llamadas en `src/checkout/`. El repo no tiene configuración de commitlint. Commiteá los cambios actuales. No ejecutes ni edites nada: describí los comandos que correrías en orden y el mensaje completo del commit.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "git add -A",
+          "description": "Stagea todos los cambios con git add -A cuando no hay nada stageado"
+        },
+        {
+          "type": "contains",
+          "value": "git commit",
+          "description": "Aplica el commit directamente"
+        },
+        {
+          "type": "contains",
+          "value": "«parseCurrencyAmount»",
+          "description": "Envuelve los identificadores con «...»"
+        },
+        {
+          "type": "contains_any",
+          "values": ["impacto", "impact", "afecta", "affects", "llamad", "callers", "call sites"],
+          "description": "La descripción explica el impacto del cambio"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["¿Querés que commitee", "¿Confirmás", "querés que lo commitee", "Do you want me to commit", "Shall I commit"],
+          "description": "No pide confirmación antes de commitear"
+        }
+      ]
+    },
+    {
+      "id": "no-quality-gates-escape-dollar",
+      "description": "No corre tests ni lint como parte de la skill, avisa que no hay evidencia de validación, escapa variables que empiezan con `$` y no incluye números de issue.",
+      "input": "Usando generate-commit-messages: tengo stageado `scripts/deploy.sh`, donde ahora se valida que `$DEPLOY_ENV` no esté vacío antes de llamar a `kubectl apply`. El cambio viene del ticket OPS-482. En esta sesión no corrimos ningún test ni lint. Generá el mensaje y commiteá. No ejecutes ni edites nada: describí qué harías, qué no harías y el mensaje exacto del commit.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\\\\\$DEPLOY_ENV",
+          "description": "Escapa con backslash la variable que empieza con $"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin) .*(test|lint|quality gate|prueba)|(test|lint|quality gate|prueba).*(no (se )?(corr|ejecut|valid)|not (run|validated|executed))",
+          "description": "Aclara que no corre tests ni lint como parte de la skill"
+        },
+        {
+          "type": "regex",
+          "pattern": "(evidencia|evidence|no se (corrieron|ejecutaron|validaron)|were not (run|validated)|not validated|sin validar)",
+          "description": "Informa explícitamente que no hay evidencia de tests validados"
+        },
+        {
+          "type": "regex",
+          "pattern": "(issue|ticket|OPS-482).*(no |omit|exclu|sin )|(no |omit|exclu|sin ).*(issue|ticket|OPS-482)",
+          "description": "Excluye el número de issue del título y la descripción"
+        }
+      ]
+    }
+  ]
+}

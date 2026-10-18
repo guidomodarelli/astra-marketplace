@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "skill": "mock-first-testing-design",
+  "description": "Evalúa la decisión entre aislar dependencias con dobles de test o refactorizar producción: rechazar ramas y exports solo para tests, aceptar inyección de dependencias cuando mejora el diseño real y evitar tests que inspeccionan texto fuente o SQL.",
+  "test_cases": [
+    {
+      "id": "reject-test-mode-branch-use-time-double",
+      "description": "Ante una propuesta de agregar un flag isTest en producción para controlar la hora, la rechaza y aísla el tiempo con un doble de test en el borde.",
+      "input": "Usando mock-first-testing-design: `src/billing/isInvoiceOverdue.ts` llama a `new Date()` adentro y el test es inestable según la hora en que corre. Un compañero propone agregar un parámetro `isTest` y, si es `true`, usar una fecha fija dentro de la función. No ejecutes ni edites nada: describí qué harías en el test y si aceptarías ese cambio en producción.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|rechaz|evit|descart|never|reject|avoid|don't|do not).{0,80}(isTest|testMode|rama|branch|flag)|(isTest|testMode).{0,120}(no |rechaz|evit|descart|never|reject|avoid|contamin|pollut)",
+          "description": "Rechaza la rama isTest en código de producción"
+        },
+        {
+          "type": "contains_any",
+          "values": ["useFakeTimers", "setSystemTime", "fake timer", "timers falsos", "mock", "stub", "fake", "doble", "double"],
+          "description": "Resuelve el no determinismo del tiempo con un doble de test"
+        },
+        {
+          "type": "regex",
+          "pattern": "(si|if).{0,80}(no ayudara|no ayudase|no sirviera|didn't help|did not help|no fuera por|only for test|solo para (el )?test)|buen (cambio de )?dise|good design|mejora (real|el dise)|real design",
+          "description": "Aplica la regla de decisión: ¿sería un buen cambio de diseño aunque no ayudara al test?"
+        }
+      ]
+    },
+    {
+      "id": "explicit-dependency-injection-accepted",
+      "description": "Acepta inyectar un cliente HTTP oculto cuando hace explícita la dependencia y mejora el diseño real, y mockea ese borde en el test.",
+      "input": "Usando mock-first-testing-design: `src/notifications/NotificationService.ts` crea internamente `new SmsGatewayClient(process.env.SMS_API_KEY)` en el constructor, mezcla el armado del mensaje con el envío y otros módulos ya necesitan enviar SMS con otro gateway. Necesito testear que se envía el mensaje correcto al usuario. No ejecutes ni edites nada: describí si refactorizarías producción, cómo, y qué doble de test usarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["inyecci", "inyect", "inject", "dependency injection", "constructor"],
+          "description": "Propone inyectar la dependencia de forma explícita"
+        },
+        {
+          "type": "regex",
+          "pattern": "(acopl|coupl|explícit|explicit|cohesi|responsabilidad|responsibilit|otro gateway|another gateway|uso real|real usage)",
+          "description": "Justifica el refactor por una mejora de diseño real y no solo por el test"
+        },
+        {
+          "type": "contains_any",
+          "values": ["mock", "stub", "spy", "fake", "doble", "double", "jest.fn", "vi.fn"],
+          "description": "Aísla el gateway externo con un doble en el borde"
+        }
+      ]
+    },
+    {
+      "id": "reject-exporting-internals-and-source-text-tests",
+      "description": "Rechaza exportar helpers internos solo para testearlos y rechaza tests que leen archivos SQL con fs o espían la construcción interna de queries, proponiendo validar resultados observables.",
+      "input": "Usando mock-first-testing-design: en `src/reports/salesReport.ts` hay un helper privado `buildDateFilter` y una query en `queries/sales.sql`. Para cubrirlo, propusieron exportar `buildDateFilter` solo para el test, un test que lea `sales.sql` con `fs.readFileSync` y verifique que contiene `WHERE created_at >=`, y otro que espíe los parámetros de `knex.where`. No ejecutes ni edites nada: describí qué aceptarías, qué rechazarías y qué testearías en su lugar.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|rechaz|evit|descart|never|reject|avoid|don't|do not).{0,80}(export)|(export).{0,80}(solo para|only for|just for|únicamente para|unicamente para)",
+          "description": "Rechaza exportar internals solo para alcanzarlos desde tests"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|rechaz|evit|descart|never|reject|avoid|don't|do not).{0,80}(fs|readFileSync|texto|text|SQL|sql|knex|query.builder|spy|espi)",
+          "description": "Rechaza tests que leen el texto SQL o espían la construcción de la query"
+        },
+        {
+          "type": "regex",
+          "pattern": "(resultado|result|datos devueltos|returned data|output|salida|observable|contrato p(ú|u)blico|public contract|comportamiento|behavior|behaviour)",
+          "description": "Propone validar resultados observables o el contrato público"
+        }
+      ]
+    }
+  ]
+}

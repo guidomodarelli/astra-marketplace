@@ -1,0 +1,130 @@
+{
+  "schema_version": 2,
+  "skill": "semantic-html-a11y",
+  "description": "Evalúa markup semántico y accesible: elementos nativos antes que roles ARIA, nombres accesibles, soporte de teclado, manejo de foco en diálogos y asociación de errores y estados async con tecnologías asistivas.",
+  "test_cases": [
+    {
+      "id": "clickable-div-to-native-button",
+      "description": "Reemplaza un div clickeable con ícono por un button nativo con nombre accesible, sin agregar roles redundantes.",
+      "input": "Usando semantic-html-a11y: en `CartItem.jsx` tengo este control para eliminar un producto del carrito:\n\n```jsx\n<div className=\"remove-icon\" onClick={() => removeItem(item.id)}>\n  <TrashIcon />\n</div>\n```\n\nNo tiene texto visible. No ejecutes ni edites nada: describí cómo lo reescribirías y por qué.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "<button",
+          "description": "Usa un button nativo para la acción"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "aria-label",
+            "aria-labelledby",
+            "visually-hidden",
+            "sr-only"
+          ],
+          "description": "Da un nombre accesible al control sin texto visible"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "teclado",
+            "keyboard",
+            "foco",
+            "focus",
+            "Enter",
+            "Space"
+          ],
+          "description": "Explica que el button nativo aporta foco y soporte de teclado"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "type=\"button\"",
+            "type='button'",
+            "type=button"
+          ],
+          "description": "Declara type=\"button\" para no enviar formularios por accidente"
+        }
+      ]
+    },
+    {
+      "id": "modal-dialog-focus-management",
+      "description": "Hace accesible un modal custom: rol o elemento dialog, nombre accesible, foco inicial, trap de foco, Escape y retorno del foco al disparador.",
+      "input": "Usando semantic-html-a11y: tengo un modal custom `ConfirmDeleteModal.tsx` que se renderiza como un `div` posicionado encima de la página cuando `isOpen` es true. Tiene un título, un texto y botones Cancelar y Eliminar. Con teclado el foco queda detrás del modal y al cerrarlo se pierde. No ejecutes ni edites nada: describí qué cambios de markup y de foco harías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "role=\"dialog\"",
+            "role=\"alertdialog\"",
+            "<dialog",
+            "showModal"
+          ],
+          "description": "Usa el elemento dialog nativo o el rol dialog correcto"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "aria-labelledby",
+            "aria-label"
+          ],
+          "description": "Asocia el título como nombre accesible del diálogo"
+        },
+        {
+          "type": "regex",
+          "pattern": "trap|atrap|encerr|retener el foco|mantener el foco|keep focus|focus inside|foco dentro",
+          "description": "Atrapa el foco dentro del diálogo mientras está abierto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(devolv|retorn|restaur|volver|return|restore).*(foco|focus)|(foco|focus).*(devolv|retorn|restaur|vuelv|return|restore|trigger|disparador)",
+          "description": "Devuelve el foco al disparador al cerrar"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "Escape",
+            "Esc"
+          ],
+          "description": "Permite cerrar el diálogo con Escape"
+        }
+      ]
+    },
+    {
+      "id": "form-errors-and-async-status",
+      "description": "Asocia labels y errores a sus campos y anuncia el estado async del envío con una live region.",
+      "input": "Usando semantic-html-a11y: en `SignupForm.jsx` los campos usan solo `placeholder` como etiqueta, los errores de validación aparecen como un `<span className=\"error\">` debajo de cada input sin relación con él, y al enviar se muestra un spinner y luego el texto \"Cuenta creada\" sin que un lector de pantalla lo anuncie. No ejecutes ni edites nada: describí cómo corregirías el markup.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "<label",
+            "htmlFor"
+          ],
+          "description": "Reemplaza el placeholder como etiqueta por un label asociado"
+        },
+        {
+          "type": "contains",
+          "value": "aria-describedby",
+          "description": "Asocia los errores a su campo con aria-describedby"
+        },
+        {
+          "type": "contains",
+          "value": "aria-invalid",
+          "description": "Marca los campos con error mediante aria-invalid"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "aria-live",
+            "role=\"status\"",
+            "role=\"alert\"",
+            "live region",
+            "region viva",
+            "región viva"
+          ],
+          "description": "Anuncia el estado async del envío con una live region"
+        }
+      ]
+    }
+  ]
+}

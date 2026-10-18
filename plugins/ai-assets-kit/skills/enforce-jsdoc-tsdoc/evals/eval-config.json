@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "skill": "enforce-jsdoc-tsdoc",
+  "description": "Evalúa la documentación JSDoc/TSDoc: TSDoc sin tipos en `@param` con `@typeParam` y `@throws`, JSDoc con tipos y header `@module` en archivos JavaScript, y criterio para omitir bloques triviales documentando constantes con unidades.",
+  "test_cases": [
+    {
+      "id": "tsdoc-exported-generic-async",
+      "description": "Documenta una función TypeScript exportada, genérica y async con TSDoc: sin tipos en los tags, con `@typeParam`, `@param` por parámetro, `@returns` y `@throws` accionable.",
+      "input": "Usando enforce-jsdoc-tsdoc: agregué esta función a `src/api/fetchPaged.ts`.\n\n```ts\nexport async function fetchPaged<TItem>(endpoint: string, page: number, signal?: AbortSignal): Promise<PagedResult<TItem>> {\n  const response = await fetch(`${endpoint}?page=${page}`, { signal });\n  if (!response.ok) {\n    throw new Error(`fetchPaged failed: GET ${endpoint} page=${page} status=${response.status}`);\n  }\n  return response.json();\n}\n```\n\nDocumentala. No ejecutes ni edites nada: describí el bloque de documentación exacto que agregarías y dónde.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "@typeParam",
+          "description": "Documenta el parámetro genérico con @typeParam"
+        },
+        {
+          "type": "regex",
+          "pattern": "@param (endpoint|page|signal) - ",
+          "description": "Usa @param en formato TSDoc con guion y sin tipo"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["@param {string}", "@param {number}", "@returns {Promise"],
+          "description": "No incluye anotaciones de tipo en los tags TSDoc"
+        },
+        {
+          "type": "contains",
+          "value": "@throws",
+          "description": "Documenta la condición de error con @throws"
+        },
+        {
+          "type": "contains",
+          "value": "@returns",
+          "description": "Documenta el valor de retorno con @returns"
+        }
+      ]
+    },
+    {
+      "id": "jsdoc-module-header-typed-params",
+      "description": "En un archivo JavaScript con exports usa JSDoc con tipos, agrega el header de módulo antes de los imports y escribe la documentación en inglés.",
+      "input": "Usando enforce-jsdoc-tsdoc: creé `src/pricing/discounts.js`, que exporta una sola función.\n\n```js\nimport { roundCurrency } from '../utils/money.js';\n\nexport function applyVolumeDiscount(subtotal, quantity) {\n  if (quantity >= 10) {\n    return roundCurrency(subtotal * 0.9);\n  }\n  return subtotal;\n}\n```\n\nDocumentá el archivo. No ejecutes ni edites nada: describí los bloques de documentación exactos y dónde irían.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "@module",
+          "description": "Agrega el header de módulo con @module"
+        },
+        {
+          "type": "regex",
+          "pattern": "@param \\{[a-zA-Z]+\\} (subtotal|quantity)",
+          "description": "Usa @param con tipo entre llaves al ser un archivo JavaScript"
+        },
+        {
+          "type": "contains_any",
+          "values": ["antes de los imports", "antes del import", "before the import", "before imports", "top of the file", "inicio del archivo", "principio del archivo", "arriba del import"],
+          "description": "Ubica el header de archivo antes de los imports"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\* (Applies|Calculates|Computes|Returns|Provides|Discount|Pricing)",
+          "description": "Escribe el resumen en inglés empezando con un verbo o con el concepto del módulo"
+        }
+      ]
+    },
+    {
+      "id": "skip-trivial-document-units",
+      "description": "Omite documentar un helper privado obvio y documenta una constante exportada con significado de dominio indicando sus unidades.",
+      "input": "Usando enforce-jsdoc-tsdoc: en `src/sync/retry.ts` agregué esto.\n\n```ts\nexport const RETRY_BACKOFF_BASE_MS = 1500;\n\nfunction isEmptyList(list: unknown[]): boolean {\n  return list.length === 0;\n}\n```\n\n`isEmptyList` es privada y se usa una sola vez. Documentá lo que corresponda. No ejecutes ni edites nada: describí qué documentarías, qué omitirías y por qué.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "isEmptyList.*(omit|no (la |lo )?document|skip|obvi|trivial|restat|ruido|noise)|(omit|no (la |lo )?document|skip|obvi|trivial|restat|ruido|noise).*isEmptyList",
+          "description": "Omite documentar el helper privado obvio"
+        },
+        {
+          "type": "contains_any",
+          "values": ["millisecond", "milisegundo", " ms ", "(ms)", "in ms", "en ms"],
+          "description": "Indica las unidades de la constante en su documentación"
+        },
+        {
+          "type": "contains",
+          "value": "RETRY_BACKOFF_BASE_MS",
+          "description": "Documenta la constante exportada con significado de dominio"
+        }
+      ]
+    }
+  ]
+}

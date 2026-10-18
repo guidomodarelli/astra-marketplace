@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "skill": "create-issue",
+  "description": "Evalúa la generación de issues de planificación: título en inglés con prefijo de tipo, un único checkbox de tipo de cambio marcado, criterios de aceptación observables, áreas impactadas y tareas inferidas por el agente, y omisión de la sección de API cuando no hay superficie de API.",
+  "test_cases": [
+    {
+      "id": "feature-issue-structure",
+      "description": "Para una funcionalidad nueva genera el título `feat:` en inglés, marca New Feature y completa criterios de aceptación, áreas impactadas, cambios de API y tareas con tests.",
+      "input": "Usando create-issue: quiero agregar al sidebar de detalle de usuario (`src/users/UserDetailSidebar.tsx`) un acordeón con la información corporativa del usuario: legajo, área y manager. Esos datos vienen de un endpoint nuevo `GET /api/users/:userId/corporate-info` que todavía no existe. Armá la issue. No ejecutes ni edites nada: describí la issue completa que generarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "# feat(\\([a-z0-9_-]+\\))?: [a-z]",
+          "description": "Usa un título en inglés con prefijo feat"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[x\\] .{0,6}\\*\\*New Feature",
+          "description": "Marca el checkbox de New Feature"
+        },
+        {
+          "type": "contains_any",
+          "values": ["Criterios de Aceptación", "Criterios de Aceptacion"],
+          "description": "Incluye la sección de criterios de aceptación"
+        },
+        {
+          "type": "contains",
+          "value": "/corporate-info",
+          "description": "Lista el endpoint en la sección de cambios en la API"
+        },
+        {
+          "type": "contains_any",
+          "values": ["Áreas Impactadas", "Areas Impactadas"],
+          "description": "Incluye las áreas impactadas inferidas por el agente"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[ \\] .*(test|prueba)",
+          "description": "Incluye una tarea para agregar o actualizar tests"
+        }
+      ]
+    },
+    {
+      "id": "bug-fix-issue-single-checkbox",
+      "description": "Para un bug genera el título `fix:` y marca solo Bug Fix, con criterios de aceptación observables del comportamiento corregido.",
+      "input": "Usando create-issue: el total del carrito en `src/cart/CartSummary.tsx` muestra el precio sin aplicar el cupón cuando el usuario cambia la cantidad de un producto después de aplicarlo. Quiero arreglarlo para que el descuento se recalcule siempre. Armá la issue. No ejecutes ni edites nada: describí la issue completa que generarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "# fix(\\([a-z0-9_-]+\\))?: [a-z]",
+          "description": "Usa un título en inglés con prefijo fix"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[x\\] .{0,6}\\*\\*Bug Fix",
+          "description": "Marca el checkbox de Bug Fix"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[ \\] .{0,6}\\*\\*New Feature",
+          "description": "Deja sin marcar los demás tipos de cambio"
+        },
+        {
+          "type": "regex",
+          "pattern": "(cup(o|ó)n|coupon|descuento|discount).*(cantidad|quantity)|(cantidad|quantity).*(cup(o|ó)n|coupon|descuento|discount)",
+          "description": "Define un criterio observable sobre el recálculo del cupón al cambiar la cantidad"
+        }
+      ]
+    },
+    {
+      "id": "refactor-omits-api-section",
+      "description": "Para un refactor sin superficie de API marca Refactor, usa `refactor:` y omite por completo la sección de cambios en la API.",
+      "input": "Usando create-issue: quiero mover la validación inline del formulario de `src/profile/ProfileForm.tsx` a un hook `useProfileValidation` en `src/profile/hooks/`, sin cambiar el comportamiento ni los mensajes de error. Es solo frontend y no toca ningún endpoint. Armá la issue. No ejecutes ni edites nada: describí la issue completa que generarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "# refactor(\\([a-z0-9_-]+\\))?: [a-z]",
+          "description": "Usa un título en inglés con prefijo refactor"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[x\\] .{0,6}\\*\\*Refactor",
+          "description": "Marca el checkbox de Refactor"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["Cambios en la API"],
+          "description": "Omite la sección de cambios en la API cuando no hay superficie de API"
+        },
+        {
+          "type": "contains",
+          "value": "useProfileValidation",
+          "description": "Usa los nombres reales del plan en áreas impactadas y tareas"
+        }
+      ]
+    }
+  ]
+}

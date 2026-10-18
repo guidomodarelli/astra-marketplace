@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "skill": "react-data-fetching-best-practices",
+  "description": "Evalúa flujos de datos en React: un único punto de entrada para el fetch en el container, datos compartidos sin requests duplicados, feedback explícito de loading y error, y mapeo de la respuesta del endpoint a props de vista.",
+  "test_cases": [
+    {
+      "id": "duplicate-fetch-across-children",
+      "description": "Consolida fetches duplicados de varios hijos en un único punto de entrada en el container y comparte los datos por props.",
+      "input": "Usando react-data-fetching-best-practices: en `OrderDetailPage`, tres componentes hijos (`OrderHeader`, `OrderItemsTable` y `OrderSummary`) hacen cada uno `useEffect(() => { fetch(`/api/orders/${orderId}`).then(...) }, [orderId])` por su cuenta. En la pestaña Network veo tres requests iguales. No ejecutes ni edites nada: describí cómo reorganizarías el flujo de datos.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["container", "contenedor", "OrderDetailPage", "route-level", "nivel de ruta"],
+          "description": "Ubica el fetch en el container o componente de ruta"
+        },
+        {
+          "type": "regex",
+          "pattern": "(un solo|único|unico|single|una vez|once|one).{0,40}(fetch|request|petici|punto de entrada|entry point|llamada|call)",
+          "description": "Hace el fetch una sola vez desde un único punto de entrada"
+        },
+        {
+          "type": "contains_any",
+          "values": ["props", "prop"],
+          "description": "Pasa los datos a los hijos por props"
+        },
+        {
+          "type": "contains_any",
+          "values": ["presentacional", "presentational", "solo render", "only render", "rendering"],
+          "description": "Deja a los hijos como componentes presentacionales"
+        }
+      ]
+    },
+    {
+      "id": "loading-error-feedback-states",
+      "description": "Agrega estados de loading y error con feedback visible para el usuario en lugar de renderizar UI vacía.",
+      "input": "Usando react-data-fetching-best-practices: `CustomerListContainer` hace el fetch a `/api/customers` y, mientras carga o si el endpoint devuelve 500, renderiza la tabla vacía sin ningún mensaje. Los usuarios creen que no hay clientes. No ejecutes ni edites nada: describí qué estados manejarías y qué vería el usuario en cada uno.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["loading", "cargando", "carga"],
+          "description": "Maneja un estado de carga"
+        },
+        {
+          "type": "contains",
+          "value": "error",
+          "description": "Maneja un estado de error"
+        },
+        {
+          "type": "contains_any",
+          "values": ["feedback", "mensaje", "message", "spinner", "skeleton", "indicador", "indicator"],
+          "description": "Muestra feedback explícito al usuario"
+        },
+        {
+          "type": "contains_any",
+          "values": ["vacío", "vacio", "empty"],
+          "description": "Distingue el estado vacío real de carga o error"
+        }
+      ]
+    },
+    {
+      "id": "map-endpoint-response-to-view-props",
+      "description": "Mapea la respuesta cruda del endpoint a props de vista para separar los datos de la UI.",
+      "input": "Usando react-data-fetching-best-practices: `ProductCard` recibe directamente la respuesta del endpoint `/api/products/:id` (`{ data: { attributes: { display_name, price_cents, currency_code, media: [{ url_large }] } } }`) y hace `product.data.attributes.price_cents / 100` dentro del JSX. Otros dos componentes repiten ese mismo acceso anidado. No ejecutes ni edites nada: describí cómo separarías los datos de la vista.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["map", "mape", "normaliz", "adapter", "adaptador", "transform"],
+          "description": "Mapea o normaliza la respuesta del endpoint"
+        },
+        {
+          "type": "contains_any",
+          "values": ["props", "view model", "modelo de vista"],
+          "description": "Convierte la respuesta en props de vista"
+        },
+        {
+          "type": "contains_any",
+          "values": ["separación de responsabilidades", "separacion de responsabilidades", "separation of concerns", "separar", "separate", "desacopl", "decoupl"],
+          "description": "Justifica la separación entre datos y UI"
+        },
+        {
+          "type": "regex",
+          "pattern": "(fuera|out of|afuera|no .{0,20}dentro).{0,60}(JSX|componente|component|render)|(JSX|componente|component|render).{0,60}(fuera|out of|afuera)",
+          "description": "Saca la lógica de datos del componente presentacional"
+        }
+      ]
+    }
+  ]
+}

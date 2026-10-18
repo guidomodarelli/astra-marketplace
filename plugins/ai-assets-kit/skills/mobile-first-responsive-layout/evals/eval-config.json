@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "skill": "mobile-first-responsive-layout",
+  "description": "Evalúa estilos mobile-first: estilos base para mobile con breakpoints min-width agregados por necesidad de contenido, unidades fluidas en lugar de px fijos, tokens de breakpoints del proyecto y layouts sin alturas fijas.",
+  "test_cases": [
+    {
+      "id": "desktop-first-card-to-mobile-first",
+      "description": "Convierte una card desktop-first con px fijos y max-width media queries a estilos base mobile con rem y breakpoints min-width.",
+      "input": "Usando mobile-first-responsive-layout: tengo este `ProductCard.module.scss` escrito desktop-first:\n\n```scss\n.card {\n  width: 480px;\n  height: 320px;\n  padding: 24px;\n  font-size: 18px;\n}\n\n@media (max-width: 768px) {\n  .card {\n    width: 100%;\n    padding: 16px;\n    font-size: 16px;\n  }\n}\n```\n\nEl proyecto ya tiene `$bp-medium` en `styles/_breakpoints.scss`. Reescribilo para que sea mobile-first. No ejecutes ni edites nada: describí cómo quedarían los estilos y por qué.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "min-width",
+          "description": "Usa media queries min-width para escalar desde mobile hacia arriba"
+        },
+        {
+          "type": "contains",
+          "value": "rem",
+          "description": "Reemplaza px fijos de tipografía y spacing por rem"
+        },
+        {
+          "type": "contains",
+          "value": "$bp-medium",
+          "description": "Reusa el token de breakpoint del proyecto en vez de hardcodear 768px"
+        },
+        {
+          "type": "contains_any",
+          "values": ["min-height", "altura fija", "fixed height", "height: auto", "sin height", "eliminar height", "quitar height"],
+          "description": "Evita la altura fija del contenedor"
+        },
+        {
+          "type": "regex",
+          "pattern": "(base|por defecto|default).*(mobile|móvil|movil)|(mobile|móvil|movil).*(base|primero|first)",
+          "description": "Define los estilos base para mobile primero"
+        }
+      ]
+    },
+    {
+      "id": "fluid-grid-content-driven-breakpoints",
+      "description": "Arma un grid fluido con breakpoints justificados por el contenido y no por dispositivo, usando max-width y padding responsivo en el contenedor.",
+      "input": "Usando mobile-first-responsive-layout: necesito un listado de artículos en `ArticleGrid.module.scss`. Un compañero propone breakpoints por dispositivo (`$iphone`, `$ipad`, `$macbook`) con columnas de ancho fijo `300px` y un contenedor de `1200px`. Quiero un grid que funcione en cualquier ancho. No ejecutes ni edites nada: describí la estrategia de layout, unidades y breakpoints que usarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["contenido", "content"],
+          "description": "Justifica los breakpoints por necesidad de contenido y no por dispositivo"
+        },
+        {
+          "type": "contains_any",
+          "values": ["max-width", "minmax", "min(", "clamp("],
+          "description": "Usa anchos fluidos con max-width, minmax, min() o clamp()"
+        },
+        {
+          "type": "contains_any",
+          "values": ["%", "rem", "fr", "vw"],
+          "description": "Usa unidades fluidas en lugar de px fijos"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|evit|avoid|sin|without).{0,60}(dispositivo|device|iphone|ipad)",
+          "description": "Rechaza explícitamente los breakpoints por dispositivo"
+        }
+      ]
+    },
+    {
+      "id": "fluid-typography-and-media",
+      "description": "Escala un hero con tipografía fluida vía clamp y rem, e imágenes fluidas con width 100% y height auto o aspect-ratio.",
+      "input": "Usando mobile-first-responsive-layout: en `HeroBanner.module.scss` el título usa `font-size: 48px` y tres media queries para bajarlo a 40px, 32px y 24px; la imagen tiene `width: 640px; height: 360px`. En mobile el título desborda y la imagen se corta. No ejecutes ni edites nada: describí cómo ajustarías tipografía e imagen.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "clamp(",
+          "description": "Propone tipografía fluida con clamp()"
+        },
+        {
+          "type": "contains",
+          "value": "rem",
+          "description": "Expresa la tipografía en rem"
+        },
+        {
+          "type": "contains_any",
+          "values": ["aspect-ratio", "height: auto"],
+          "description": "Hace la imagen fluida con aspect-ratio o height auto"
+        },
+        {
+          "type": "contains_any",
+          "values": ["width: 100%", "max-width: 100%"],
+          "description": "Hace que la imagen ocupe el ancho disponible"
+        }
+      ]
+    }
+  ]
+}

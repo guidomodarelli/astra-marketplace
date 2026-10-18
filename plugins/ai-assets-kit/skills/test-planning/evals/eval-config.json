@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "skill": "test-planning",
+  "description": "Evalúa la planificación de tests: modo casos con casos base, edge cases y mocks alineados a la forma real; modo cobertura con inventario, mapa de tests, gaps y plan priorizado P0/P1/P2; y combinación de ambos modos limitando los casos a los gaps P0 y P1.",
+  "test_cases": [
+    {
+      "id": "cases-mode-base-edge-mocks",
+      "description": "Para un componente concreto, lista casos base y edge cases con su assertion esperada y propone mocks mínimos, típicos y de borde alineados a la forma real de las props.",
+      "input": "Usando test-planning: necesito un plan de tests para `OrderList`, un componente React con props `orders: Array<{ id: string; total: number; status: 'pending' | 'paid'; customerName?: string }> | null`, `isLoading: boolean`, `error?: { message: string }` y `onSelect?: (orderId: string) => void`. No ejecutes ni edites nada: describí los casos y los datos de prueba que usarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "casos base|base cases|caso base|base case",
+          "description": "Incluye una sección de casos base"
+        },
+        {
+          "type": "regex",
+          "pattern": "edge case|casos l(í|i)mite|casos borde|casos de borde",
+          "description": "Incluye una sección de edge cases"
+        },
+        {
+          "type": "regex",
+          "pattern": "(vac(í|i)|empty).{0,80}(lista|list|orders|estado|state)|(lista|list|orders|estado|state).{0,80}(vac(í|i)|empty)",
+          "description": "Cubre el estado de lista vacía"
+        },
+        {
+          "type": "regex",
+          "pattern": "onSelect.{0,120}(ausente|missing|undefined|sin |without|no se pasa|not provided|opcional|optional)|(ausente|missing|undefined|sin |without|opcional|optional).{0,120}onSelect",
+          "description": "Incluye el caso con el callback opcional ausente"
+        },
+        {
+          "type": "regex",
+          "pattern": "(m(í|i)nim|minimal).{0,200}(t(í|i)pic|typical)|(t(í|i)pic|typical).{0,200}(m(í|i)nim|minimal)",
+          "description": "Propone mocks mínimos y típicos alineados a la forma real"
+        }
+      ]
+    },
+    {
+      "id": "coverage-mode-prioritized-gaps",
+      "description": "En una auditoría de cobertura, arma el inventario con su mapa de tests existentes, marca gaps y prioriza el plan P0/P1/P2 con tipo de test por gap.",
+      "input": "Usando test-planning: auditá la cobertura de esta app de administración de roles. Rutas: `/roles` (lista con estados loading, empty y error; tiene `RoleList.test.tsx` que solo cubre el render con datos), `/roles/:id` (detalle con permisos; sin tests) y `/roles/new` (formulario `RoleForm` con validación y submit; tiene `RoleForm.test.tsx` que cubre solo el submit exitoso). No ejecutes ni edites nada: describí el checklist de cobertura y el plan priorizado.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "P0",
+          "description": "Clasifica al menos un gap como P0"
+        },
+        {
+          "type": "regex",
+          "pattern": "P0.{0,160}(/roles/:id|permis|permission)|(/roles/:id|permis|permission).{0,160}P0",
+          "description": "Prioriza como P0 el detalle con permisos sin tests"
+        },
+        {
+          "type": "contains_any",
+          "values": ["gap", "brecha", "sin cobertura", "no cubiert", "not covered", "uncovered", "faltante"],
+          "description": "Marca explícitamente los gaps de cobertura"
+        },
+        {
+          "type": "regex",
+          "pattern": "unit|integraci|integration|e2e|end-to-end",
+          "description": "Propone el tipo de test para cada gap"
+        }
+      ]
+    },
+    {
+      "id": "combined-mode-coverage-first-then-cases",
+      "description": "Cuando se piden cobertura y casos juntos, corre primero el modo cobertura y genera casos solo para los gaps P0 y P1, sin planificar tests sobre texto fuente o construcción de queries.",
+      "input": "Usando test-planning: quiero saber qué le falta de cobertura al módulo `src/reports/` (tiene `salesReport.ts`, que ejecuta una query SQL con filtros por fecha, y `ReportTable.tsx`) y además que me propongas los casos de test concretos. Un compañero sugirió cubrir la query leyendo el `.sql` con `fs` y verificando el `WHERE`. No ejecutes ni edites nada: describí en qué orden trabajarías y qué plan entregarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(primero|first|empez|start).{0,120}(cobertura|coverage)|(cobertura|coverage).{0,120}(primero|first|antes|before)",
+          "description": "Corre primero el modo cobertura"
+        },
+        {
+          "type": "regex",
+          "pattern": "P0.{0,40}(y|and|/|,).{0,10}P1|P1.{0,40}(y|and|/|,).{0,10}P0",
+          "description": "Limita la generación de casos a los gaps P0 y P1"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|evit|descart|rechaz|never|avoid|reject|don't|do not).{0,100}(fs|\\.sql|texto|text|source|fuente|WHERE)",
+          "description": "Descarta tests que leen el texto SQL con fs"
+        },
+        {
+          "type": "regex",
+          "pattern": "(datos devueltos|returned data|resultado|result|filtros aplicados|applied filters|ejecuci(ó|o)n real|real (query )?execution|comportamiento observable|observable behavior)",
+          "description": "Propone validar el resultado observable de la query"
+        }
+      ]
+    }
+  ]
+}

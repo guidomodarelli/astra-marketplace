@@ -1,0 +1,113 @@
+{
+  "schema_version": 2,
+  "skill": "functionality-check",
+  "description": "Evalúa chequeos de funcionalidad contra una spec: veredicto parcial cuando el backend soporta más que la UI alcanzable, `Unverified` en lugar de `Missing` ante falta de evidencia, `Unreachable` cuando el código existe pero la ruta o el flag lo bloquean, y reporte auditable con evidencia y confianza.",
+  "test_cases": [
+    {
+      "id": "partial-bulk-assignment",
+      "description": "Ante un service que acepta varios IDs pero una UI que envía uno solo, clasifica la capacidad como parcial, explica el gap exacto y reporta evidencia y confianza en una tabla.",
+      "input": "Usando functionality-check: la spec dice \"Seleccionar varios representantes y asignarles un área en una sola acción\". En el repo, `src/assignments/assignmentService.ts` expone `assignArea(representativeIds: string[], areaId: string)`, y el único caller es `src/representatives/RepresentativeRow.tsx`, que llama `assignArea([representative.id], selectedAreaId)` desde un botón por fila. No hay checkboxes ni selección múltiple. ¿Qué falta? No ejecutes ni edites nada: describí el veredicto y el reporte que entregarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "Partial",
+            "Parcial"
+          ],
+          "description": "Clasifica la capacidad como parcial"
+        },
+        {
+          "type": "regex",
+          "pattern": "(selecci(o|ó)n m(u|ú)ltiple|multi-?selec|varios representantes|multiple representatives|bulk|masiv)",
+          "description": "Identifica el gap exacto: falta selección múltiple y acción bulk alcanzable"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "Confianza",
+            "Confidence"
+          ],
+          "description": "Reporta la confianza separada del estado"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "assignmentService",
+            "RepresentativeRow",
+            "assignArea"
+          ],
+          "description": "Respalda el veredicto con evidencia de símbolos y archivos concretos"
+        }
+      ]
+    },
+    {
+      "id": "unverified-not-missing",
+      "description": "Cuando solo se buscó una variante de nombre, no declara la capacidad faltante: la clasifica como no verificada y propone buscar por dominio, acción y otras capas.",
+      "input": "Usando functionality-check: la spec dice \"El usuario puede exportar el reporte filtrado a CSV\". Busqué `ExportButton` en el repo y no encontré nada, así que creo que falta. ¿Está implementado? No ejecutes ni edites nada: describí qué veredicto darías con esa evidencia y qué buscarías para resolverlo.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "Unverified",
+            "No verificado",
+            "No verificada",
+            "Sin verificar"
+          ],
+          "description": "Clasifica como no verificada en lugar de faltante"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "csv",
+            "download",
+            "descarg",
+            "export",
+            "blob",
+            "text/csv"
+          ],
+          "description": "Busca por entidades, acciones y formatos del dominio en lugar de un solo nombre de componente"
+        },
+        {
+          "type": "regex",
+          "pattern": "(endpoint|ruta|route|service|servicio|hook|api|capa|layer)",
+          "description": "Revisa otras capas del flujo además de la UI"
+        },
+        {
+          "type": "regex",
+          "pattern": "(falta de evidencia|lack of evidence|no (prueba|demuestra|alcanza)|not (prove|enough)|insuficiente|insufficient)",
+          "description": "Explica que la falta de evidencia no prueba la ausencia"
+        }
+      ]
+    },
+    {
+      "id": "unreachable-flag-disabled",
+      "description": "Si el componente y el service existen pero la ruta no lo renderiza y el flag está deshabilitado para todos los sites, clasifica como inalcanzable e indica qué bloquea el acceso.",
+      "input": "Usando functionality-check: la spec dice \"Los managers pueden exportar el reporte filtrado\". En el repo existen `src/reports/ExportReportButton.tsx` y `src/reports/exportService.ts` con tests unitarios que pasan. Pero `src/reports/ReportsPage.tsx` solo renderiza el botón si `flags.reportsExport` es true, y en `config/flags.json` ese flag está en `false` para todos los sites. ¿Está implementado para los managers? No ejecutes ni edites nada: describí el veredicto, la evidencia y el gap.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "Unreachable",
+            "Inalcanzable",
+            "No alcanzable",
+            "no es alcanzable"
+          ],
+          "description": "Clasifica la capacidad como inalcanzable"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "reportsExport",
+            "flag"
+          ],
+          "description": "Identifica el feature flag deshabilitado como bloqueo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(test.*(no|not).*(prueba|prove|alcanza|suficiente|enough|garantiza)|unit.*(aislad|isolated))",
+          "description": "Aclara que los tests unitarios aislados no prueban que el flujo sea alcanzable"
+        }
+      ]
+    }
+  ]
+}
