@@ -10,7 +10,7 @@ Write only tests that exercise behavior: what the product or a script observably
 
 ## Tests not to write
 
-Delete these tests when you find them:
+Do not add these tests. When one is part of the code your task already changes, delete or rewrite it; when you find one elsewhere, report it instead of deleting it:
 
 - Tests that only restate constants or configuration values, check that a module exports or imports something, check function arity or other language details, or snapshot static data.
 - Tests that assert on mocks the test itself configured with no product logic in between, such as a use case that returns the repository double's value unchanged, or a wrapper test that only checks a mocked SDK was called.

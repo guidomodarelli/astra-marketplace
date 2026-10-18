@@ -1,6 +1,6 @@
 # Cross-Engine Compatibility — Chromium and WebKit
 
-Every style and every piece of client-side JavaScript must render and behave correctly on Chromium (Chrome, Edge, Android Chrome) and WebKit (Safari, iOS Safari, iOS Chrome, iOS WebViews). A change is not done until it works on both engines.
+Every style and every piece of client-side JavaScript must render and behave correctly on Chromium (Chrome, Edge, Android Chrome) and WebKit (Safari, iOS Safari, iOS Chrome, iOS WebViews). Verify on both engines when both are available; the managed browser tooling only installs Chromium, so see `Verification` for how to close a task when WebKit cannot be exercised.
 
 ## Styles
 
@@ -20,4 +20,5 @@ Every style and every piece of client-side JavaScript must render and behave cor
 
 ## Verification
 
-- When fixing or reviewing a UI bug, rule out an engine-specific cause and verify the fix on both engines. If one engine cannot be exercised, state the blocker and the closest validation you ran.
+- When fixing or reviewing a UI bug, rule out an engine-specific cause and verify the fix on both engines.
+- If one engine cannot be exercised (for example, no WebKit browser or device is available), the task can close after you verify on the available engine, review the change against the risky features listed above, and report the blocker and the validation you ran.

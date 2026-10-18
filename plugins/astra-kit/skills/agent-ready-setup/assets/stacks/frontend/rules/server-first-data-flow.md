@@ -2,6 +2,8 @@
 
 Load data on the server by default and adapt external data in exactly one place.
 
+The default strategy and client-side fetching sections apply to every frontend project. The middleend mapping section applies to projects organized in modules (see `hexagonal-architecture.md`); in projects with a flat `services/` layout, keep that layout and still never pass raw upstream payloads to route props. The `service` and `api-endpoint` skills generate the flat layout: in a modular project, place what they generate in the module's `infrastructure` and route it through a use case.
+
 ## Default strategy
 
 - Load initial data through server-side entrypoints (server components, pages, layouts, loaders).

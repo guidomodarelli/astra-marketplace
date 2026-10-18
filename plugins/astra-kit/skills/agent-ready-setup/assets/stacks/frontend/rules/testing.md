@@ -17,6 +17,8 @@ Work test-first for every feature, bug fix, and architectural change, always in 
 3. **Refactor** — only once the behavior is covered: improve naming, remove duplication, and tighten boundaries without changing behavior.
 4. **Green** — the cycle ends when the new behavior is covered by passing tests.
 
+This order also governs the generator skills (`component-creation`, `service`, `api-endpoint`): when a skill lists the test step after the implementation steps, write that test first and then implement.
+
 ## What to test by layer
 
 - **`domain`** — unit tests for entities, value objects, and pure business rules.
@@ -66,6 +68,6 @@ Avoid snapshot tests as the primary assertion strategy — they detect change, n
 ## Structure
 
 - Test file location: colocated in `__tests__/` next to the file under test, or `*.spec.tsx` alongside it.
-- Exception: never place tests inside a Next.js App Router `app/` directory, where colocated files can become route artifacts. Put tests for pages, layouts, loading states, and route handlers in a separate tests tree that mirrors `app/`.
+- Exception, only in Next.js App Router projects (a `next` dependency with routes under `app/` or `src/app/`): never place tests inside that routes directory, where colocated files can become route artifacts. Put tests for pages, layouts, loading states, and route handlers in a separate tests tree that mirrors it. In other projects, `app/` is an ordinary source folder and colocated `__tests__/` stay valid.
 - Description format: start with a verb describing behavior — `"shows the error banner when the API returns 500"`.
 - Follow AAA: Arrange → Act → Assert. No logic (conditionals, loops) inside test bodies.
