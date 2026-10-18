@@ -6,8 +6,26 @@ Standards for writing and reviewing tests. The `test-reviewer` agent uses this f
 
 ## Framework
 
-- Use **Jest + React Testing Library (RTL)** for unit and integration tests.
-- Use the exact test runner configured in `package.json` — do not assume Jest if Vitest is configured.
+- Use the test runner configured in `package.json` (Jest or Vitest) with **React Testing Library (RTL)** for unit and integration tests — do not assume Jest if Vitest is configured.
+
+## TDD cycle
+
+Work test-first for every change in behavior (features, bug fixes, and architectural changes that alter behavior), always in this order. For a refactor that preserves behavior, skip the failing-test step: confirm the affected behavior is covered by passing tests before you start, add the missing behavioral coverage first if it is not, and keep those tests green throughout.
+
+1. **Testing** — write the smallest failing test at the right layer, defining the expected behavior first. One clear behavior per test.
+2. **Code** — implement the minimum code that makes it pass, respecting the module boundaries; do not skip ports, mappers, or value objects to move faster.
+3. **Refactor** — only once the behavior is covered: improve naming, remove duplication, and tighten boundaries without changing behavior.
+4. **Green** — the cycle ends when the new behavior is covered by passing tests.
+
+This order also governs the generator skills (`component-creation`, `service`, `api-endpoint`): when a skill lists the test step after the implementation steps, write that test first and then implement. When a skill has no test step (for example `api-endpoint`), add the test the layer requires (an integration test for a handler or server hook) before implementing, and run it.
+
+## What to test by layer
+
+- **`domain`** — unit tests for entities, value objects, and pure business rules.
+- **`application`** — unit tests for use cases with doubles for the domain ports.
+- **`infrastructure`** — integration tests for adapters, DTO mappers, auth wiring, and provider or database boundaries.
+- **Routes and UI** — RTL tests for server/client boundaries, rendering, and critical user flows.
+- **End-to-end** — smoke coverage for critical authentication and authorization flows.
 
 ## Coverage
 
@@ -50,5 +68,6 @@ Avoid snapshot tests as the primary assertion strategy — they detect change, n
 ## Structure
 
 - Test file location: colocated in `__tests__/` next to the file under test, or `*.spec.tsx` alongside it.
+- Exception, only in Next.js App Router projects (a `next` dependency with routes under `app/` or `src/app/`): never place tests inside that routes directory, where colocated files can become route artifacts. Put tests for pages, layouts, loading states, and route handlers in a separate tests tree that mirrors it. In other projects, `app/` is an ordinary source folder and colocated `__tests__/` stay valid.
 - Description format: start with a verb describing behavior — `"shows the error banner when the API returns 500"`.
 - Follow AAA: Arrange → Act → Assert. No logic (conditionals, loops) inside test bodies.
