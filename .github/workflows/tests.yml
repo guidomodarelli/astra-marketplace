@@ -1,0 +1,102 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell:
+    name: Shell suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Configure git identity for test repositories
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+      - name: Fast bats suites
+        run: >-
+          LC_ALL=C.UTF-8 BATS_TEST_TIMEOUT=30 node_modules/.bin/bats
+          tests/create-version.bats
+          plugins/astra-kit/skills/user-manual/tests/check-design-tokens.bats
+          plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats
+          skill-eval-runner/tests/run-evals-env-contract.bats
+          skill-eval-runner/tests/run-evals-assertions.bats
+      - run: bun run test:review-fix-loop
+      - run: bun run test:sibling-worktree
+
+  bootstrap:
+    name: Agent Ready bootstrap (shard ${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Install GNU parallel for bats --jobs
+        run: sudo apt-get install -y --no-install-recommends parallel
+      - name: Configure git identity for test repositories
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+      - name: Run this shard of bootstrap.bats
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARD_COUNT: 3
+        run: |
+          suite=plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats
+          # Every SHARD_COUNT-th test name goes to this shard; names are unique.
+          pattern=$(grep -oP '^@test "\K[^"]+' "$suite" \
+            | awk -v shard="$SHARD" -v count="$SHARD_COUNT" '(NR - 1) % count == shard - 1' \
+            | sed -e 's/[][\.*^$+?(){}|]/\\&/g' -e 's/.*/^&$/' \
+            | paste -sd '|')
+          LC_ALL=C.UTF-8 BATS_TEST_TIMEOUT=120 node_modules/.bin/bats \
+            --jobs "$(nproc)" --filter "$pattern" "$suite"
+
+  browser:
+    name: Browser registration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: bun install --frozen-lockfile
+      - run: bun run setup:browser-tests
+      - run: bun run test:browser
+
+  tests:
+    name: Tests
+    if: always()
+    needs: [shell, bootstrap, browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every suite to pass
+        run: |
+          [[ "${{ needs.shell.result }}" == success ]]
+          [[ "${{ needs.bootstrap.result }}" == success ]]
+          [[ "${{ needs.browser.result }}" == success ]]

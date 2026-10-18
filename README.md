@@ -266,6 +266,26 @@ regional, y sin UTF-8 bats no ejecuta los tests cuyo nombre lleva tildes.
 Un test que se cuelga falla con `timeout` en vez de bloquear la corrida. Para cambiar el límite en las
 suites bash, exportá `TEST_TIMEOUT_SECONDS`.
 
+### Qué suite correr según el cambio
+
+`bun run test` completo tarda cerca de una hora en Windows, porque `bootstrap.bats` corre sus
+128 tests en serie y cada uno ejecuta bootstrap y sync completos. Durante una tarea, corré solo
+lo que cubre el cambio y dejá la suite completa a la CI:
+
+| Cambio | Comando local |
+|---|---|
+| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `bats plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `bats --filter 'rules' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Un flujo puntual de `agent-ready-setup` | `bats --filter '<parte del nombre del test>' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `bun run test:bootstrap` completo |
+| `review-fix-loop`, `sibling-worktree`, `create-version` o el eval runner | Su suite (`bun run test:review-fix-loop`, `bun run test:sibling-worktree`, `bats tests/create-version.bats`, `bats skill-eval-runner/tests/*.bats`) |
+
+Anteponé `LC_ALL=C.UTF-8` a cada `bats` (ver más abajo). En Windows, `bats --jobs` no funciona:
+Git Bash no trae `flock` ni GNU `parallel`.
+
+La CI (`.github/workflows/tests.yml`) corre todas las suites en cada pull request y en cada push a
+`main`, sobre Ubuntu: `bootstrap.bats` se reparte en 3 shards que corren en paralelo y, dentro de
+cada shard, en paralelo con `bats --jobs`. El check `Tests` exige que pasen todas.
+
 `bun run test:browser` ejecuta pruebas de registro browser desde el venv local,
 sin descargar dependencias. La prueba de lanzamiento real es opt-in mediante
 `AGENT_READY_SETUP_BROWSER_SMOKE_ROOT` (directorio administrado de herramientas)
