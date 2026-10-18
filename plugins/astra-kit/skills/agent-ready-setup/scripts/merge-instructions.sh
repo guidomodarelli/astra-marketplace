@@ -169,8 +169,7 @@ extract_result() {
 # else, then substitutes the verbatim managed block for the placeholder.
 assemble_reviewed_content() {
   python3 - "$PROJECT_CONTENT_FILE" "$TEMPORARY_DIRECTORY/reviewed-project.md" "$MANAGED_BLOCK_FILE" "$MERGED_FILE" \
-    "$MANAGED_BLOCK_PLACEHOLDER" "$MANAGED_BLOCK_START" "$MANAGED_BLOCK_END" \
-    "$RULE_REFERENCE_START" "$RULE_REFERENCE_END" <<'PY'
+    "$MANAGED_BLOCK_PLACEHOLDER" "$MANAGED_BLOCK_START" "$MANAGED_BLOCK_END" <<'PY'
 import collections
 import re
 import sys

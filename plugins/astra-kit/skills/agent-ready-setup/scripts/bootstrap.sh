@@ -35,8 +35,6 @@ readonly SYNC_LOCK_DIRECTORY=".agents/.agent-ready-assets.lock"
 # shellcheck disable=SC2034
 readonly SYNC_LOCK_OWNER_FILE="$SYNC_LOCK_DIRECTORY/owner"
 # shellcheck disable=SC2034
-readonly SYNC_LOCK_STALE_AFTER_MINUTES=10
-# shellcheck disable=SC2034
 SYNC_LOCK_ACQUIRED=0
 # shellcheck disable=SC2034
 SYNC_LOCK_INHERITED=0
@@ -673,50 +671,6 @@ record_cleanup_conflict() {
   CLEANUP_CONFLICTS+=("$1")
 }
 
-cleanup_legacy_claude_hooks() {
-  local hooks_directory="$CLAUDE_DIR/hooks"
-  local hook_path
-  local hook_relative
-  local target
-  local expected_target
-
-  if [[ -L "$hooks_directory" ]]; then
-    record_cleanup_conflict "$hooks_directory is a symlink; preserved"
-    return
-  fi
-  if [[ -e "$hooks_directory" && ! -d "$hooks_directory" ]]; then
-    record_cleanup_conflict "$hooks_directory is not a directory; preserved"
-    return
-  fi
-  [[ -d "$hooks_directory" ]] || return 0
-
-  while IFS= read -r -d '' hook_path; do
-    hook_relative="${hook_path#"$hooks_directory/"}"
-
-    if [[ ! -L "$hook_path" ]]; then
-      record_cleanup_conflict "$hook_path is custom content; preserved"
-      continue
-    fi
-
-    target="$(readlink -- "$hook_path")"
-    expected_target="$(relative_shared_target "hooks/$hook_relative")"
-    if [[ "$target" != "$expected_target" ]]; then
-      record_cleanup_conflict "$hook_path is a custom symlink; preserved"
-      continue
-    fi
-
-    if rm -f -- "$hook_path"; then
-      record_removed "$hook_path"
-    else
-      record_cleanup_conflict "could not remove managed symlink $hook_path; preserved"
-    fi
-  done < <(find "$hooks_directory" -mindepth 1 -maxdepth 1 -print0)
-
-  if [[ -d "$hooks_directory" ]] && rmdir -- "$hooks_directory" 2>/dev/null; then
-    record_removed "$hooks_directory"
-  fi
-}
-
 cleanup_stale_claude_links() {
   local link_path
   local relative
@@ -859,7 +813,6 @@ project_rule_claude_views "$TEMPLATE_RENDERER" "$SRC/rules" "$COMMON_SRC/rules"
 prune_hard_link_views
 install_hard_link_git_hook "$SKILL_DIR/assets/git-hooks/post-index-change"
 
-cleanup_legacy_claude_hooks
 cleanup_stale_claude_links
 
 # Codex-specific plugin assets use Codex's supported names while retaining the

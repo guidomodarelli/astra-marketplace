@@ -464,57 +464,37 @@ EOF
   [[ "$output" == *"Providers: Claude Code + Codex-compatible shared tree"* ]]
 }
 
-@test "sync removes managed legacy hooks and stale Claude symlink views" {
+@test "sync removes stale Claude symlink views" {
   skip_without_symlinks
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
-  mkdir -p .claude/hooks .claude/rules
-  ln -s ../../.agents/hooks/sync-marketplace.sh .claude/hooks/sync-marketplace.sh
-  ln -s ../../.agents/hooks/check-harness-consistency.sh .claude/hooks/check-harness-consistency.sh
-  ln -s ../../.agents/hooks/pre-tool-use.md .claude/hooks/pre-tool-use.md
+  mkdir -p .claude/rules
   ln -s ../../.agents/rules/removed-rule.md .claude/rules/removed-rule.md
 
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
-  [ ! -e .claude/hooks ]
-  [ ! -L .claude/hooks ]
   [ ! -e .claude/rules/removed-rule.md ]
+  [ ! -L .claude/rules/removed-rule.md ]
   [[ "$output" == *"Removed stale managed assets:"* ]]
 }
 
-@test "sync preserves custom Claude hooks and migrates custom settings" {
-  skip_without_symlinks
+@test "sync preserves custom Claude settings" {
   run_bootstrap frontend
   [ "$status" -eq 0 ]
 
-  outside_file="$test_root/custom-hook.sh"
-  printf '%s\n' '#!/bin/bash' > "$outside_file"
-  mkdir -p .claude/hooks
-  printf '%s\n' '# Custom hook' > .claude/hooks/custom.sh
-  printf '%s\n' '# Hidden custom hook' > .claude/hooks/.custom-hook
-  ln -s "$outside_file" .claude/hooks/custom-link.sh
-  jq '.customSetting = "preserve-me" | .permissions.allow |= map(gsub("\\.agents/hooks/"; ".claude/hooks/") | gsub(" --provider claude\\)$"; " --provider claude --sync-instructions --yes)")) | .permissions.allow += ["Bash(custom-project-command)"] | .hooks.SessionStart[0].hooks[0].command |= (gsub("\\.agents/hooks/"; ".claude/hooks/") | gsub(" --provider claude$"; " --provider claude --sync-instructions --yes")) | .hooks.PostToolUse[0].hooks[0].command |= gsub("\\.agents/hooks/"; ".claude/hooks/") | .hooks.PostToolUse[0].hooks += [{"type":"command","command":"bash .agents/hooks/custom-project-hook.sh"}]' .claude/settings.json > "$test_root/settings.json"
+  jq '.customSetting = "preserve-me" | .permissions.allow += ["Bash(custom-project-command)"] | .hooks.PostToolUse[0].hooks += [{"type":"command","command":"bash .agents/hooks/custom-project-hook.sh"}]' .claude/settings.json > "$test_root/settings.json"
   mv "$test_root/settings.json" .claude/settings.json
 
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
-  [ -f .claude/hooks/custom.sh ]
-  [ -f .claude/hooks/.custom-hook ]
-  [ -L .claude/hooks/custom-link.sh ]
   jq -e '.customSetting == "preserve-me"' .claude/settings.json >/dev/null
   jq -e '.permissions.allow | index("Bash(custom-project-command)")' .claude/settings.json >/dev/null
   jq -e '.permissions.allow | index("Bash(.agents/hooks/sync-marketplace.sh --provider claude)")' .claude/settings.json >/dev/null
   jq -e '.hooks.SessionStart[0].hooks[0].command == "bash .agents/hooks/sync-marketplace.sh --provider claude"' .claude/settings.json >/dev/null
   jq -e '.hooks.PostToolUse[0].hooks | index({"type":"command","command":"bash .agents/hooks/custom-project-hook.sh"})' .claude/settings.json >/dev/null
-  ! grep -Fq '.claude/hooks/' .claude/settings.json
-  ! grep -Fq -- '--sync' .claude/settings.json
-  [[ "$output" == *"Managed asset cleanup conflicts (preserved):"* ]]
-  [[ "$output" == *".claude/hooks/custom.sh is custom content; preserved"* ]]
-  [[ "$output" == *".claude/hooks/.custom-hook is custom content; preserved"* ]]
-  [[ "$output" == *".claude/hooks/custom-link.sh is a custom symlink; preserved"* ]]
 }
 
 @test "sync preserves custom settings array entries without other custom keys" {
@@ -1371,14 +1351,9 @@ EOF
 @test "Codex hooks install at discoverable project path on bootstrap and sync" {
   for stack in frontend node java go; do
     rm -f .codex/hooks.json
-    mkdir -p .codex/hooks
-    printf '%s\n' '{"custom":"legacy"}' > .codex/hooks/hooks.json
     run_bootstrap "$stack"
     [ "$status" -eq 0 ]
-    [ -f .codex/hooks.json ]
-    jq -e --slurpfile template "$skill_dir/assets/codex/hooks.json" '.hooks == $template[0].hooks' .codex/hooks.json >/dev/null
-    jq -e '.custom == "legacy"' .codex/hooks.json >/dev/null
-    [ ! -e .codex/hooks/hooks.json ]
+    cmp -s .codex/hooks.json "$skill_dir/assets/codex/hooks.json"
     rm .codex/hooks.json
 
     run env PATH="$fake_bin:$PATH" AGENT_READY_SETUP_SKILL_DIR="$skill_dir" \
@@ -1711,7 +1686,7 @@ EOF
   [[ "$output" == *"Updated from templates:"* ]]
 }
 
-@test "sync updates managed provider assets without legacy Claude hooks" {
+@test "sync updates managed provider assets" {
   run_bootstrap frontend
   [ "$status" -eq 0 ]
   [ ! -e .claude/hooks ]
@@ -1738,7 +1713,7 @@ EOF
   jq -en --slurpfile actual .claude/settings.json \
     --slurpfile expected "$source_dir/assets/common/settings.json" \
     '$actual[0] == $expected[0]' >/dev/null
-  cmp -s .codex/hooks.json "$source_dir/assets/codex/hooks.json"
+  jq -e '[.hooks.SessionStart[].hooks[].command] | index("bash .agents/hooks/updated-sync.sh") != null' .codex/hooks.json >/dev/null
 }
 
 @test "bootstrap detects managed destination changes before atomic rename" {
@@ -2370,71 +2345,6 @@ EOF
   grep -Fq 'Bash(custom-command)' "${backup_files[0]}"
 }
 
-@test "sync hook migrates legacy Claude settings path and flags" {
-  run_bootstrap frontend
-  [ "$status" -eq 0 ]
-
-  jq '
-    .permissions.allow[0] = "Bash(.claude/hooks/sync-marketplace.sh --provider claude --sync-instructions --yes)"
-    | .permissions.allow += [
-        "bash .agents/hooks/sync-marketplace.sh-wrapper --provider claude --custom",
-        "bash .agents/hooks/sync-marketplace.sh --provider claude --stack node"
-      ]
-    | .hooks.SessionStart[0].hooks[0].command = "bash .claude/hooks/sync-marketplace.sh --provider claude --sync-instructions --yes"
-  ' .claude/settings.json > "$test_root/settings.json"
-  mv "$test_root/settings.json" .claude/settings.json
-
-  cat > "$test_root/bin/claude" <<'EOF'
-#!/bin/bash
-awk '/^<!-- BEGIN AGENT-READY MANAGED -->$/ { print "<!-- AGENT-READY MANAGED BLOCK -->"; skip = 1; next }
-  /^<!-- END AGENT-READY MANAGED -->$/ { skip = 0; next }
-  !skip' AGENTS.md |
-  jq -Rs '{project_content:., removed:[], inconsistencies:[], reason:"No changes"}'
-EOF
-  chmod +x "$test_root/bin/claude"
-
-  AGENT_READY_SETUP_SKILL_DIR="$skill_dir" PATH="$test_root/bin:$PATH" \
-    run bash "$skill_dir/assets/common/hooks/sync-marketplace.sh" \
-      --provider claude --stack frontend
-
-  [ "$status" -eq 0 ]
-  jq -e '.permissions.allow | index("Bash(.agents/hooks/sync-marketplace.sh --provider claude)")' .claude/settings.json >/dev/null
-  jq -e '.permissions.allow | index("bash .agents/hooks/sync-marketplace.sh-wrapper --provider claude --custom")' .claude/settings.json >/dev/null
-  jq -e '.permissions.allow | index("bash .agents/hooks/sync-marketplace.sh --provider claude --stack node")' .claude/settings.json >/dev/null
-  jq -e '.hooks.SessionStart[0].hooks[0].command == "bash .agents/hooks/sync-marketplace.sh --provider claude"' .claude/settings.json >/dev/null
-  ! grep -Fq '.claude/hooks/' .claude/settings.json
-  ! grep -Fq -- '--sync' .claude/settings.json
-}
-
-@test "settings merge collapses legacy Claude sync hook without provider" {
-  run_bootstrap frontend
-  [ "$status" -eq 0 ]
-
-  jq '
-    .permissions.allow += ["Bash(.agents/hooks/sync-marketplace.sh)"]
-    | .hooks.SessionStart += [
-        {"matcher":"","hooks":[{"type":"command","command":"bash .agents/hooks/sync-marketplace.sh"}]},
-        {"matcher":"","hooks":[
-          {"type":"command","command":"bash .claude/hooks/sync-marketplace.sh"},
-          {"type":"command","command":"echo custom"}
-        ]}
-      ]
-  ' .claude/settings.json > "$test_root/settings.json"
-
-  run python3 "$skill_dir/scripts/merge-managed-settings.py" \
-    "$skill_dir/assets/common/settings.json" "$test_root/settings.json"
-
-  [ "$status" -eq 0 ]
-  printf '%s\n' "$output" > "$test_root/merged.json"
-  jq -e '[.permissions.allow[] | select(startswith("Bash(.agents/hooks/sync-marketplace.sh"))] == ["Bash(.agents/hooks/sync-marketplace.sh --provider claude)"]' \
-    "$test_root/merged.json" >/dev/null
-  jq -e '.hooks.SessionStart | length == 2' "$test_root/merged.json" >/dev/null
-  jq -e '.hooks.SessionStart[0].hooks == [{"type":"command","command":"bash .agents/hooks/sync-marketplace.sh --provider claude","statusMessage":"Sincronizando configuración Agent Ready con marketplace…"}]' \
-    "$test_root/merged.json" >/dev/null
-  jq -e '[.hooks.SessionStart[1].hooks[].command] == ["bash .agents/hooks/sync-marketplace.sh --provider claude", "echo custom"]' \
-    "$test_root/merged.json" >/dev/null
-}
-
 @test "sync hook projects managed assets without bootstrap" {
   fake_bin="$test_root/bin"
   source_dir="$test_root/agent-ready-setup"
@@ -2453,6 +2363,7 @@ EOF
     "$source_dir/scripts" \
     .agents/rules
   touch "$source_dir/SKILL.md"
+  printf '%s\n' '#!/bin/bash' > "$source_dir/scripts/normalize-instructions.sh"
   cp "$skill_dir/assets/common/hooks/sync-marketplace.sh" \
     "$source_dir/assets/common/hooks/sync-marketplace.sh"
   cp "$skill_dir/scripts/asset-sync-common.sh" "$source_dir/scripts/asset-sync-common.sh"
@@ -2571,6 +2482,8 @@ EOF
     "$source_dir/assets/stacks/go/hooks" \
     "$source_dir/scripts"
   touch "$source_dir/SKILL.md"
+  printf '%s\n' '#!/bin/bash' > "$source_dir/scripts/normalize-instructions.sh"
+  printf '%s\n' '#!/bin/bash' > "$source_dir/scripts/apply-managed-block.sh"
   cp "$skill_dir/assets/common/hooks/sync-marketplace.sh" \
     "$source_dir/assets/common/hooks/sync-marketplace.sh"
   cp "$skill_dir/scripts/asset-sync-common.sh" "$source_dir/scripts/asset-sync-common.sh"
@@ -2645,7 +2558,7 @@ EOF
   [[ "$output" == *"active/ambiguous lock"* ]]
 }
 
-@test "sync hook reclaims legacy stale lock without owner metadata" {
+@test "sync hook preserves old lock without owner metadata" {
   source_dir="$test_root/agent-ready-setup"
   cp -R "$skill_dir"/. "$source_dir"/
   mkdir -p .agents/.agent-ready-assets.lock
@@ -2656,8 +2569,8 @@ EOF
       --provider claude --stack go
 
   [ "$status" -eq 0 ]
-  [ ! -e .agents/.agent-ready-assets.lock ]
-  cmp -s .agents/hooks/sync-marketplace.sh "$source_dir/assets/common/hooks/sync-marketplace.sh"
+  [ -d .agents/.agent-ready-assets.lock ]
+  [[ "$output" == *"active/ambiguous lock"* ]]
 }
 
 @test "bootstrap reclaims asset lock left by terminated process" {
@@ -2724,18 +2637,14 @@ EOF
 }
 
 
-@test "Codex migration combines custom hooks from both files and remains idempotent" {
-  mkdir -p .codex/hooks
-  jq '.hooks.Stop = [{"hooks":[{"type":"command","command":"echo legacy","timeout":17}]}]' \
-    "$skill_dir/assets/codex/hooks.json" > .codex/hooks/hooks.json
+@test "Codex hooks merge keeps custom hooks and handler options and remains idempotent" {
+  mkdir -p .codex
   jq 'del(.hooks.SessionStart[].hooks[].statusMessage) | .hooks.SessionStart[0].hooks[0].timeout = 123 | .hooks.Stop = [{"hooks":[{"type":"command","command":"echo current"}]}]' \
     "$skill_dir/assets/codex/hooks.json" > .codex/hooks.json
 
   run_bootstrap node
   [ "$status" -eq 0 ]
-  [ ! -e .codex/hooks/hooks.json ]
-  jq -e '[.hooks.Stop[].hooks[].command] | sort == ["echo current", "echo legacy"]' .codex/hooks.json >/dev/null
-  jq -e '[.hooks.Stop[].hooks[] | select(.command == "echo legacy")][0].timeout == 17' .codex/hooks.json >/dev/null
+  jq -e '[.hooks.Stop[].hooks[].command] == ["echo current"]' .codex/hooks.json >/dev/null
   jq -e '[.hooks.SessionStart[].hooks[]] | length == 1 and .[0].statusMessage != null' .codex/hooks.json >/dev/null
   jq -e '.hooks.SessionStart[0].hooks[0].timeout == 123' .codex/hooks.json >/dev/null
   cp .codex/hooks.json "$test_root/expected-hooks.json"
@@ -2745,55 +2654,45 @@ EOF
   cmp -s .codex/hooks.json "$test_root/expected-hooks.json"
 }
 
-@test "Codex sync migrates legacy custom hooks and keeps sibling files" {
+@test "Codex sync leaves files under .codex/hooks untouched" {
   run_bootstrap node
   [ "$status" -eq 0 ]
   mkdir -p .codex/hooks
-  mv .codex/hooks.json .codex/hooks/hooks.json
-  jq '.hooks.Stop = [{"hooks":[{"type":"command","command":"echo legacy"}]}]' \
-    .codex/hooks/hooks.json > "$test_root/hooks.json"
-  mv "$test_root/hooks.json" .codex/hooks/hooks.json
-  printf '%s\n' 'custom script' > .codex/hooks/custom.sh
+  printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo other"}]}]}}' > .codex/hooks/hooks.json
+  cp .codex/hooks/hooks.json "$test_root/expected-other-hooks.json"
 
   run_marketplace_sync .agents/hooks/sync-marketplace.sh "$skill_dir"
   [ "$status" -eq 0 ]
-  [ ! -e .codex/hooks/hooks.json ]
-  [ "$(cat .codex/hooks/custom.sh)" = 'custom script' ]
-  jq -e '.hooks.Stop[0].hooks[0].command == "echo legacy"' .codex/hooks.json >/dev/null
+  cmp -s .codex/hooks/hooks.json "$test_root/expected-other-hooks.json"
+  cmp -s .codex/hooks.json "$skill_dir/assets/codex/hooks.json"
 }
 
-@test "Codex migration preserves malformed or symlinked input without deleting legacy file" {
+@test "Codex hooks merge preserves malformed or symlinked destination" {
   skip_without_symlinks
-  mkdir -p .codex/hooks
-  printf '%s\n' 'invalid json' > .codex/hooks/hooks.json
-  printf '%s\n' '{"hooks":{}}' > .codex/hooks.json
-  cp .codex/hooks.json "$test_root/expected-hooks.json"
+  mkdir -p .codex
+  printf '%s\n' 'invalid json' > .codex/hooks.json
   run_bootstrap go
   [ "$status" -eq 0 ]
-  cmp -s .codex/hooks.json "$test_root/expected-hooks.json"
-  [ "$(cat .codex/hooks/hooks.json)" = 'invalid json' ]
+  [ "$(cat .codex/hooks.json)" = 'invalid json' ]
   [[ "$output" == *'Codex hooks contain invalid configuration'* ]]
 
-  rm .codex/hooks/hooks.json
+  rm .codex/hooks.json
   printf '%s\n' '{"hooks":{}}' > "$test_root/outside-hooks.json"
-  ln -s "$test_root/outside-hooks.json" .codex/hooks/hooks.json
+  ln -s "$test_root/outside-hooks.json" .codex/hooks.json
   run_bootstrap go
   [ "$status" -eq 0 ]
-  [ -L .codex/hooks/hooks.json ]
-  cmp -s .codex/hooks.json "$test_root/expected-hooks.json"
+  [ -L .codex/hooks.json ]
+  [ "$(cat "$test_root/outside-hooks.json")" = '{"hooks":{}}' ]
   [[ "$output" == *'Codex hooks preserved'* ]]
 }
 
 
-@test "Codex migration preserves distinct custom handler options for the same command" {
-  mkdir -p .codex/hooks
-  printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo custom","timeout":10}]}]}}' \
-    > .codex/hooks/hooks.json
-  printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo custom","timeout":20}]}]}}' \
+@test "Codex hooks merge preserves distinct custom handler options for the same command" {
+  mkdir -p .codex
+  printf '%s\n' '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo custom","timeout":10}]},{"matcher":"other","hooks":[{"type":"command","command":"echo custom","timeout":20}]}]}}' \
     > .codex/hooks.json
   run_bootstrap node
   [ "$status" -eq 0 ]
-  [ ! -e .codex/hooks/hooks.json ]
   jq -e '[.hooks.Stop[].hooks[].timeout] | sort == [10, 20]' .codex/hooks.json >/dev/null
   cp .codex/hooks.json "$test_root/expected-hooks.json"
   run_bootstrap node
@@ -2801,12 +2700,10 @@ EOF
   cmp -s .codex/hooks.json "$test_root/expected-hooks.json"
 }
 
-@test "Codex migration keeps original snapshot through the final replacement" {
+@test "Codex hooks merge keeps original snapshot through the final replacement" {
   for provider in bootstrap sync; do
-    mkdir -p .codex/hooks
-    cp "$skill_dir/assets/codex/hooks.json" .codex/hooks/hooks.json
+    mkdir -p .codex
     printf '%s\n' '{"hooks":{},"custom":"original"}' > .codex/hooks.json
-    cp .codex/hooks/hooks.json "$test_root/expected-legacy.json"
     cat > "$fake_bin/mktemp" <<'SCRIPT'
 #!/bin/bash
 for argument in "$@"; do
@@ -2824,16 +2721,14 @@ SCRIPT
     fi
     [ "$status" -eq 0 ]
     jq -e '.custom == "concurrent"' .codex/hooks.json >/dev/null
-    cmp -s .codex/hooks/hooks.json "$test_root/expected-legacy.json"
     [[ "$output" == *'.codex/hooks.json changed during synchronization'* ]]
   done
 }
 
-@test "Codex migration preserves a destination created concurrently during staging" {
+@test "Codex hooks sync preserves a destination created concurrently during staging" {
   for provider in bootstrap sync; do
-    mkdir -p .codex/hooks
+    mkdir -p .codex
     rm -f .codex/hooks.json
-    cp "$skill_dir/assets/codex/hooks.json" .codex/hooks/hooks.json
     cat > "$fake_bin/cp" <<'SCRIPT'
 #!/bin/bash
 /bin/cp "$@"
@@ -2851,7 +2746,6 @@ SCRIPT
     fi
     [ "$status" -eq 0 ]
     jq -e '.custom == "concurrent"' .codex/hooks.json >/dev/null
-    cmp -s .codex/hooks/hooks.json "$skill_dir/assets/codex/hooks.json"
     [[ "$output" == *'.codex/hooks.json changed during synchronization'* ]]
   done
 }
@@ -2992,19 +2886,6 @@ commit_agents_and_detach_security_rule() {
   [ ! -e .husky/post-index-change ]
   [ ! -e .git/hooks/post-index-change ]
   [[ "$output" == *"core.hooksPath is set"* ]]
-}
-
-@test "config-based relink hook replaces the hook file of older versions" {
-  disable_symlinks
-  hook_path="$(git rev-parse --git-path hooks)/post-index-change"
-  mkdir -p "$(dirname "$hook_path")"
-  cp "$skill_dir/assets/git-hooks/post-index-change" "$hook_path"
-
-  run_bootstrap frontend
-
-  [ "$status" -eq 0 ]
-  [ ! -e "$hook_path" ]
-  [ "$(git config --get hook.agent-ready-relink.event)" = "post-index-change" ]
 }
 
 @test "Claude prompt hook relinks views detached without any git hook" {

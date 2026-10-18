@@ -83,8 +83,7 @@ La proyección automática de assets:
   `AGENTS.md` le indica no volver a leerlas y deja las referencias para Codex.
 - Reemplaza symlinks en paths gestionados sin seguirlos: borra el link y escribe
   el template, así nunca modifica el destino del link.
-- Elimina symlinks administrados stale bajo `.claude/` y limpia `.claude/hooks/`
-  legacy solo cuando queda vacío.
+- Elimina symlinks administrados stale bajo `.claude/`.
 - Sin privilegio para crear symlinks (Windows sin Modo de desarrollador ni shell
   elevada), crea cada vista como hard link al asset de `.agents/`, nunca como
   copia, y la registra en `.claude/.agent-ready-hard-link-views`. Cada sync
@@ -100,9 +99,8 @@ La proyección automática de assets:
 - El hook `UserPromptSubmit` de Claude Code corre el mismo script en cada prompt.
   Cubre `git apply` sin `--index`, que reescribe archivos sin disparar ningún hook
   de git. No imprime nada salvo avisos, porque Claude agrega la salida al prompt.
-- Migra referencias `.claude/hooks/` dentro de `.claude/settings.json` como JSON
-  y normaliza el comando administrado a `.agents/hooks/` sin flags de fase,
-  preservando campos custom y reportando settings inválidos.
+- Combina el template con `.claude/settings.json` como JSON, preservando campos
+  custom y reportando settings inválidos.
 - Normaliza `CLAUDE.md` raíz y anidados, incluido `.claude/CLAUDE.md`, mediante
   `scripts/normalize-instructions.sh`; crea o actualiza únicamente el `AGENTS.md`
   hermano cuando puede preservar el contenido sin ambigüedad.

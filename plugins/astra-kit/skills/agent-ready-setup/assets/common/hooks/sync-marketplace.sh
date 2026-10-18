@@ -24,8 +24,6 @@ readonly SYNC_LOCK_DIRECTORY="$SHARED_DIR/.agent-ready-assets.lock"
 # shellcheck disable=SC2034
 readonly SYNC_LOCK_OWNER_FILE="$SYNC_LOCK_DIRECTORY/owner"
 # shellcheck disable=SC2034
-readonly SYNC_LOCK_STALE_AFTER_MINUTES=10
-# shellcheck disable=SC2034
 SYNC_LOCK_ACQUIRED=0
 SYNC_LOCK_INHERITED=0
 # shellcheck disable=SC2034
@@ -894,21 +892,12 @@ project_rule_claude_views \
   "$skill_dir/scripts/render-instruction-template.sh" \
   "$skill_dir/assets/stacks/$stack/rules" \
   "$skill_dir/assets/common/rules"
-# Older shared helpers loaded before a restart may not define the hard-link pruner yet.
-if declare -F prune_hard_link_views >/dev/null; then
-  prune_hard_link_views
-fi
-if declare -F install_hard_link_git_hook >/dev/null; then
-  install_hard_link_git_hook "$skill_dir/assets/git-hooks/post-index-change"
-fi
+prune_hard_link_views
+install_hard_link_git_hook "$skill_dir/assets/git-hooks/post-index-change"
 
 # Reuse the shared conservative instruction normalizer so SessionStart also
 # discovers project CLAUDE.md files under directories such as .claude/.
-if [[ -f "$skill_dir/scripts/normalize-instructions.sh" ]]; then
-  bash "$skill_dir/scripts/normalize-instructions.sh" --stack "$stack"
-else
-  printf 'WARNING: %s does not provide normalize-instructions.sh; instruction normalization skipped.\n' "$skill_dir" >&2
-fi
+bash "$skill_dir/scripts/normalize-instructions.sh" --stack "$stack"
 
 sync_claude_settings "$skill_dir/assets/common/settings.json"
 sync_codex_hooks "$skill_dir/assets/codex/hooks.json"
@@ -916,7 +905,7 @@ sync_codex_hooks "$skill_dir/assets/codex/hooks.json"
 # Exit status of register-browser-servers.py when only a full install can provide the tools.
 readonly BROWSER_NO_INSTALLATION_STATUS=3
 
-# Registers or migrates browser MCP servers from the existing installation. When
+# Registers browser MCP servers from the existing installation. When
 # none exists, starts the full installation in the background so SessionStart
 # never waits for package installs or the Chromium download.
 sync_browser_registration() {
@@ -925,10 +914,6 @@ sync_browser_registration() {
   local registration_status=0
 
   [[ "${AGENT_READY_SETUP_BROWSER_INSTALL:-1}" == 1 ]] || return 0
-  if [[ ! -f "$helper" ]]; then
-    printf 'WARNING: %s does not provide register-browser-servers.py; browser MCP registration sync skipped.\n' "$skill_dir" >&2
-    return 0
-  fi
   if ! command -v python3 >/dev/null 2>&1; then
     printf 'WARNING: python3 is unavailable; browser MCP registration sync skipped.\n' >&2
     return 0
@@ -937,9 +922,7 @@ sync_browser_registration() {
   case "$registration_status" in
     0) ;;
     "$BROWSER_NO_INSTALLATION_STATUS")
-      if [[ ! -f "$installer" ]]; then
-        printf 'WARNING: browser tools are not installed and this agent-ready-setup version cannot install them in the background; skipped.\n' >&2
-      elif ! python3 "$installer" --project "$PWD"; then
+      if ! python3 "$installer" --project "$PWD"; then
         printf 'WARNING: background browser install could not start; it retries in the next session.\n' >&2
       fi
       ;;
@@ -976,23 +959,19 @@ fi
 
 # The verbatim managed block is local and applies now, so this session already
 # sees new rule references; the provider redundancy review runs in the background.
-if [[ ! -f "$skill_dir/scripts/apply-managed-block.sh" ]]; then
-  printf 'WARNING: %s does not provide apply-managed-block.sh; AGENTS.md managed block sync skipped.\n' "$skill_dir" >&2
-else
-  apply_status=0
-  bash "$skill_dir/scripts/apply-managed-block.sh" --stack "$stack" --skill-dir "$skill_dir" || apply_status=$?
-  case "$apply_status" in
-    0)
-      start_background_task "instruction-review-$(project_log_key)" \
-        env AGENT_READY_SETUP_NON_INTERACTIVE=1 bash "$skill_dir/scripts/merge-instructions.sh" \
-        --provider "$provider" --stack "$stack" --skill-dir "$skill_dir"
-      ;;
-    2)
-      echo "[marketplace-sync] AGENTS.md managed block requires human review; local file preserved."
-      ;;
-    *)
-      printf 'ERROR: AGENTS.md managed block sync failed for %s; local file was preserved.\n' "$skill_dir" >&2
-      exit 1
-      ;;
-  esac
-fi
+apply_status=0
+bash "$skill_dir/scripts/apply-managed-block.sh" --stack "$stack" --skill-dir "$skill_dir" || apply_status=$?
+case "$apply_status" in
+  0)
+    start_background_task "instruction-review-$(project_log_key)" \
+      env AGENT_READY_SETUP_NON_INTERACTIVE=1 bash "$skill_dir/scripts/merge-instructions.sh" \
+      --provider "$provider" --stack "$stack" --skill-dir "$skill_dir"
+    ;;
+  2)
+    echo "[marketplace-sync] AGENTS.md managed block requires human review; local file preserved."
+    ;;
+  *)
+    printf 'ERROR: AGENTS.md managed block sync failed for %s; local file was preserved.\n' "$skill_dir" >&2
+    exit 1
+    ;;
+esac

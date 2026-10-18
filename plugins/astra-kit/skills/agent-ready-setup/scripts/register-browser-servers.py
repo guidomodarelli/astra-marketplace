@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Register or migrate portable browser MCP servers from the existing installation.
+"""Register or update portable browser MCP servers from the existing installation.
 
 Never installs packages, Chromium, or the TOML editor. SessionStart sync runs it so
-legacy registrations are migrated without a full bootstrap.
+managed registrations stay current without a full bootstrap.
 """
 
 import argparse

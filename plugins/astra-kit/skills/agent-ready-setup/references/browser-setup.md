@@ -26,8 +26,7 @@ La config de usuario (`~/.claude.json`, `$CLAUDE_CONFIG_DIR/.claude.json` y
 `$CODEX_HOME/config.toml`) solo se lee, nunca se escribe.
 Una entrada es gestionada si su `command` o `args` apuntan a
 `agent-ready-setup/browser-tools/`; bootstrap la agrega si falta y reemplaza solo
-`command`, `args` y `env` si cambió, conservando otros campos como `enabled`. Así
-migra registros anteriores con paths absolutos a la forma portable.
+`command`, `args` y `env` si cambió, conservando otros campos como `enabled`.
 No agrega un servidor si existe un alias conocido definido por el usuario en el
 proyecto, scope usuario o scope local de Claude; no reemplaza sus commands,
 credenciales, flags o decisiones de disabled. Conserva mapas TOML inline y

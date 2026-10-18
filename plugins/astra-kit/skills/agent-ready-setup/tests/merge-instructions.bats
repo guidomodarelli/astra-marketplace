@@ -121,9 +121,6 @@ Run make verify before merging.
 @./rules/coding-style.md
 @./rules/security.md
 EOF
-  mkdir -p .agents .git/info
-  printf '%s\n' stale > .agents/.agent-ready-instructions-template.sha256
-  printf '%s\n' stale > .git/info/agent-ready-instructions-template.sha256
   write_review_response $'# Existing project instructions\n\nRun make verify before merging.\n\n'"$managed_placeholder" \
     '["## Rules — replaced by managed block", "@./rules/coding-style.md — replaced by managed block", "@./rules/security.md — replaced by managed block"]'
 
@@ -134,8 +131,6 @@ EOF
   ! grep -Eq '@[^[:space:]]*rules/' AGENTS.md
   [[ "$output" == *"Removed redundant lines outside the managed block:"* ]]
   [ -f .git/info/agent-ready-instructions-reviewed.sha256 ]
-  [ ! -e .git/info/agent-ready-instructions-template.sha256 ]
-  [ ! -e .agents/.agent-ready-instructions-template.sha256 ]
 
   cat > "$fake_bin/claude" <<'EOF'
 #!/bin/bash
@@ -302,31 +297,6 @@ EOF
   [[ "$output" == *"invalid structured output"* ]]
   grep -Fxq '# Keep this file' AGENTS.md
   grep -Fxq '<!-- BEGIN AGENT-READY MANAGED -->' AGENTS.md
-}
-
-@test "legacy rule-reference markers are removed when review fails" {
-  cat > AGENTS.md <<'EOF'
-# Project
-
-## Rules
-
-<!-- BEGIN AGENT-READY RULE REFERENCES -->
-- Read and follow `.agents/rules/security.md`.
-<!-- END AGENT-READY RULE REFERENCES -->
-EOF
-  cat > "$fake_bin/claude" <<'EOF'
-#!/bin/bash
-exit 1
-EOF
-  chmod +x "$fake_bin/claude"
-
-  run_merge node
-
-  [ "$status" -eq 0 ]
-  ! grep -Fq 'AGENT-READY RULE REFERENCES' AGENTS.md
-  bash "$skill_dir/scripts/render-instruction-template.sh" --validate AGENTS.md \
-    --rules-dir "$skill_dir/assets/stacks/node/rules" \
-    --common-rules-dir "$skill_dir/assets/common/rules"
 }
 
 @test "malformed managed markers require human review without invoking the provider" {
@@ -763,6 +733,7 @@ EOF
     "$source_dir/assets/common/hooks/sync-marketplace.sh"
   cp "$skill_dir/scripts/asset-sync-common.sh" "$source_dir/scripts/asset-sync-common.sh"
   cp "$skill_dir/scripts/merge-managed-settings.py" "$source_dir/scripts/merge-managed-settings.py"
+  printf '%s\n' '#!/bin/bash' > "$source_dir/scripts/normalize-instructions.sh"
   cp "$skill_dir/scripts/run-detached.py" "$source_dir/scripts/run-detached.py"
   printf '%s\n' '{}' > "$source_dir/assets/common/settings.json"
   printf '%s\n' '{}' > "$source_dir/assets/codex/hooks.json"
@@ -787,6 +758,7 @@ EOF
   EVENT_LOG="$event_log" \
     MERGE_LOG="$merge_log" \
     AGENT_READY_SETUP_SKILL_DIR="$source_dir" \
+    AGENT_READY_SETUP_BROWSER_INSTALL=0 \
     PATH="$fake_bin:$PATH" \
     run bash "$skill_dir/assets/common/hooks/sync-marketplace.sh" \
       --provider claude
@@ -819,6 +791,7 @@ EOF
     "$source_dir/assets/common/hooks/sync-marketplace.sh"
   cp "$skill_dir/scripts/asset-sync-common.sh" "$source_dir/scripts/asset-sync-common.sh"
   cp "$skill_dir/scripts/merge-managed-settings.py" "$source_dir/scripts/merge-managed-settings.py"
+  printf '%s\n' '#!/bin/bash' > "$source_dir/scripts/normalize-instructions.sh"
   printf '%s\n' '{}' > "$source_dir/assets/common/settings.json"
   printf '%s\n' '{}' > "$source_dir/assets/codex/hooks.json"
   cat > "$source_dir/scripts/apply-managed-block.sh" <<'EOF'
