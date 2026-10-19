@@ -220,64 +220,68 @@ el repositorio no cambia.
 
 ## 🔖 Bumping de versión de un plugin
 
-Usá el script `create-version` para hacer bump a la versión de un plugin. Actualiza el campo `version` en **ambos** manifiestos de proveedor (`.claude-plugin/plugin.json` y `.codex-plugin/plugin.json`) a la vez, manteniéndolos sincronizados. `bun run cv` es un alias corto con los mismos argumentos (`bun run cv --dry-run`).
+Usá el script `create-version` para hacer bump a la versión de un plugin. Actualiza el campo `version` en **ambos** manifiestos de proveedor (`.claude-plugin/plugin.json` y `.codex-plugin/plugin.json`) a la vez, manteniéndolos sincronizados. `pnpm cv` es un alias corto con los mismos argumentos (`pnpm cv --dry-run`).
 
 ```bash
-bun run create-version              # auto-detecta el único plugin cambiado sin bump en la branch; si no, muestra menú
-bun run create-version astra-kit    # apuntá a un plugin directamente por nombre
-bun run create-version -- --dry-run  # preview sin escribir, commitear ni pushear (shorthand: -n)
-bun run create-version -- astra-kit --bump minor  # sin prompts (patch | minor | major)
-bun run create-version -- --set 2.0.0  # versión exacta sin prompts
-bun run create-version -- --help     # ayuda (shorthand: -h)
+pnpm create-version              # auto-detecta el único plugin cambiado sin bump en la branch; si no, muestra menú
+pnpm create-version astra-kit    # apuntá a un plugin directamente por nombre
+pnpm create-version --dry-run  # preview sin escribir, commitear ni pushear (shorthand: -n)
+pnpm create-version astra-kit --bump minor  # sin prompts (patch | minor | major)
+pnpm create-version --set 2.0.0  # versión exacta sin prompts
+pnpm create-version --help     # ayuda (shorthand: -h)
 ```
 
 El script compara branch actual contra primera base remota disponible (`origin/develop`, `origin/master` u `origin/main`) y suma cambios locales y los commits hechos en cada plugin después del último cambio de su versión (así detecta un plugin mergeado a la rama default sin bump) para detectar qué plugin cambió. Si el repo tiene un solo plugin, lo selecciona sin mostrar el menú. Ignora archivos fuera de `plugins/` para esa decisión. Luego pregunta cómo establecer la nueva versión — un semver bump (`patch` / `minor` / `major`) calculado desde la versión actual, o una versión exacta personalizada — crea un commit que incluye **solo** los dos `plugin.json` actualizados (el resto de cambios staged, unstaged o untracked queda intacto) y hace `push` automático de la rama (con `-u origin HEAD` si todavía no tiene upstream). Nunca hace force-push y también pushea las ramas default (`develop`, `master`, `main`); si el push falla, el commit local se conserva y el script termina con error. Con `--dry-run` (o `-n`) recorre los mismos prompts y muestra qué archivos actualizaría, el commit y el push planeados, sin modificar nada. `--bump <kind>` o `--set <version>` evitan el prompt de versión (no se pueden combinar) y `--help` (`-h`) muestra el uso.
 
 > ⚠️ Antes de escribir, valida que ambos manifiestos ya compartan la misma versión y aborta si difieren — nunca vas a hacer bump desde un estado inconsistente.
 
+### Check de versión en la CI
+
+El workflow `.github/workflows/version-bump.yml` corre en cada pull request el job `Version bump` (`pnpm check-version-bump <base>`). Falla si un plugin cambió respecto del merge base sin subir su versión, si los dos manifiestos quedaron en versiones distintas o si la versión no es `MAJOR.MINOR.PATCH`. Cuentan como cambio todos los archivos bajo `plugins/<plugin>/` salvo los que están dentro de carpetas `tests/` o `evals/`, que no cambian lo que el plugin entrega a los agentes. Un plugin nuevo pasa sin versión base. Para correrlo local: `pnpm check-version-bump` (compara contra `origin/main`).
+
 ---
 
 ## 🧪 Correr tests shell localmente
 
-Las suites shell usan [bats-core](https://github.com/bats-core/bats-core) con versión y dependencias fijadas en `bun.lock`. Requieren [Bun](https://bun.sh) 1.4+.
+Las suites shell usan [bats-core](https://github.com/bats-core/bats-core) con versión y dependencias fijadas en `pnpm-lock.yaml`. Requieren Node.js 24 (versión exacta en `.nvmrc`) y pnpm 12 (fijado en `packageManager`). `pnpm-workspace.yaml` activa `shellEmulator`, así los scripts con sintaxis POSIX (`VAR=valor comando`) corren igual en Windows.
 
 ```bash
 # Instalación reproducible
-bun install --frozen-lockfile
+pnpm install --frozen-lockfile
 
 # Preparación explícita de tests browser (Python 3.11+, instala tomlkit en venv local)
-bun run setup:browser-tests
+pnpm run setup:browser-tests
 
 # Suites aisladas: Agent Ready, create-version y contrato del eval runner
-bun run test
+pnpm run test
 ```
 
-`bun run test:review-fix-loop` corre solo la suite del helper de `review-fix-loop`, que usa
+`pnpm run test:review-fix-loop` corre solo la suite del helper de `review-fix-loop`, que usa
 providers falsos y no llama a Claude ni a Codex reales.
-`bun run test:sibling-worktree` corre la suite del helper de `sibling-worktree` sobre repos git
+`pnpm run test:sibling-worktree` corre la suite del helper de `sibling-worktree` sobre repos git
 temporales.
 
 Cada test tiene un timeout de 30 segundos: `test:shell` usa `BATS_TEST_TIMEOUT=30` y las suites
 bash de `review-fix-loop` y `sibling-worktree` corren cada test bajo `timeout` (`gtimeout` en macOS).
-La excepción es `bun run test:bootstrap` (parte de `test:shell`), con 120 segundos por test: sus
+La excepción es `pnpm run test:bootstrap` (parte de `test:shell`), con 120 segundos por test: sus
 tests corren bootstrap y sync completos varias veces, y en Windows algunos tardan más de un minuto.
-Las suites bats corren con `LC_ALL=C.UTF-8`: el shell de `bun run` no pasa la configuración
+Las suites bats corren con `LC_ALL=C.UTF-8`: el shell de `pnpm run` no pasa la configuración
 regional, y sin UTF-8 bats no ejecuta los tests cuyo nombre lleva tildes.
 Un test que se cuelga falla con `timeout` en vez de bloquear la corrida. Para cambiar el límite en las
 suites bash, exportá `TEST_TIMEOUT_SECONDS`.
 
 ### Qué suite correr según el cambio
 
-`bun run test` completo tarda cerca de una hora en Windows, porque `bootstrap.bats` corre sus
+`pnpm run test` completo tarda cerca de una hora en Windows, porque `bootstrap.bats` corre sus
 128 tests en serie y cada uno ejecuta bootstrap y sync completos. Durante una tarea, corré solo
 lo que cubre el cambio y dejá la suite completa a la CI:
 
 | Cambio | Comando local |
 |---|---|
-| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `bun x bats plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `bun x bats --filter 'rules' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
-| Un flujo puntual de `agent-ready-setup` | `bun x bats --filter '<parte del nombre del test>' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
-| Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `bun run test:bootstrap` completo |
-| `review-fix-loop`, `sibling-worktree`, `create-version` o el eval runner | Su suite (`bun run test:review-fix-loop`, `bun run test:sibling-worktree`, `bun x bats tests/create-version.bats`, `bun x bats skill-eval-runner/tests/*.bats`) |
+| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `pnpm exec bats plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `pnpm exec bats --filter 'rules' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Un flujo puntual de `agent-ready-setup` | `pnpm exec bats --filter '<parte del nombre del test>' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `pnpm run test:bootstrap` completo |
+| `review-fix-loop`, `sibling-worktree`, `create-version`, `check-version-bump` o el eval runner | Su suite (`pnpm run test:review-fix-loop`, `pnpm run test:sibling-worktree`, `pnpm exec bats tests/create-version.bats tests/check-version-bump.bats`, `pnpm exec bats skill-eval-runner/tests/*.bats`) |
 
 Anteponé `LC_ALL=C.UTF-8` a cada `bats` (ver más abajo). En Windows, `bats --jobs` no funciona:
 Git Bash no trae `flock` ni GNU `parallel`.
@@ -286,7 +290,7 @@ La CI (`.github/workflows/tests.yml`) corre todas las suites en cada pull reques
 `main`, sobre Ubuntu: `bootstrap.bats` se reparte en 3 shards que corren en paralelo y, dentro de
 cada shard, en paralelo con `bats --jobs`. El check `Tests` exige que pasen todas.
 
-`bun run test:browser` ejecuta pruebas de registro browser desde el venv local,
+`pnpm run test:browser` ejecuta pruebas de registro browser desde el venv local,
 sin descargar dependencias. La prueba de lanzamiento real es opt-in mediante
 `AGENT_READY_SETUP_BROWSER_SMOKE_ROOT` (directorio administrado de herramientas)
 y `AGENT_READY_SETUP_BROWSER_SMOKE_EXECUTABLE` (path de Chromium instalado).

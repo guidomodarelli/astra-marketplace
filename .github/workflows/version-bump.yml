@@ -1,0 +1,30 @@
+name: Version bump
+
+# Every pull request that changes a plugin must raise its version in both
+# provider manifests. See scripts/check-version-bump.js for the rules.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: version-bump-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version-bump:
+    name: Version bump
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Require a version bump for changed plugins
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-version-bump.js "$BASE_SHA"

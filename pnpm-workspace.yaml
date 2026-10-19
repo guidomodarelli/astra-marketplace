@@ -1,0 +1,3 @@
+# Los scripts de package.json usan sintaxis POSIX (`VAR=valor comando`, `&&`):
+# el emulador de shell de pnpm los corre igual en Windows y en Linux.
+shellEmulator: true

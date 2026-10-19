@@ -185,27 +185,29 @@ export ASTRA_MARKETPLACE_EVAL_PROVIDER=codex
 
 ## Bumping a plugin version
 
-`bun run cv` is a short alias of `bun run create-version` and accepts the same arguments.
+`pnpm cv` is a short alias of `pnpm create-version` and accepts the same arguments.
 
 ```bash
 # Interactive: pick a plugin from a numbered menu
-bun run create-version
+pnpm create-version
 
 # Target a plugin directly by name
-bun run create-version <plugin-name>
+pnpm create-version <plugin-name>
 
 # Preview without writing, committing or pushing (shorthand: -n)
-bun run create-version -- --dry-run
+pnpm create-version --dry-run
 
 # Skip the version prompt
-bun run create-version -- <plugin-name> --bump minor
-bun run create-version -- --set 2.0.0
+pnpm create-version <plugin-name> --bump minor
+pnpm create-version --set 2.0.0
 
 # Show usage (shorthand: -h)
-bun run create-version -- --help
+pnpm create-version --help
 ```
 
 Updates the `version` field in **both** provider manifests (`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`) so they stay in sync. Detects changed plugin paths under `plugins/` from the current branch diff against the first available remote base (`origin/develop`, `origin/master`, or `origin/main`) plus working-tree changes and any commit made under a plugin after the last commit that changed its version (so a plugin merged into the default branch without a bump is still detected there), and auto-selects the plugin when exactly one changed, even when other files outside `plugins/` are modified. When the repository has a single plugin, it is selected without showing the menu. Changed plugins whose manifest version already differs from the merge-base with that remote base (bumped in branch commits or in the working tree) are reported as already bumped, excluded from auto-selection, and marked as `✔ bumped` in the menu, so with several changed plugins the one still pending is auto-selected. Offers a semver bump (`patch`/`minor`/`major`) or a custom exact version, and aborts if the two manifests are not already on the same version. After the version is selected, commits **only** the two updated `plugin.json` manifests with a descriptive message (other staged, unstaged or untracked changes are left untouched), then pushes the branch automatically (`git push -u origin HEAD` when no upstream exists). It never force-pushes and also pushes default branches (`develop`, `master`, `main`); if the push fails, the local commit is kept and the script exits with an error. `--dry-run` (`-n`) runs the same prompts and prints the planned manifest updates, commit and push without changing anything. `--bump <patch|minor|major>` or `--set <version>` (mutually exclusive) skip the version prompt; `--help` (`-h`) prints usage. Implemented in `scripts/create-version.js` (zero external deps).
+
+Pull requests must bump every plugin they change: the `Version bump` job (`.github/workflows/version-bump.yml`) runs `pnpm check-version-bump <base>` (`scripts/check-version-bump.js`) and fails when files under `plugins/<plugin>/` changed (except inside `tests/` or `evals/` directories) and the plugin version did not go up against the merge base, or when the Claude and Codex manifests disagree. Run `pnpm create-version` before opening the pull request. Both scripts share `scripts/lib/plugin-manifests.js`.
 
 ## Single source of truth
 
