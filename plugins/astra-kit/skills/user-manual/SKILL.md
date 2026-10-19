@@ -343,7 +343,7 @@ manual only lives in its destination (for example a document in a hosted viewer 
 | UI preview | `mockup` + `mockup-bar` (`mockup-dots` + `mockup-url`) + `app-frame` or `mockup-body`, then `div.figcap` |
 | Mobile capture | `.mockup.mockup--mobile` (375 px captures, centered) |
 | Concrete scenario | `example-box` + `example-label` |
-| Value transition (`$15 → $20`) | `flow` + `pill-stale` / `pill-neutral` / `pill-success` |
+| Value transition (`US$ 15 → US$ 20`) | `flow` + `pill-stale` / `pill-neutral` / `pill-success` |
 | Reference block (rules, errors, checklist) | `details.acc` + `summary` (+ `acc-num`) + `acc-body` |
 | Numbered pins on a capture, tied to steps | `div.hotspot-stage` + `span.hotspot[data-target]`; `data-hotspot` on `step-item` and `span.hotspot-ref` |
 | Before / after of one screen | `div.compare` |
