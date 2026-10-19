@@ -62,8 +62,8 @@
         },
         {
           "type": "regex",
-          "pattern": "fetchpriority|priority|preload|loading=.?eager|(sin|no|nunca|evitar|evitá)( (usar|uses|aplicar|apliques|hacer|hagas))?( el| un)?[ -]lazy",
-          "description": "No difiere la imagen LCP y la prioriza (la mención de LCP se valida aparte, sin importar orden ni saltos de línea)"
+          "pattern": "(LCP|hero)([^.;]|\\.[^[:space:]]){0,80}(fetchpriority|priority|preload|loading=.?eager|(sin|no|nunca|evitar|evitá)( (usar|uses|aplicar|apliques|hacer|hagas))?( el| un)?[ -]lazy)|(fetchpriority|priority|preload|loading=.?eager|(sin|no|nunca|evitar|evitá)( (usar|uses|aplicar|apliques|hacer|hagas))?( el| un)?[ -]lazy)([^.;]|\\.[^[:space:]]){0,80}(LCP|hero)",
+          "description": "Prioriza la imagen hero/LCP y no la difiere: el remedio de prioridad aparece en la misma frase que el hero o el LCP, en cualquier orden"
         },
         {
           "type": "regex",
@@ -93,9 +93,9 @@
           "description": "Resuelve el waterfall componiendo los requests dependientes en el server/BFF o en un endpoint agregado"
         },
         {
-          "type": "contains_any",
-          "values": ["staleTime", "Cache-Control", "TanStack Query", "SWR", "stale-while-revalidate", "dedup"],
-          "description": "Propone cache o dedupe para evitar refetch al volver a la pestaña"
+          "type": "regex",
+          "pattern": "staleTime[^0-9,;]{0,15}([1-9]|Infinity)|dedupingInterval[^0-9,;]{0,15}[1-9]|(refetchOnWindowFocus|revalidateOnFocus)[^,;]{0,6}false|revalidateIfStale[^,;]{0,6}false|(s-)?max-?age=[1-9]|stale-while-revalidate",
+          "description": "Propone un mecanismo concreto de frescura o dedupe que evita el refetch al volver a la pestaña (no alcanza con nombrar la librería ni con no-store)"
         },
         {
           "type": "contains_any",
