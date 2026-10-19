@@ -55,6 +55,7 @@ Cuidar listas de `IN` muy grandes (partir en chunks) y no traer relaciones que l
 ## Queries lentas que no son N+1
 
 - `EXPLAIN ANALYZE` de la query: buscar seq scans sobre tablas grandes, sorts en disco y estimaciones de filas muy erradas.
+  - `EXPLAIN ANALYZE` ejecuta la sentencia de verdad. Para `INSERT`/`UPDATE`/`DELETE` usar `EXPLAIN` sin `ANALYZE`, o envolverlo en una transacción revertida (`BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;`), preferentemente fuera de producción.
 - Índices sobre columnas de `WHERE`, `JOIN` y `ORDER BY` (índices compuestos en el orden en que se filtra).
 - Paginación por cursor/keyset en lugar de `OFFSET` grande.
 - Proyectar solo las columnas necesarias en lugar de `SELECT *`.
@@ -64,5 +65,5 @@ Cuidar listas de `IN` muy grandes (partir en chunks) y no traer relaciones que l
 
 - Cantidad de queries por request (por ejemplo, 101 → 2).
 - Tiempo total de DB y p95 del endpoint con la misma data.
-- Plan de `EXPLAIN ANALYZE` y tiempo de ejecución de la query.
+- Plan de `EXPLAIN ANALYZE` y tiempo de ejecución de la query (en sentencias de escritura, ver la advertencia de [Queries lentas que no son N+1](#queries-lentas-que-no-son-n1)).
 - Para que no vuelva: un test de integración que cuente queries del endpoint y falle si supera el límite esperado.

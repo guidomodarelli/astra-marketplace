@@ -39,5 +39,5 @@ Los datos de producción complementan al laboratorio: el laboratorio atribuye un
 | Web Vitals de laboratorio | `npx lighthouse <url> --output=json` (correr 3 veces, usar la mediana) |
 | Tamaño de bundle | Output del build del framework, `source-map-explorer`, `@next/bundle-analyzer`, `rollup-plugin-visualizer`, `webpack-bundle-analyzer` |
 | Renders | React DevTools Profiler, `<Profiler onRender>` temporal |
-| Queries | Log de queries del ORM, `EXPLAIN ANALYZE`, `pg_stat_statements`, contador de queries en un test de integración |
+| Queries | Log de queries del ORM, `EXPLAIN ANALYZE` (en escrituras, ver [advertencia](database-queries-n-plus-one.md#queries-lentas-que-no-son-n1)), `pg_stat_statements`, contador de queries en un test de integración |
 | Tiempos de endpoint | `autocannon`, `k6`, `hey`, o `curl -w '%{time_total}'` repetido |
