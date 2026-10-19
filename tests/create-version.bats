@@ -5,11 +5,12 @@ setup() {
   test_root="$(mktemp -d)"
   repo_dir="$test_root/repo"
   mkdir -p \
-    "$repo_dir/scripts" \
+    "$repo_dir/scripts/lib" \
     "$repo_dir/plugins/astra-kit/.claude-plugin" \
     "$repo_dir/plugins/astra-kit/.codex-plugin"
 
   cp "$repository_root/scripts/create-version.js" "$repo_dir/scripts/create-version.js"
+  cp "$repository_root/scripts/lib/plugin-manifests.js" "$repo_dir/scripts/lib/plugin-manifests.js"
   cat > "$repo_dir/plugins/astra-kit/.claude-plugin/plugin.json" <<'JSON'
 {
   "name": "astra-kit",
@@ -59,13 +60,13 @@ assert_head_contains_only_manifests() {
   git add staged.txt
   printf '%s\n' 'untracked change' > untracked.txt
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Detected changed plugin: astra-kit"* ]]
   [[ "$output" != *"Select a plugin by number"* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
-  [ "$(bun -p "require('./plugins/astra-kit/.codex-plugin/plugin.json').version")" = "1.12.1" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
+  [ "$(node -p "require('./plugins/astra-kit/.codex-plugin/plugin.json').version")" = "1.12.1" ]
   [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in both "plugin.json" files for the "astra-kit" plugin' ]
   git log -1 --pretty=%B | grep -Fxq 'Co-Authored-By: Claude Code <noreply@anthropic.com>'
   assert_head_contains_only_manifests
@@ -83,12 +84,12 @@ assert_head_contains_only_manifests() {
   git add plugins/astra-kit/docs/committed.md
   git commit -qm "Change Astra Kit"
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Detected changed plugin: astra-kit"* ]]
   [[ "$output" != *"Select a plugin by number"* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
   [ -z "$(git status --porcelain)" ]
 }
 
@@ -111,7 +112,7 @@ JSON
 }
 JSON
 
-  run bash -c "printf '1\\n1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Detected changed plugins:"* ]]
@@ -126,7 +127,7 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'Pushed "feature/astra-kit-change" to origin'* ]]
@@ -140,10 +141,10 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '2\\n' | bun scripts/create-version.js"
+  run bash -c "printf '2\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.13.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.13.0" ]
   [ "$(remote_head feature/astra-kit-change)" = "$(git rev-parse HEAD)" ]
 }
 
@@ -151,7 +152,7 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *'Pushed "main" to origin'* ]]
@@ -165,7 +166,7 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *'Version bump commit was created but "git push -u origin HEAD" failed for branch "feature/astra-kit-change"'* ]]
@@ -178,7 +179,7 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" != *$'\e['* ]]
@@ -190,7 +191,7 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '1\\n' | FORCE_COLOR=1 bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | FORCE_COLOR=1 node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *$'\e[32m'* ]]
@@ -200,7 +201,7 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "printf '1\\n' | FORCE_COLOR=1 NO_COLOR=1 bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | FORCE_COLOR=1 NO_COLOR=1 node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" != *$'\e['* ]]
@@ -213,39 +214,39 @@ JSON
   initial_head="$(git rev-parse HEAD)"
   initial_status="$(git status --porcelain)"
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js --dry-run"
+  run bash -c "printf '1\\n' | node scripts/create-version.js --dry-run"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"🧪 DRY RUN"* ]]
   [[ "$output" == *"Would update plugins/astra-kit/.claude-plugin/plugin.json"* ]]
   [[ "$output" == *'Would commit only both manifests: Bump the version number from 1.12.0 to 1.12.1'* ]]
   [[ "$output" == *'Would push "feature/astra-kit-change" to origin (git push -u origin HEAD)'* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
-  [ "$(bun -p "require('./plugins/astra-kit/.codex-plugin/plugin.json').version")" = "1.12.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.codex-plugin/plugin.json').version")" = "1.12.0" ]
   [ "$(git rev-parse HEAD)" = "$initial_head" ]
   [ "$(git status --porcelain)" = "$initial_status" ]
   [ -z "$(remote_head feature/astra-kit-change)" ]
 }
 
 @test "dry run shorthand works with plugin name on default branch" {
-  run bash -c "printf '3\\n' | bun scripts/create-version.js -n astra-kit"
+  run bash -c "printf '3\\n' | node scripts/create-version.js -n astra-kit"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"1.12.0 → 2.0.0"* ]]
   [[ "$output" == *'Would push "main" to origin (git push -u origin HEAD)'* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
   [ "$(git log -1 --pretty=%s)" = "Initialize fixture" ]
 }
 
 @test "rejects unknown options" {
-  run bash -c "bun scripts/create-version.js --force"
+  run bash -c "node scripts/create-version.js --force"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *'Unknown option "--force". Supported options: --dry-run, -n'* ]]
 }
 
 @test "prints help without touching the repository" {
-  run bash -c "bun scripts/create-version.js -h"
+  run bash -c "node scripts/create-version.js -h"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage"* ]]
@@ -258,51 +259,51 @@ JSON
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "bun scripts/create-version.js astra-kit --bump minor < /dev/null"
+  run bash -c "node scripts/create-version.js astra-kit --bump minor < /dev/null"
 
   [ "$status" -eq 0 ]
   [[ "$output" != *"Select an option"* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.13.0" ]
-  [ "$(bun -p "require('./plugins/astra-kit/.codex-plugin/plugin.json').version")" = "1.13.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.13.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.codex-plugin/plugin.json').version")" = "1.13.0" ]
 }
 
 @test "sets exact version using --set=value" {
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "bun scripts/create-version.js --set=3.1.4 < /dev/null"
+  run bash -c "node scripts/create-version.js --set=3.1.4 < /dev/null"
 
   [ "$status" -eq 0 ]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "3.1.4" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "3.1.4" ]
 }
 
 @test "combines dry run with --set" {
   mkdir -p plugins/astra-kit/docs
   printf '%s\n' 'plugin change' > plugins/astra-kit/docs/change.md
 
-  run bash -c "bun scripts/create-version.js -n --set 2.0.0 < /dev/null"
+  run bash -c "node scripts/create-version.js -n --set 2.0.0 < /dev/null"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"1.12.0 → 2.0.0"* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
 }
 
 @test "rejects invalid --bump and --set values" {
-  run bash -c "bun scripts/create-version.js --bump huge"
+  run bash -c "node scripts/create-version.js --bump huge"
   [ "$status" -eq 1 ]
   [[ "$output" == *'Invalid --bump value "huge". Expected one of: patch, minor, major'* ]]
 
-  run bash -c "bun scripts/create-version.js --set 1.2"
+  run bash -c "node scripts/create-version.js --set 1.2"
   [ "$status" -eq 1 ]
   [[ "$output" == *'Invalid --set value "1.2". Expected MAJOR.MINOR.PATCH.'* ]]
 }
 
 @test "rejects --bump with --set and missing values" {
-  run bash -c "bun scripts/create-version.js --bump patch --set 2.0.0"
+  run bash -c "node scripts/create-version.js --bump patch --set 2.0.0"
   [ "$status" -eq 1 ]
   [[ "$output" == *"Options --bump and --set cannot be used together."* ]]
 
-  run bash -c "bun scripts/create-version.js --bump --dry-run"
+  run bash -c "node scripts/create-version.js --bump --dry-run"
   [ "$status" -eq 1 ]
   [[ "$output" == *'Option "--bump" requires a value.'* ]]
 }
@@ -326,16 +327,16 @@ add_other_plugin_on_base() {
   printf '%s\n' 'other plugin change' > plugins/other-plugin/docs/change.md
   git add plugins
   git commit -qm "Change both plugins"
-  bun scripts/create-version.js other-plugin --bump minor >/dev/null
+  node scripts/create-version.js other-plugin --bump minor >/dev/null
 
-  run bash -c "printf '1\\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Already bumped in this branch: other-plugin (2.0.0 → 2.1.0)"* ]]
   [[ "$output" == *"Detected changed plugin: astra-kit"* ]]
   [[ "$output" != *"Select a plugin by number"* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
-  [ "$(bun -p "require('./plugins/other-plugin/.claude-plugin/plugin.json').version")" = "2.1.0" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
+  [ "$(node -p "require('./plugins/other-plugin/.claude-plugin/plugin.json').version")" = "2.1.0" ]
 }
 
 @test "marks bumped plugins in the menu when every changed plugin is bumped" {
@@ -345,10 +346,10 @@ add_other_plugin_on_base() {
   printf '%s\n' 'other plugin change' > plugins/other-plugin/docs/change.md
   git add plugins
   git commit -qm "Change both plugins"
-  bun scripts/create-version.js astra-kit --bump patch >/dev/null
-  bun scripts/create-version.js other-plugin --bump patch >/dev/null
+  node scripts/create-version.js astra-kit --bump patch >/dev/null
+  node scripts/create-version.js other-plugin --bump patch >/dev/null
 
-  run bash -c "printf '1\\n1\\n' | bun scripts/create-version.js --dry-run"
+  run bash -c "printf '1\\n1\\n' | node scripts/create-version.js --dry-run"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"astra-kit  ✔ bumped 1.12.0 → 1.12.1"* ]]
@@ -358,12 +359,12 @@ add_other_plugin_on_base() {
 }
 
 @test "auto-selects the only plugin when no plugin changed" {
-  run bash -c "printf '1\n' | bun scripts/create-version.js"
+  run bash -c "printf '1\n' | node scripts/create-version.js"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Only plugin available: astra-kit"* ]]
   [[ "$output" != *"Select a plugin by number"* ]]
-  [ "$(bun -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
+  [ "$(node -p "require('./plugins/astra-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
 }
 
 @test "auto-detects plugin committed on the default branch after its last version change" {
@@ -380,7 +381,7 @@ add_other_plugin_on_base() {
   git push -q origin main
   git fetch -q origin
 
-  run bash -c "printf '1\n' | bun scripts/create-version.js --dry-run"
+  run bash -c "printf '1\n' | node scripts/create-version.js --dry-run"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Detected changed plugin: astra-kit"* ]]

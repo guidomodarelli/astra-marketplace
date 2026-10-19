@@ -15,7 +15,7 @@ from unittest.mock import patch
 try:
     import tomlkit
 except ImportError:
-    print("Browser test dependencies missing; run bun run setup:browser-tests before testing.", file=sys.stderr)
+    print("Browser test dependencies missing; run pnpm run setup:browser-tests before testing.", file=sys.stderr)
     sys.exit(1)
 
 HELPER_PATH = Path(__file__).resolve().parents[1] / "scripts/setup-browser-tools.py"

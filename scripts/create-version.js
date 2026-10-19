@@ -10,22 +10,25 @@
  * them in sync, then commits only those two manifests and pushes the branch.
  *
  * Usage:
- *   bun run create-version            -> interactive plugin menu
- *   bun run create-version <plugin>   -> target a plugin directly by name
- *   bun run create-version -- --dry-run | -n   -> preview without writing, committing or pushing
- *   bun run create-version -- --bump <kind> | --set <version>   -> skip the version prompt
- *   bun run create-version -- --help | -h   -> show usage
+ *   pnpm create-version            -> interactive plugin menu
+ *   pnpm create-version <plugin>   -> target a plugin directly by name
+ *   pnpm create-version --dry-run | -n   -> preview without writing, committing or pushing
+ *   pnpm create-version --bump <kind> | --set <version>   -> skip the version prompt
+ *   pnpm create-version --help | -h   -> show usage
  */
 
 const childProcess = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const {
+  SEMVER_PATTERN,
+  discoverPlugins,
+  readManifest,
+} = require('./lib/plugin-manifests');
 
 const REPOSITORY_ROOT = path.join(__dirname, '..');
 const PLUGINS_DIR = path.join(REPOSITORY_ROOT, 'plugins');
-const CLAUDE_MANIFEST = path.join('.claude-plugin', 'plugin.json');
-const CODEX_MANIFEST = path.join('.codex-plugin', 'plugin.json');
 const REMOTE_NAME = 'origin';
 const DEFAULT_BRANCHES = ['develop', 'master', 'main'];
 const DRY_RUN_FLAGS = ['--dry-run', '-n'];
@@ -35,7 +38,6 @@ const SET_FLAG = '--set';
 const SUPPORTED_OPTIONS = [...DRY_RUN_FLAGS, ...HELP_FLAGS, BUMP_FLAG, SET_FLAG];
 const DRY_RUN_BANNER_MESSAGE = '🧪 DRY RUN · nothing will be written, committed or pushed';
 const DRY_RUN_COMPLETE_MESSAGE = '🧪 DRY RUN complete · run again without --dry-run to apply';
-const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/;
 const VERSION_FIELD_PATTERN = /("version"\s*:\s*")([^"]+)(")/;
 /** Matches manifest diff lines that touch the `version` key (POSIX regex for `git log -G`). */
 const VERSION_KEY_DIFF_PATTERN = '"version"';
@@ -161,46 +163,6 @@ function formatMenuOption(optionNumber, label) {
  */
 function formatPrompt(query) {
   return `\n${paint('cyan', '❯')} ${paint('bold', query)} `;
-}
-
-/**
- * Reads the raw text and parsed `version` of a manifest file.
- *
- * @param {string} manifestPath Absolute path to a plugin.json file.
- * @returns {{ raw: string, version: string }} Raw file contents and its version.
- */
-function readManifest(manifestPath) {
-  const raw = fs.readFileSync(manifestPath, 'utf8');
-  const parsed = JSON.parse(raw);
-  if (typeof parsed.version !== 'string') {
-    throw new Error(`Missing "version" field in ${manifestPath}`);
-  }
-  return { raw, version: parsed.version };
-}
-
-/**
- * Discovers plugins that expose both Claude and Codex manifests.
- *
- * @returns {Array<{ name: string, rootPath: string, claudePath: string, codexPath: string }>} Discovered plugins.
- */
-function discoverPlugins() {
-  if (!fs.existsSync(PLUGINS_DIR)) {
-    throw new Error(`Plugins directory not found: ${PLUGINS_DIR}`);
-  }
-
-  return fs
-    .readdirSync(PLUGINS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const pluginRoot = path.join(PLUGINS_DIR, entry.name);
-      return {
-        name: entry.name,
-        rootPath: pluginRoot,
-        claudePath: path.join(pluginRoot, CLAUDE_MANIFEST),
-        codexPath: path.join(pluginRoot, CODEX_MANIFEST),
-      };
-    })
-    .filter((plugin) => fs.existsSync(plugin.claudePath) && fs.existsSync(plugin.codexPath));
 }
 
 /**
@@ -597,14 +559,14 @@ function renderHelp() {
   const flag = (text) => paint('magenta', paint('bold', text.padEnd(24)));
   const section = (text) => paint('bold', text);
   const examples = [
-    ['bun run create-version', 'interactive'],
-    [`bun run create-version -- astra-kit ${BUMP_FLAG} minor`, 'no prompts'],
-    [`bun run create-version -- -n ${SET_FLAG} 2.0.0`, 'preview exact version'],
+    ['pnpm create-version', 'interactive'],
+    [`pnpm create-version astra-kit ${BUMP_FLAG} minor`, 'no prompts'],
+    [`pnpm create-version -n ${SET_FLAG} 2.0.0`, 'preview exact version'],
   ];
   const exampleColumnWidth = Math.max(...examples.map(([exampleCommand]) => exampleCommand.length));
   return renderPanel('🌱 create-version · help', [
     section('Usage'),
-    `  ${command('bun run create-version -- [plugin] [options]')}`,
+    `  ${command('pnpm create-version [plugin] [options]')}`,
     '',
     section('Options'),
     `  ${flag('-n, --dry-run')}Preview without writing, committing or pushing`,
@@ -829,7 +791,7 @@ async function main() {
     return;
   }
 
-  const plugins = discoverPlugins();
+  const plugins = discoverPlugins(PLUGINS_DIR);
   const changedPluginNames = detectChangedPluginNames(plugins);
 
   if (plugins.length === 0) {
