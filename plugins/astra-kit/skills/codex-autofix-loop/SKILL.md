@@ -250,7 +250,7 @@ Si OPEN, procesá:
 (0) MONITOR DEL PR (disparador principal; el cron `{{CRON}}` es solo respaldo para timeouts y por si el monitor muere). Mientras el PR esté `OPEN` tiene que haber UN `Monitor` vivo con `description` = `Monitor codex-autofix PR #{{PR}}` (así lo reconocés entre tus tareas en background y no armás dos). Si no existe, armalo con `timeout_ms: 1800000` (el máximo) y este `command`:
    ```bash
    pr={{PR}}; repo={{OWNER}}/{{REPO}}; bot='chatgpt-codex-connector[bot]'
-   count_bot_reviews() { gh api "repos/$repo/pulls/$pr/reviews" --paginate --jq "[.[] | select(.user.login==\"$bot\")] | length" 2>/dev/null | awk '{total+=$1} END{print total+0}'; }
+   count_bot_reviews() { gh api "repos/$repo/pulls/$pr/reviews" --paginate --jq "[.[] | select(.user.login==\"$bot\")] | length" 2>/dev/null | jq -s 'add // 0'; }
    checks_signature() { gh pr checks "$pr" --repo "$repo" --json bucket -q 'group_by(.bucket) | map("\(.[0].bucket)=\(length)") | join(",")' 2>/dev/null || true; }
    head=$(gh pr view "$pr" --repo "$repo" --json headRefOid -q .headRefOid 2>/dev/null)
    reviews=$(count_bot_reviews); checks=$(checks_signature)
@@ -331,8 +331,8 @@ Si OPEN, procesá:
    - Medí (usá el bloque de tu plataforma; disco = unidad del tempdir donde se crean los clones):
      - Windows (PowerShell):
        `$cores = (Get-CimInstance Win32_Processor | Measure-Object NumberOfLogicalProcessors -Sum).Sum; $loadPct = (Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average).Average; $busyCores = $cores * $loadPct / 100; $freeRamGb = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB; $freeDiskGb = (Get-PSDrive ((Split-Path $env:TEMP -Qualifier).TrimEnd(':'))).Free / 1GB`
-     - Linux: `cores=$(nproc); busy_cores=$(cut -d' ' -f1 /proc/loadavg); free_ram_gb=$(awk '/MemAvailable/{print $2/1048576}' /proc/meminfo); free_disk_gb=$(df -Pk "${TMPDIR:-/tmp}" | awk 'NR==2{print $4/1048576}')`
-     - macOS: `cores=$(sysctl -n hw.ncpu); busy_cores=$(sysctl -n vm.loadavg | awk '{print $2}'); free_ram_gb=$(vm_stat | awk -v ps=$(pagesize) '/Pages (free|inactive|speculative)/{gsub(/\./,"",$NF); sum+=$NF} END{print sum*ps/1073741824}'); free_disk_gb=$(df -Pk "${TMPDIR:-/tmp}" | awk 'NR==2{print $4/1048576}')`
+     - Linux: `cores=$(nproc); busy_cores=$(cut -d' ' -f1 /proc/loadavg); free_ram_gb=$(awk '/MemAvailable/{print $(NF-1)/1048576}' /proc/meminfo); free_disk_gb=$(df -Pk "${TMPDIR:-/tmp}" | awk 'NR==2{print $(NF-2)/1048576}')`
+     - macOS: `cores=$(sysctl -n hw.ncpu); busy_cores=$(sysctl -n vm.loadavg | awk '{print $(NF-3)}'); free_ram_gb=$(vm_stat | awk -v ps=$(pagesize) '/Pages (free|inactive|speculative)/{gsub(/\./,"",$NF); sum+=$NF} END{print sum*ps/1073741824}'); free_disk_gb=$(df -Pk "${TMPDIR:-/tmp}" | awk 'NR==2{print $(NF-2)/1048576}')`
    - Calculá (redondeando hacia abajo):
      - `cpu_slots  = floor((cores - busy_cores) / {{CPU_PER_AGENT}})`
      - `ram_slots  = floor((free_ram_gb - {{RAM_RESERVE_GB}}) / {{RAM_PER_AGENT_GB}})`
@@ -377,7 +377,7 @@ Si OPEN, procesá:
 
 (5-bis) TERMINACIÓN POR REVIEW LIMPIA (mergear + cortar). Chequealo cuando NO quedó ningún ítem accionable de Codex sin resolver esta vuelta (ni nuevos sin procesar, ni ids en `inFlight`, ni fallas pendientes del paso 5). Obtené el commit de la ÚLTIMA review limpia de Codex (REVIEWED) con estos dos formatos, en orden:
    - **Formato actual (resumen con estado JSON).** Codex mantiene un único comentario general con `<!-- codex-pull-request-review-summary -->` y un marcador `<!-- codex-review-state:v1 {...} -->`. Ese JSON trae `code_review` y `security_review`, cada uno con `commit_sha`, `status`, `has_any_findings` y `has_unresolved_findings`. Cuando la security review no corrió, sus campos vienen en `null`. Es limpia solo si `code_review.status == "completed"`, los dos flags de `code_review` son `false`, y `security_review` no corrió o también terminó `completed` sin hallazgos. La regex usa `[{]`/`[}]` en vez de llaves escapadas para que el comando sobreviva al quoting de cualquier shell:
-     HAS_STATE=$(gh api repos/{{OWNER}}/{{REPO}}/issues/{{PR}}/comments --paginate --jq '[.[] | select(.user.login=="chatgpt-codex-connector[bot]") | select(.body | contains("codex-review-state:v1"))] | length' | awk '{s+=$1} END {print s+0}')
+     HAS_STATE=$(gh api repos/{{OWNER}}/{{REPO}}/issues/{{PR}}/comments --paginate --jq '[.[] | select(.user.login=="chatgpt-codex-connector[bot]") | select(.body | contains("codex-review-state:v1"))] | length' | jq -s 'add // 0')
      REVIEWED=$(gh api repos/{{OWNER}}/{{REPO}}/issues/{{PR}}/comments --paginate --jq '[.[] | select(.user.login=="chatgpt-codex-connector[bot]") | .body | capture("codex-review-state:v1 (?<state>[{].*[}]) -->")? | .state | fromjson?] | last // empty | select(.code_review.status=="completed" and .code_review.has_any_findings==false and .code_review.has_unresolved_findings==false and (.security_review.status==null or (.security_review.status=="completed" and .security_review.has_any_findings==false and .security_review.has_unresolved_findings==false))) | .code_review.commit_sha' | tail -1)
      Si hay estado pero no está limpio (por ejemplo, `has_any_findings: true` con hallazgos ya cerrados), esto NO es review limpia. Esa terminación es el «Corte por convergencia». Lo mismo si la review sigue `running`: con `HAS_STATE >= 1` y REVIEWED vacío no hay review limpia, NO corras el fallback y seguí al paso (6).
    - **Formato viejo (fallback)**, solo si `HAS_STATE` es `0` (ningún comentario del bot con el marcador `codex-review-state:v1`): el último comentario general del bot con el texto de review limpia, y su `**Reviewed commit:**`:
