@@ -13,7 +13,7 @@
 
 - Detectar: texto invisible mientras carga la fuente (FOIT), saltos de layout al cambiar de fuente, muchas variantes o pesos cargados.
 - Corregir:
-  - `font-display: swap` (u `optional`) y `preload` de la fuente del texto principal.
+  - `font-display: swap` (u `optional`) y `preload` de la fuente del texto principal; un `<link rel="preload" as="font">` manual lleva siempre `crossorigin` (y `type="font/woff2"`) para coincidir con el modo CORS del pedido de `@font-face`, o el navegador descarta el preload y descarga la fuente dos veces.
   - Formato WOFF2, subset de caracteres, menos pesos; fuentes variables cuando reemplazan varias variantes.
   - Self-hosting o el optimizador del framework (`next/font`) para evitar conexiones extra a terceros.
   - Fallback con métricas ajustadas (`size-adjust`, `ascent-override`) para reducir CLS.
