@@ -11,7 +11,7 @@
 ## Corregir
 
 - Paralelizar requests independientes (`Promise.all`) o moverlos al server/BFF para resolverlos en una sola respuesta (ver `refactor-ssr-data-fetching`).
-- Deduplicar con una capa de datos compartida (TanStack Query, SWR, cache del framework) con `staleTime` acorde a qué tan seguido cambia el dato (ver `react-data-fetching-best-practices`).
+- Deduplicar con una capa de datos compartida (TanStack Query, SWR, cache del framework) con una frescura acorde a qué tan seguido cambia el dato (ver `react-data-fetching-best-practices`): en TanStack Query, `staleTime`; en SWR, que no tiene `staleTime`, `dedupingInterval`, `revalidateIfStale` y `revalidateOnFocus` (ver https://swr.vercel.app/docs/api).
 - Headers HTTP: `Cache-Control: public, max-age=31536000, immutable` para assets con hash; `max-age` corto + `stale-while-revalidate` o `ETag` para datos que cambian; `private`/`no-store` para datos de usuario sensibles.
 - Cache en servidor (memoria, Redis, CDN) para lecturas caras y repetidas, con invalidación explícita. Una cache sin estrategia de invalidación es un bug de datos viejos pendiente.
 - Reducir payload: paginación, proyección de campos, compresión (`br`/`gzip`).
