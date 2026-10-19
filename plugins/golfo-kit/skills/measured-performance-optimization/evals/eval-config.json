@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "skill": "measured-performance-optimization",
+  "description": "Evalúa optimización de rendimiento guiada por medición: línea base antes del cambio, una optimización por vez, medición posterior con las mismas condiciones, uso de Chrome DevTools/Playwright/Sentry, corrección de N+1 con JOIN o WHERE IN, lazy loading, caching y assets.",
+  "test_cases": [
+    {
+      "id": "n-plus-one-users-orders",
+      "description": "Ante 100 usuarios con una query de pedidos por usuario, identifica el N+1, propone JOIN o WHERE IN/eager loading y mide cantidad de queries antes y después.",
+      "input": "Usando measured-performance-optimization: el endpoint `GET /users` trae 100 usuarios con `prisma.user.findMany({ take: 100 })` y después hace `for (const user of users) { user.orders = await prisma.order.findMany({ where: { userId: user.id } }) }`. Tarda 2,3 segundos. No ejecutes ni edites nada: explicá el problema, cómo lo medirías y qué cambiarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["N+1", "n+1"],
+          "description": "Identifica el problema como N+1"
+        },
+        {
+          "type": "contains_any",
+          "values": ["101"],
+          "description": "Cuantifica las 101 queries"
+        },
+        {
+          "type": "contains_any",
+          "values": ["JOIN", "WHERE IN", "IN (", "include", "in:"],
+          "description": "Propone JOIN, WHERE IN o eager loading con include"
+        },
+        {
+          "type": "regex",
+          "pattern": "(antes|before|línea base|baseline).{0,200}(después|after)",
+          "description": "Plantea medir antes y después"
+        },
+        {
+          "type": "regex",
+          "pattern": "(cantidad|número|count|cont).{0,60}(queries|consultas)|(queries|consultas).{0,60}(por request|per request|contar|count)",
+          "description": "Usa la cantidad de queries por request como métrica"
+        }
+      ]
+    },
+    {
+      "id": "slow-landing-bundle-images",
+      "description": "Ante una landing lenta, mide con Chrome DevTools o Lighthouse antes de optimizar, propone lazy loading del bundle y optimización de la imagen LCP, y no la difiere.",
+      "input": "Usando measured-performance-optimization: la home de nuestra app Next.js tarda en cargar en mobile. El bundle inicial pesa 1,4 MB porque importa un editor de texto enriquecido y una librería de charts que solo se usan en un modal y en otra pestaña, y el hero es un PNG de 2,5 MB. Tengo el MCP de Chrome DevTools conectado. No ejecutes ni edites nada: armá el plan de optimización.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["Chrome DevTools", "Lighthouse", "performance trace", "trace"],
+          "description": "Mide con Chrome DevTools o Lighthouse"
+        },
+        {
+          "type": "contains_any",
+          "values": ["next/dynamic", "React.lazy", "import()", "dynamic import", "lazy"],
+          "description": "Propone lazy loading del editor y los charts"
+        },
+        {
+          "type": "contains_any",
+          "values": ["AVIF", "WebP", "next/image", "srcset"],
+          "description": "Optimiza la imagen hero con formato moderno o tamaño adaptado"
+        },
+        {
+          "type": "regex",
+          "pattern": "(LCP|hero).{0,200}(sin lazy|no.{0,20}lazy|fetchpriority|priority|preload)",
+          "description": "No difiere la imagen LCP y la prioriza"
+        },
+        {
+          "type": "contains_any",
+          "values": ["LCP"],
+          "description": "Usa LCP como métrica"
+        }
+      ]
+    },
+    {
+      "id": "report-requires-real-measurements",
+      "description": "Al pedir solo un plan sin poder medir, deja Antes/Después como pendientes en lugar de inventar números.",
+      "input": "Usando measured-performance-optimization: nuestra pantalla de pedidos hace 3 requests en cascada (`/me`, luego `/orders?userId=`, luego `/products?ids=`) y cada vez que el usuario vuelve a la pestaña se repiten todas. No tengo acceso al entorno ni a Sentry ahora. No ejecutes ni edites nada: dame el reporte de optimización con la tabla de resultados.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["Promise.all", "paralel", "parallel", "BFF", "servidor", "server"],
+          "description": "Propone paralelizar o resolver el waterfall en el server/BFF"
+        },
+        {
+          "type": "contains_any",
+          "values": ["staleTime", "Cache-Control", "TanStack Query", "SWR", "stale-while-revalidate", "dedup"],
+          "description": "Propone cache o dedupe para evitar refetch al volver a la pestaña"
+        },
+        {
+          "type": "contains_any",
+          "values": ["pendiente", "Pendiente", "sin medir", "Sin medir", "pending"],
+          "description": "Marca las mediciones como pendientes en vez de inventarlas"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\|\\s*Antes\\s*\\|\\s*Después\\s*\\|",
+          "description": "Usa la tabla de reporte con columnas Antes y Después"
+        }
+      ]
+    }
+  ]
+}
