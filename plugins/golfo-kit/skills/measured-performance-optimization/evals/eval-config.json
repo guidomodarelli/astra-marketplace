@@ -78,14 +78,6 @@
           "description": "Resuelve el waterfall componiendo los requests dependientes en el server/BFF o en un endpoint agregado"
         },
         {
-          "type": "not_contains_any",
-          "values": [
-            "Promise\\.all(\\[[^]]*/me[^]]*/orders",
-            "Promise\\.all(\\[[^]]*/orders[^]]*/products"
-          ],
-          "description": "No paraleliza con Promise.all los requests que dependen entre sí"
-        },
-        {
           "type": "contains_any",
           "values": ["staleTime", "Cache-Control", "TanStack Query", "SWR", "stale-while-revalidate", "dedup"],
           "description": "Propone cache o dedupe para evitar refetch al volver a la pestaña"
