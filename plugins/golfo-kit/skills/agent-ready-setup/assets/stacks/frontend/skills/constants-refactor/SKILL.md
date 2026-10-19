@@ -7,7 +7,7 @@ metadata:
 
 # Constants Refactor
 
-<!-- Paridad: variante de la skill `constants-refactor` del plugin astra-kit adaptada a las rules de este stack. Al cambiar el workflow general (modos, métrica, paridad, tipos), actualizar ambas. -->
+<!-- Paridad: variante de la skill `constants-refactor` del plugin golfo-kit adaptada a las rules de este stack. Al cambiar el workflow general (modos, métrica, paridad, tipos), actualizar ambas. -->
 
 ## Objetivo
 

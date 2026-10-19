@@ -2,7 +2,7 @@
 
 setup() {
   repository_root="$(cd "$BATS_TEST_DIRNAME/../../../../.." && pwd)"
-  skill_dir="$repository_root/plugins/astra-kit/skills/agent-ready-setup"
+  skill_dir="$repository_root/plugins/golfo-kit/skills/agent-ready-setup"
   test_root="$(mktemp -d)"
   # Native Windows symlinks under Git Bash (needs Developer Mode); ignored elsewhere.
   export MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"
@@ -1472,7 +1472,7 @@ EOF
       --stack node --skill-dir "$codex_skill_dir"
 
   [ "$status" -eq 0 ]
-  grep -Fxq 'codex plugin marketplace upgrade astra-marketplace' "$invocation_log"
+  grep -Fxq 'codex plugin marketplace upgrade golfo-marketplace' "$invocation_log"
   [ -f .codex/hooks.json ]
 }
 
@@ -1500,7 +1500,7 @@ EOF
   MARKETPLACE_INVOCATION_LOG="$invocation_log" run_bootstrap frontend
 
   [ "$status" -eq 0 ]
-  grep -Fxq 'claude plugin marketplace update astra-marketplace' "$invocation_log"
+  grep -Fxq 'claude plugin marketplace update golfo-marketplace' "$invocation_log"
   [ -f AGENTS.md ]
   [ -f .agents/hooks/sync-marketplace.sh ]
   [ -f .claude/settings.json ]
@@ -1521,7 +1521,7 @@ EOF
       --stack node --skill-dir "$skill_dir" --provider codex
 
   [ "$status" -eq 0 ]
-  grep -Fxq 'codex plugin marketplace upgrade astra-marketplace' "$invocation_log"
+  grep -Fxq 'codex plugin marketplace upgrade golfo-marketplace' "$invocation_log"
   [ -f .claude/settings.json ]
   [ -f .codex/hooks.json ]
 }
@@ -1608,12 +1608,12 @@ EOF
   MARKETPLACE_INVOCATION_LOG="$invocation_log" PATH="$fake_bin:$PATH" \
     run bash "$hook" --provider claude
   [ "$status" -eq 0 ]
-  grep -Fxq 'claude plugin marketplace update astra-marketplace' "$invocation_log"
+  grep -Fxq 'claude plugin marketplace update golfo-marketplace' "$invocation_log"
 
   MARKETPLACE_INVOCATION_LOG="$invocation_log" PATH="$fake_bin:$PATH" \
     run bash "$hook" -p codex
   [ "$status" -eq 0 ]
-  grep -Fxq 'codex plugin marketplace upgrade astra-marketplace' "$invocation_log"
+  grep -Fxq 'codex plugin marketplace upgrade golfo-marketplace' "$invocation_log"
 
   mkdir -p .agents/hooks
   cp "$hook" .agents/hooks/sync-marketplace.sh
@@ -1621,7 +1621,7 @@ EOF
   MARKETPLACE_INVOCATION_LOG="$invocation_log" PATH="$fake_bin:$PATH" \
     run bash .agents/hooks/sync-marketplace.sh
   [ "$status" -eq 0 ]
-  grep -Fxq 'codex plugin marketplace upgrade astra-marketplace' "$invocation_log"
+  grep -Fxq 'codex plugin marketplace upgrade golfo-marketplace' "$invocation_log"
 
   run bash "$hook" --provider unsupported
   [ "$status" -ne 0 ]
@@ -1805,7 +1805,7 @@ EOF
 
 @test "bootstrap re-resolves replaced versioned marketplace cache after upgrade" {
   fake_bin="$test_root/bin"
-  cache_root="$test_root/.claude/plugins/cache/astra-marketplace/astra-kit"
+  cache_root="$test_root/.claude/plugins/cache/golfo-marketplace/golfo-kit"
   old_source="$cache_root/1.0.0/skills/agent-ready-setup"
   updated_source="$cache_root/2.0.0/skills/agent-ready-setup"
   mkdir -p "$old_source" "$updated_source"
@@ -1829,13 +1829,13 @@ EOF
 }
 
 @test "bootstrap ignores higher versions from another plugin cache" {
-  cache_root="$test_root/.claude/plugins/cache/astra-marketplace"
-  target_source="$cache_root/astra-kit/1.9.0/skills/agent-ready-setup"
+  cache_root="$test_root/.claude/plugins/cache/golfo-marketplace"
+  target_source="$cache_root/golfo-kit/1.9.0/skills/agent-ready-setup"
   unrelated_source="$cache_root/other-plugin/99.0.0/skills/agent-ready-setup"
   mkdir -p "$target_source" "$unrelated_source"
   cp -R "$skill_dir"/. "$target_source"/
   cp -R "$skill_dir"/. "$unrelated_source"/
-  printf '%s\n' '# astra-kit template' > "$target_source/assets/stacks/node/rules/security.md"
+  printf '%s\n' '# golfo-kit template' > "$target_source/assets/stacks/node/rules/security.md"
   printf '%s\n' '# unrelated template' > "$unrelated_source/assets/stacks/node/rules/security.md"
   cat > "$target_source/scripts/merge-instructions.sh" <<'EOF'
 #!/bin/bash
@@ -1850,13 +1850,13 @@ EOF
       --provider claude
 
   [ "$status" -eq 0 ]
-  grep -Fxq '# astra-kit template' .agents/rules/security.md
+  grep -Fxq '# golfo-kit template' .agents/rules/security.md
   ! grep -Fxq '# unrelated template' .agents/rules/security.md
 }
 
 @test "resolvers select highest semantic cache version for Claude and Codex" {
   for provider in claude codex; do
-    cache_root="$test_root/.$provider/plugins/cache/astra-marketplace/astra-kit"
+    cache_root="$test_root/.$provider/plugins/cache/golfo-marketplace/golfo-kit"
     old_source="$cache_root/1.9.0/skills/agent-ready-setup"
     new_source="$cache_root/1.10.2/skills/agent-ready-setup"
     mkdir -p "$old_source" "$new_source"
@@ -1900,7 +1900,7 @@ EOF
 @test "sync hook prefers newest semantic cache over active old source" {
   for provider in claude codex; do
     provider_root="$test_root/.$provider"
-    cache_root="$provider_root/plugins/cache/astra-marketplace/astra-kit"
+    cache_root="$provider_root/plugins/cache/golfo-marketplace/golfo-kit"
     old_source="$cache_root/1.9.0/skills/agent-ready-setup"
     new_source="$cache_root/1.10.2/skills/agent-ready-setup"
     mkdir -p "$old_source" "$new_source"
@@ -1936,12 +1936,12 @@ create_marketplace_snapshot() {
   local snapshot_root="$1"
   local version="$2"
   local template="$3"
-  local plugin_root="$snapshot_root/plugins/astra-kit"
+  local plugin_root="$snapshot_root/plugins/golfo-kit"
   local snapshot_skill="$plugin_root/skills/agent-ready-setup"
 
   mkdir -p "$snapshot_skill" "$plugin_root/.claude-plugin" "$plugin_root/.codex-plugin"
   cp -R "$skill_dir"/. "$snapshot_skill"/
-  printf '{\n  "name": "astra-kit",\n  "version": "%s"\n}\n' "$version" \
+  printf '{\n  "name": "golfo-kit",\n  "version": "%s"\n}\n' "$version" \
     | tee "$plugin_root/.claude-plugin/plugin.json" > "$plugin_root/.codex-plugin/plugin.json"
   printf '%s\n' "$template" > "$snapshot_skill/assets/stacks/node/rules/security.md"
   cat > "$snapshot_skill/scripts/merge-instructions.sh" <<'EOF'
@@ -1955,7 +1955,7 @@ create_cache_source() {
   local provider_root="$1"
   local version="$2"
   local template="$3"
-  local cache_source="$provider_root/plugins/cache/astra-marketplace/astra-kit/$version/skills/agent-ready-setup"
+  local cache_source="$provider_root/plugins/cache/golfo-marketplace/golfo-kit/$version/skills/agent-ready-setup"
 
   mkdir -p "$cache_source"
   cp -R "$skill_dir"/. "$cache_source"/
@@ -1970,9 +1970,9 @@ EOF
 
 @test "sync hook projects upgraded marketplace snapshot before plugin cache update" {
   claude_snapshot="$test_root/claude-marketplace"
-  codex_snapshot="$test_root/.codex/.tmp/marketplaces/astra-marketplace"
+  codex_snapshot="$test_root/.codex/.tmp/marketplaces/golfo-marketplace"
   mkdir -p "$test_root/.claude/plugins"
-  printf '{"astra-marketplace": {"installLocation": "%s"}}\n' "$claude_snapshot" \
+  printf '{"golfo-marketplace": {"installLocation": "%s"}}\n' "$claude_snapshot" \
     > "$test_root/.claude/plugins/known_marketplaces.json"
   create_marketplace_snapshot "$claude_snapshot" "2.0.0" "# claude snapshot template"
   create_marketplace_snapshot "$codex_snapshot" "2.0.0" "# codex snapshot template"
@@ -2000,7 +2000,7 @@ EOF
 source_type = "local"
 source = "$test_root/other"
 
-[marketplaces.astra-marketplace]
+[marketplaces.golfo-marketplace]
 source_type = "local"
 source = "$local_snapshot"
 EOF
@@ -2024,7 +2024,7 @@ write_codex_marketplace_config() {
 
   mkdir -p "$test_root/.codex"
   cat > "$test_root/.codex/config.toml" <<CONFIG
-[marketplaces.astra-marketplace]
+[marketplaces.golfo-marketplace]
 source_type = "$source_type"
 $source_line
 CONFIG
@@ -2034,8 +2034,8 @@ write_recording_codex() {
   cat > "$test_root/bin/codex" <<'FAKE'
 #!/bin/bash
 printf '%s %s\n' "${0##*/}" "$*" >> "$MARKETPLACE_INVOCATION_LOG"
-if [[ "$*" == "plugin marketplace upgrade astra-marketplace" && "$FAKE_CODEX_MARKETPLACE_TYPE" == local ]]; then
-  echo "Error: marketplace \`astra-marketplace\` is not configured as a Git marketplace" >&2
+if [[ "$*" == "plugin marketplace upgrade golfo-marketplace" && "$FAKE_CODEX_MARKETPLACE_TYPE" == local ]]; then
+  echo "Error: marketplace \`golfo-marketplace\` is not configured as a Git marketplace" >&2
   exit 1
 fi
 FAKE
@@ -2057,13 +2057,13 @@ FAKE
 
   [ "$status" -eq 0 ]
   [ ! -e "$invocation_log" ]
-  [[ "$output" == *"[marketplace-bootstrap] astra-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
+  [[ "$output" == *"[marketplace-bootstrap] golfo-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
   grep -Fxq '# local snapshot template' .agents/rules/security.md
 }
 
 @test "bootstrap upgrades a Codex Git marketplace" {
   invocation_log="$test_root/marketplace-invocation.log"
-  write_codex_marketplace_config git 'source = "https://example.invalid/astra-marketplace.git"'
+  write_codex_marketplace_config git 'source = "https://example.invalid/golfo-marketplace.git"'
   write_recording_codex
 
   MARKETPLACE_INVOCATION_LOG="$invocation_log" FAKE_CODEX_MARKETPLACE_TYPE=git \
@@ -2071,7 +2071,7 @@ FAKE
       --stack node --skill-dir "$skill_dir" --provider codex
 
   [ "$status" -eq 0 ]
-  grep -Fxq 'codex plugin marketplace upgrade astra-marketplace' "$invocation_log"
+  grep -Fxq 'codex plugin marketplace upgrade golfo-marketplace' "$invocation_log"
   [[ "$output" == *"[marketplace-bootstrap] Upgrade del marketplace completado."* ]]
 }
 
@@ -2091,7 +2091,7 @@ FAKE
 
   [ "$status" -eq 0 ]
   [ ! -e "$invocation_log" ]
-  [[ "$output" == *"[marketplace-sync] astra-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
+  [[ "$output" == *"[marketplace-sync] golfo-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
   grep -Fxq '# local snapshot template' .agents/rules/security.md
 }
 
@@ -2103,7 +2103,7 @@ FAKE
   local_snapshot="$test_root/local-marketplace"
   mkdir -p "$custom_codex_home"
   cat > "$custom_codex_home/config.toml" <<CONFIG
-[marketplaces.astra-marketplace]
+[marketplaces.golfo-marketplace]
 source_type = "local"
 source = "$local_snapshot"
 CONFIG
@@ -2115,7 +2115,7 @@ CONFIG
 
   [ "$status" -eq 0 ]
   [ ! -e "$invocation_log" ]
-  [[ "$output" == *"[marketplace-sync] astra-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
+  [[ "$output" == *"[marketplace-sync] golfo-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
   grep -Fxq '# local snapshot template' .agents/rules/security.md
 }
 
@@ -2125,7 +2125,7 @@ CONFIG
   local_snapshot="$test_root/local-marketplace"
   mkdir -p "$custom_codex_home"
   cat > "$custom_codex_home/config.toml" <<CONFIG
-[marketplaces.astra-marketplace]
+[marketplaces.golfo-marketplace]
 source_type = "local"
 source = "$local_snapshot"
 CONFIG
@@ -2137,13 +2137,13 @@ CONFIG
 
   [ "$status" -eq 0 ]
   [ ! -e "$invocation_log" ]
-  [[ "$output" == *"[marketplace-bootstrap] astra-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
+  [[ "$output" == *"[marketplace-bootstrap] golfo-marketplace es un marketplace Codex local; se omite el upgrade"* ]]
   grep -Fxq '# local snapshot template' .agents/rules/security.md
 }
 
 @test "sync hook upgrades a Codex Git marketplace" {
   invocation_log="$test_root/marketplace-invocation.log"
-  write_codex_marketplace_config git 'source = "https://example.invalid/astra-marketplace.git"'
+  write_codex_marketplace_config git 'source = "https://example.invalid/golfo-marketplace.git"'
   old_source="$(create_cache_source "$test_root/.codex" "1.0.0" "# cache template")"
   write_recording_codex
 
@@ -2154,12 +2154,12 @@ CONFIG
         --stack node
 
   [ "$status" -eq 0 ]
-  grep -Fxq 'codex plugin marketplace upgrade astra-marketplace' "$invocation_log"
+  grep -Fxq 'codex plugin marketplace upgrade golfo-marketplace' "$invocation_log"
   [[ "$output" == *"[marketplace-sync] Upgrade del marketplace completado."* ]]
 }
 
 @test "sync hook keeps newer plugin cache over older marketplace snapshot" {
-  create_marketplace_snapshot "$test_root/.claude/plugins/marketplaces/astra-marketplace" \
+  create_marketplace_snapshot "$test_root/.claude/plugins/marketplaces/golfo-marketplace" \
     "1.9.0" "# older snapshot template"
   new_source="$(create_cache_source "$test_root/.claude" "1.10.2" "# newer cache template")"
 
@@ -2176,9 +2176,9 @@ CONFIG
 @test "bootstrap projects upgraded marketplace snapshot before plugin cache update" {
   for provider in claude codex; do
     if [[ "$provider" == "claude" ]]; then
-      snapshot_root="$test_root/.claude/plugins/marketplaces/astra-marketplace"
+      snapshot_root="$test_root/.claude/plugins/marketplaces/golfo-marketplace"
     else
-      snapshot_root="$test_root/.codex/.tmp/marketplaces/astra-marketplace"
+      snapshot_root="$test_root/.codex/.tmp/marketplaces/golfo-marketplace"
     fi
     create_marketplace_snapshot "$snapshot_root" "2.0.0" "# $provider snapshot template"
     old_source="$(create_cache_source "$test_root/.$provider" "1.9.0" "# stale $provider cache template")"
@@ -2193,12 +2193,12 @@ CONFIG
     [ "$status" -eq 0 ]
     grep -Fxq "# $provider snapshot template" .agents/rules/security.md
     [[ "$output" == *"[marketplace-bootstrap] Using agent-ready-setup marketplace snapshot version 2.0.0."* ]]
-    [[ "$output" == *"Resolved agent-ready-setup source: $snapshot_root/plugins/astra-kit/skills/agent-ready-setup"* ]]
+    [[ "$output" == *"Resolved agent-ready-setup source: $snapshot_root/plugins/golfo-kit/skills/agent-ready-setup"* ]]
   done
 }
 
 @test "bootstrap keeps newer plugin cache over older marketplace snapshot" {
-  create_marketplace_snapshot "$test_root/.claude/plugins/marketplaces/astra-marketplace" \
+  create_marketplace_snapshot "$test_root/.claude/plugins/marketplaces/golfo-marketplace" \
     "1.9.0" "# older snapshot template"
   new_source="$(create_cache_source "$test_root/.claude" "1.10.2" "# newer cache template")"
 
@@ -2215,7 +2215,7 @@ CONFIG
 }
 
 @test "bootstrap reports an explicit source outside the cache for local development" {
-  create_marketplace_snapshot "$test_root/.claude/plugins/marketplaces/astra-marketplace" \
+  create_marketplace_snapshot "$test_root/.claude/plugins/marketplaces/golfo-marketplace" \
     "9.0.0" "# snapshot template"
 
   run env -u AGENT_READY_SETUP_SKILL_DIR -u CLAUDE_PLUGIN_ROOT HOME="$test_root" PATH="$test_root/bin:$PATH" \
@@ -2230,7 +2230,7 @@ CONFIG
 }
 
 @test "bootstrap keeps requested newest cache version instead of downgrading" {
-  cache_root="$test_root/.claude/plugins/cache/astra-marketplace/astra-kit"
+  cache_root="$test_root/.claude/plugins/cache/golfo-marketplace/golfo-kit"
   old_source="$cache_root/1.9.0/skills/agent-ready-setup"
   new_source="$cache_root/1.10.2/skills/agent-ready-setup"
   mkdir -p "$old_source" "$new_source"
@@ -2252,7 +2252,7 @@ CONFIG
 }
 
 @test "sync hook refreshes missing shared helper before projecting assets" {
-  cache_root="$test_root/.claude/plugins/cache/astra-marketplace/astra-kit"
+  cache_root="$test_root/.claude/plugins/cache/golfo-marketplace/golfo-kit"
   source_dir="$cache_root/1.0.0/skills/agent-ready-setup"
   upgrade_log="$test_root/marketplace.log"
   mkdir -p "$(dirname "$source_dir")"
@@ -2285,7 +2285,7 @@ EOF
 }
 
 @test "sync hook preserves local hook when helper remains unavailable after refresh" {
-  cache_root="$test_root/.claude/plugins/cache/astra-marketplace/astra-kit"
+  cache_root="$test_root/.claude/plugins/cache/golfo-marketplace/golfo-kit"
   source_dir="$cache_root/1.0.0/skills/agent-ready-setup"
   upgrade_log="$test_root/marketplace.log"
   mkdir -p "$(dirname "$source_dir")" .agents/hooks
@@ -2432,7 +2432,7 @@ EOF
   [ "$(sed -n '3p' "$event_log")" = "merge" ]
   [ "$(wc -l < "$event_log")" -eq 3 ]
   [ ! -e "$bootstrap_log" ]
-  grep -Fxq 'claude plugin marketplace update astra-marketplace' "$test_root/marketplace.log"
+  grep -Fxq 'claude plugin marketplace update golfo-marketplace' "$test_root/marketplace.log"
   cmp -s .agents/hooks/sync-marketplace.sh "$source_dir/assets/common/hooks/sync-marketplace.sh"
   cmp -s .agents/hooks/check-harness-consistency.sh "$source_dir/assets/common/hooks/check-harness-consistency.sh"
   cmp -s .agents/hooks/pre-tool-use.md "$source_dir/assets/stacks/go/hooks/pre-tool-use.md"

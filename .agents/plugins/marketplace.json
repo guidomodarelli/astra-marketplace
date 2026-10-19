@@ -1,12 +1,12 @@
 {
-  "name": "astra-marketplace",
+  "name": "golfo-marketplace",
   "interface": {
-    "displayName": "Astra Marketplace"
+    "displayName": "Golfo Marketplace"
   },
   "plugins": [
     {
-      "name": "astra-kit",
-      "source": "./plugins/astra-kit",
+      "name": "golfo-kit",
+      "source": "./plugins/golfo-kit",
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"

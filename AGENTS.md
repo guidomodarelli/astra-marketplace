@@ -64,7 +64,7 @@ plugins/<name>/
 }
 ```
 
-Critical points (see `plugins/astra-kit/.codex-plugin/plugin.json` as the canonical reference):
+Critical points (see `plugins/golfo-kit/.codex-plugin/plugin.json` as the canonical reference):
 
 - **`version` is mandatory** and must match the sibling `.claude-plugin/plugin.json`. This applies even when the plugin is being added to Codex for the first time while already existing on the Claude side — the "shared version" rule trumps "new plugins start at 1.0.0".
 - **`skills: "./skills/"`** is required so Codex's loader resolves the skill directory. Without it, the plugin loads but no skills appear.
@@ -180,7 +180,7 @@ run-evals plugins/<plugin-name>/skills/<skill-name> --pretty
 run-evals plugins/<plugin-name>/skills/<skill-name> --provider codex
 
 # Optional persistent provider override
-export ASTRA_MARKETPLACE_EVAL_PROVIDER=codex
+export GOLFO_MARKETPLACE_EVAL_PROVIDER=codex
 ```
 
 ## Bumping a plugin version

@@ -107,14 +107,14 @@ run_eval_runner() {
     local environment=(
         "PATH=${STUB_BIN}:${PATH}"
         "CLAUDE_ARGS_LOG=${CLAUDE_ARGS_LOG}"
-        "ASTRA_MARKETPLACE_EVAL_PROVIDER=claude"
+        "GOLFO_MARKETPLACE_EVAL_PROVIDER=claude"
     )
 
-    if [[ -n "${ASTRA_MARKETPLACE_EVAL_MODEL:-}" ]]; then
-        environment+=("ASTRA_MARKETPLACE_EVAL_MODEL=${ASTRA_MARKETPLACE_EVAL_MODEL}")
+    if [[ -n "${GOLFO_MARKETPLACE_EVAL_MODEL:-}" ]]; then
+        environment+=("GOLFO_MARKETPLACE_EVAL_MODEL=${GOLFO_MARKETPLACE_EVAL_MODEL}")
     fi
-    if [[ -n "${ASTRA_MARKETPLACE_EVAL_REASONING_EFFORT:-}" ]]; then
-        environment+=("ASTRA_MARKETPLACE_EVAL_REASONING_EFFORT=${ASTRA_MARKETPLACE_EVAL_REASONING_EFFORT}")
+    if [[ -n "${GOLFO_MARKETPLACE_EVAL_REASONING_EFFORT:-}" ]]; then
+        environment+=("GOLFO_MARKETPLACE_EVAL_REASONING_EFFORT=${GOLFO_MARKETPLACE_EVAL_REASONING_EFFORT}")
     fi
     if [[ -n "${CLAUDE_RESPONSE_FILE:-}" ]]; then
         environment+=("CLAUDE_RESPONSE_FILE=${CLAUDE_RESPONSE_FILE}")

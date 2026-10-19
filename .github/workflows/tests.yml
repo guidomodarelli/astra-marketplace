@@ -35,8 +35,8 @@ jobs:
           LC_ALL=C.UTF-8 BATS_TEST_TIMEOUT=30 node_modules/.bin/bats
           tests/create-version.bats
           tests/check-version-bump.bats
-          plugins/astra-kit/skills/user-manual/tests/check-design-tokens.bats
-          plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats
+          plugins/golfo-kit/skills/user-manual/tests/check-design-tokens.bats
+          plugins/golfo-kit/skills/agent-ready-setup/tests/merge-instructions.bats
           skill-eval-runner/tests/run-evals-env-contract.bats
           skill-eval-runner/tests/run-evals-assertions.bats
       - run: pnpm run test:review-fix-loop
@@ -69,7 +69,7 @@ jobs:
           SHARD: ${{ matrix.shard }}
           SHARD_COUNT: 3
         run: |
-          suite=plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats
+          suite=plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats
           # Every SHARD_COUNT-th test name goes to this shard; names are unique.
           pattern=$(grep -oP '^@test "\K[^"]+' "$suite" \
             | awk -v shard="$SHARD" -v count="$SHARD_COUNT" '(NR - 1) % count == shard - 1' \
