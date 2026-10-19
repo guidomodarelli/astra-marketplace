@@ -25,8 +25,13 @@
         },
         {
           "type": "regex",
-          "pattern": "(antes|before|línea base|baseline).{0,200}(después|after)",
-          "description": "Plantea medir antes y después"
+          "pattern": "antes|before|línea base|linea base|baseline",
+          "description": "Plantea medir antes del cambio"
+        },
+        {
+          "type": "regex",
+          "pattern": "después|despues|after",
+          "description": "Plantea medir después del cambio"
         },
         {
           "type": "regex",
@@ -57,8 +62,8 @@
         },
         {
           "type": "regex",
-          "pattern": "(LCP|hero).{0,200}(sin lazy|no.{0,20}lazy|fetchpriority|priority|preload)",
-          "description": "No difiere la imagen LCP y la prioriza"
+          "pattern": "fetchpriority|priority|preload|loading=.?eager|(sin|no|nunca|evitar|evitá)( (usar|uses|aplicar|apliques|hacer|hagas))?( el| un)?[ -]lazy",
+          "description": "No difiere la imagen LCP y la prioriza (la mención de LCP se valida aparte, sin importar orden ni saltos de línea)"
         },
         {
           "type": "regex",
