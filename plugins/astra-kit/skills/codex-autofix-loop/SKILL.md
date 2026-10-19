@@ -398,7 +398,7 @@ Si OPEN, procesá:
 
 (6) AL FINAL: si en esta vuelta fixeaste con éxito al menos 1 ítem nuevo (inline, general o review-body, por subagente local o por commit de Codex verificado; contador >= 1) y ya no quedan pendientes (ni ids en `inFlight`):
    - **Tope de rondas**: si `reviewRounds >= {{MAX_REVIEW_ROUNDS}}`, NO postees otra review ni mergees. Aplicá el «Tope de rondas» del skill (auto-cancelar con PushNotification «no convergió») y terminá.
-   - Si no, posteá UN único comentario general para disparar una nueva revisión de Codex. En la primera review que pide el loop (`lastReviewedSha` vacío) usá `@codex review`. Desde la segunda, enfocala en el delta con la sintaxis `@codex review for …` (los commits nuevos se revisan en contexto del PR completo): `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review for los cambios posteriores a <lastReviewedSha corto>; no repitas hallazgos ya cerrados en este PR"`.
+   - Si no, posteá UN único comentario general con el trigger exacto `@codex review`, sin texto adicional y en todas las rondas: `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"`. No uses `@codex review for …` ni otras instrucciones para enfocar la review en el delta: Codex las ignora y revisa el PR completo en el head actual. Los hallazgos repetidos los cierra el registro de `outcomes` (paso 3-pre), no el texto del pedido.
    - En la misma unidad, sumá 1 a `reviewRounds`, guardá el head actual en `lastReviewedSha` y persistí el JSON.
    Si NO fixeaste nada nuevo esta vuelta (contador == 0), NO postees nada (evitá spam). Si los únicos cierres de la vuelta fueron «Sin cambios», aplicá el «Corte por convergencia» de la «Regla de alcance y convergencia»: sin `@codex review`, mergeá el PR (pasando antes el GATE DE CI del paso 5-bis) y auto-cancelá el loop.
 
@@ -481,8 +481,9 @@ regla de paridad con el step «Cerrar comentario» del Action
   rebuscado / preexistente / nit) evita que cada review agregue fixes de casos cada vez
   más improbables o de código viejo. Los no fixeables se cierran como «Sin cambios» con
   motivo; si una review solo deja ese tipo de hallazgos, el loop deja de pedir reviews,
-  mergea el PR si pasa el gate de CI, y se auto-cancela. Desde la segunda
-  ronda la review se enfoca en el delta (`@codex review for …`), los fixes cubren la clase
+  mergea el PR si pasa el gate de CI, y se auto-cancela. Codex no acepta una review
+  limitada al delta, así que cada ronda pide un `@codex review` liso y el registro de
+  `outcomes` cierra los hallazgos repetidos; los fixes cubren la clase
   de bug dentro del PR y, tras `{{MAX_REVIEW_ROUNDS}}` rondas sin converger, el loop corta
   y avisa en vez de seguir. La política completa es compartida con `review-fix-loop`.
 - **Delegación a Codex (`@codex fix`)**: en `codex`/`auto` el loop pide el fix en el

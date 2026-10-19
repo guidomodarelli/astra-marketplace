@@ -13,7 +13,7 @@ Leer este archivo antes de operar un loop review → fix → review: `review-fix
 
 - La ronda 1 revisa el target completo.
 - Desde la ronda 2, revisar solo lo que cambió desde el inicio de la ronda anterior: commits posteriores más el working tree. Guardar el sha de referencia al empezar cada ronda.
-- Si el reviewer no acepta un delta, revisar el target completo y descartar los findings que caen fuera del delta y ya están en el registro.
+- Si el reviewer no acepta un delta, revisar el target completo y descartar los findings que caen fuera del delta y ya están en el registro. Codex en GitHub es uno de esos reviewers: `@codex review for …` no limita la review, así que `codex-autofix-loop` pide siempre `@codex review` liso.
 
 ## Registro de findings
 
