@@ -46,9 +46,9 @@
           "description": "Mide con Chrome DevTools o Lighthouse"
         },
         {
-          "type": "contains_any",
-          "values": ["next/dynamic", "React.lazy", "import()", "dynamic import", "lazy"],
-          "description": "Propone lazy loading del editor y los charts"
+          "type": "regex",
+          "pattern": "next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import dinámico",
+          "description": "Propone lazy loading del editor y los charts con un mecanismo concreto de import dinámico"
         },
         {
           "type": "contains_any",
@@ -74,8 +74,16 @@
       "assertions": [
         {
           "type": "contains_any",
-          "values": ["Promise.all", "paralel", "parallel", "BFF", "servidor", "server"],
-          "description": "Propone paralelizar o resolver el waterfall en el server/BFF"
+          "values": ["BFF", "backend for frontend", "endpoint agregado", "agregador", "aggregat", "server-side", "lado del servidor", "en el servidor", "en el server"],
+          "description": "Resuelve el waterfall componiendo los requests dependientes en el server/BFF o en un endpoint agregado"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "Promise\\.all(\\[[^]]*/me[^]]*/orders",
+            "Promise\\.all(\\[[^]]*/orders[^]]*/products"
+          ],
+          "description": "No paraleliza con Promise.all los requests que dependen entre sí"
         },
         {
           "type": "contains_any",
@@ -91,6 +99,19 @@
           "type": "regex",
           "pattern": "\\|\\s*Antes\\s*\\|\\s*Después\\s*\\|",
           "description": "Usa la tabla de reporte con columnas Antes y Después"
+        },
+        {
+          "type": "regex",
+          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*(pendiente|sin medir|n/a|—)[^|]*\\|[[:space:]]*(pendiente|sin medir|n/a|—)[^|]*\\|",
+          "description": "Deja como pendientes las celdas Antes y Después de las filas de resultados"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[[:space:]]*~\\{0,1\\}[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][[:space:]]*|",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[[:space:]]*~\\{0,1\\}[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][[:space:]]*|"
+          ],
+          "description": "No inventa valores medidos (ms, s, KB, MB) en las celdas Antes o Después"
         }
       ]
     }
