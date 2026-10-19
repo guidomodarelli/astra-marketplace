@@ -7,7 +7,7 @@ Usar la herramienta que mida la métrica del flujo crítico con menos fricción.
 Sirve para medir carga e interacción en un browser real:
 
 - **Performance trace** con throttling de CPU y red: LCP, CLS, INP/TBT, long tasks y qué script o render las causa.
-- **Network**: tamaño transferido y descomprimido, waterfall, requests duplicados, headers de cache (`Cache-Control`, `ETag`, `Age`), prioridad de recursos.
+- **Network**: tamaño transferido y descomprimido, prioridad de recursos, y el timing y los headers de cada request para aplicar los criterios de [Requests y caching → Detectar](requests-caching.md#detectar).
 - **Coverage** (si está disponible): JS y CSS que se descarga pero no se ejecuta en la ruta.
 - **Console**: warnings de hydration, errores y logs de timing.
 
@@ -18,7 +18,7 @@ Fijar siempre las mismas condiciones antes y después (por ejemplo, CPU 4x y red
 Sirve para recorrer el flujo como lo haría un usuario y repetirlo de forma idéntica:
 
 - Navegar, tipear, filtrar, paginar y medir tiempos con `performance.now()`, `PerformanceObserver` o `page.evaluate(() => performance.getEntriesByType('navigation'))`.
-- Contar requests del flujo escuchando eventos de red, útil para detectar requests duplicados o en cascada.
+- Contar requests del flujo escuchando eventos de red, para aplicar los criterios de [Requests y caching → Detectar](requests-caching.md#detectar).
 - Confirmar que la optimización no rompió el flujo (el paso 5 del flujo principal).
 
 ## Sentry MCP — producción
