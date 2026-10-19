@@ -1,6 +1,6 @@
 # Renders innecesarios
 
-Un re-render solo es un problema si es caro o dispara hijos caros. Medir primero qué se re-renderiza y cuánto cuesta; recién después aplicar patrones.
+El criterio para decidir si un re-render es un problema vive en la sección [«Diagnose before optimizing»](../../react-render-performance-patterns/SKILL.md#diagnose-before-optimizing) de la skill `react-render-performance-patterns`. Esta referencia agrega solo las herramientas de medición, las causas frecuentes y las métricas propias de esta skill.
 
 ## Detectar
 
