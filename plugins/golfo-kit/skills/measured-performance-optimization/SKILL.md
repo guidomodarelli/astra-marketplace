@@ -1,6 +1,6 @@
 ---
 name: measured-performance-optimization
-description: 'Optimiza rendimiento web midiendo antes y después: renders, bundle/lazy loading, requests/caching, queries N+1, imágenes/fuentes/scripts. Usar al pedir "optimizar", "está lento", Core Web Vitals o N+1.'
+description: 'Mide y optimiza rendimiento web: app web lenta, Core Web Vitals, bundle, renders, caching o queries N+1.'
 license: MIT
 metadata:
   version: "1.0.0"
