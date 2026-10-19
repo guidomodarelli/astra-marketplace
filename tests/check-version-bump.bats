@@ -8,9 +8,9 @@ setup() {
   cp "$repository_root/scripts/check-version-bump.js" "$repo_dir/scripts/"
   cp "$repository_root/scripts/lib/plugin-manifests.js" "$repo_dir/scripts/lib/"
 
-  write_manifests astra-kit 1.12.0
-  mkdir -p "$repo_dir/plugins/astra-kit/skills/demo"
-  printf '%s\n' 'skill' > "$repo_dir/plugins/astra-kit/skills/demo/SKILL.md"
+  write_manifests golfo-kit 1.12.0
+  mkdir -p "$repo_dir/plugins/golfo-kit/skills/demo"
+  printf '%s\n' 'skill' > "$repo_dir/plugins/golfo-kit/skills/demo/SKILL.md"
 
   git -C "$repo_dir" -c init.defaultBranch=main init -q
   git -C "$repo_dir" config user.name "Check Version Test"
@@ -50,26 +50,26 @@ run_check() {
 }
 
 @test "fails when a plugin skill changed without a version bump" {
-  printf '%s\n' 'changed' >> plugins/astra-kit/skills/demo/SKILL.md
+  printf '%s\n' 'changed' >> plugins/golfo-kit/skills/demo/SKILL.md
   commit_all "Change skill"
 
   run_check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"astra-kit: Plugin changed but its version is 1.12.0 (base 1.12.0)"* ]]
+  [[ "$output" == *"golfo-kit: Plugin changed but its version is 1.12.0 (base 1.12.0)"* ]]
 }
 
 @test "passes when both manifests were bumped" {
-  printf '%s\n' 'changed' >> plugins/astra-kit/skills/demo/SKILL.md
-  write_manifests astra-kit 1.13.0
+  printf '%s\n' 'changed' >> plugins/golfo-kit/skills/demo/SKILL.md
+  write_manifests golfo-kit 1.13.0
   commit_all "Change skill and bump"
 
   run_check
   [ "$status" -eq 0 ]
-  [[ "$output" == *"astra-kit: 1.12.0 -> 1.13.0."* ]]
+  [[ "$output" == *"golfo-kit: 1.12.0 -> 1.13.0."* ]]
 }
 
 @test "fails when only the Claude manifest was bumped" {
-  write_manifests astra-kit 1.13.0 1.12.0
+  write_manifests golfo-kit 1.13.0 1.12.0
   commit_all "Bump only Claude"
 
   run_check
@@ -78,7 +78,7 @@ run_check() {
 }
 
 @test "fails when the version goes down" {
-  write_manifests astra-kit 1.11.9
+  write_manifests golfo-kit 1.11.9
   commit_all "Lower version"
 
   run_check
@@ -87,31 +87,31 @@ run_check() {
 }
 
 @test "compares versions numerically, not as text" {
-  write_manifests astra-kit 1.12.0
+  write_manifests golfo-kit 1.12.0
   git commit -qm "noop" --allow-empty
   git switch -q main
-  write_manifests astra-kit 1.9.0
+  write_manifests golfo-kit 1.9.0
   commit_all "Base at 1.9.0"
   git push -q origin main
   git switch -qc feature/numeric
-  write_manifests astra-kit 1.10.0
+  write_manifests golfo-kit 1.10.0
   commit_all "Bump to 1.10.0"
 
   run_check
   [ "$status" -eq 0 ]
-  [[ "$output" == *"astra-kit: 1.9.0 -> 1.10.0."* ]]
+  [[ "$output" == *"golfo-kit: 1.9.0 -> 1.10.0."* ]]
 }
 
 @test "ignores changes outside plugins and inside tests or evals" {
   printf '%s\n' 'ci' > ci.txt
-  mkdir -p plugins/astra-kit/skills/demo/tests plugins/astra-kit/skills/demo/evals
-  printf '%s\n' 'test' > plugins/astra-kit/skills/demo/tests/demo.bats
-  printf '%s\n' '{}' > plugins/astra-kit/skills/demo/evals/eval-config.json
+  mkdir -p plugins/golfo-kit/skills/demo/tests plugins/golfo-kit/skills/demo/evals
+  printf '%s\n' 'test' > plugins/golfo-kit/skills/demo/tests/demo.bats
+  printf '%s\n' '{}' > plugins/golfo-kit/skills/demo/evals/eval-config.json
   commit_all "Tests and tooling only"
 
   run_check
   [ "$status" -eq 0 ]
-  [[ "$output" == *"astra-kit: no shipped changes, no bump needed."* ]]
+  [[ "$output" == *"golfo-kit: no shipped changes, no bump needed."* ]]
 }
 
 @test "accepts a new plugin without a base version" {
@@ -124,12 +124,12 @@ run_check() {
 }
 
 @test "emits a GitHub Actions error annotation in CI" {
-  printf '%s\n' 'changed' >> plugins/astra-kit/skills/demo/SKILL.md
+  printf '%s\n' 'changed' >> plugins/golfo-kit/skills/demo/SKILL.md
   commit_all "Change skill"
 
   GITHUB_ACTIONS=true run_check
   [ "$status" -eq 1 ]
-  [[ "$output" == *"::error file=plugins/astra-kit/.claude-plugin/plugin.json::astra-kit: Plugin changed"* ]]
+  [[ "$output" == *"::error file=plugins/golfo-kit/.claude-plugin/plugin.json::golfo-kit: Plugin changed"* ]]
 }
 
 @test "fails with context when the base reference does not exist" {

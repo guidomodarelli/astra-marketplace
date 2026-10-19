@@ -560,7 +560,7 @@ function renderHelp() {
   const section = (text) => paint('bold', text);
   const examples = [
     ['pnpm create-version', 'interactive'],
-    [`pnpm create-version astra-kit ${BUMP_FLAG} minor`, 'no prompts'],
+    [`pnpm create-version golfo-kit ${BUMP_FLAG} minor`, 'no prompts'],
     [`pnpm create-version -n ${SET_FLAG} 2.0.0`, 'preview exact version'],
   ];
   const exampleColumnWidth = Math.max(...examples.map(([exampleCommand]) => exampleCommand.length));

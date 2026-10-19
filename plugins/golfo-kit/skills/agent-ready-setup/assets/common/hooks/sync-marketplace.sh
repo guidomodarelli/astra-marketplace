@@ -1,6 +1,6 @@
 #!/bin/bash
 # sync-marketplace.sh
-# Upgrades astra-marketplace and projects managed Agent Ready assets locally.
+# Upgrades golfo-marketplace and projects managed Agent Ready assets locally.
 # Runs automatically on session start (SessionStart hook).
 
 set -euo pipefail
@@ -10,7 +10,7 @@ set -euo pipefail
 exec 1>&2
 
 # shellcheck disable=SC2034
-readonly MARKETPLACE_NAME="astra-marketplace"
+readonly MARKETPLACE_NAME="golfo-marketplace"
 readonly SKILL_NAME="agent-ready-setup"
 readonly SHARED_DIR=".agents"
 readonly CLAUDE_DIR=".claude"
@@ -288,7 +288,7 @@ PY
 }
 
 marketplace_snapshot_skill_dir() {
-  printf '%s/plugins/astra-kit/skills/%s\n' "$(marketplace_snapshot_root "$1")" "$SKILL_NAME"
+  printf '%s/plugins/golfo-kit/skills/%s\n' "$(marketplace_snapshot_root "$1")" "$SKILL_NAME"
 }
 
 # Reads the plugin manifest version beside the snapshot skill; both provider
@@ -297,7 +297,7 @@ marketplace_snapshot_version() {
   local plugin_root
   local manifest
 
-  plugin_root="$(marketplace_snapshot_root "$1")/plugins/astra-kit"
+  plugin_root="$(marketplace_snapshot_root "$1")/plugins/golfo-kit"
   for manifest in "$plugin_root/.claude-plugin/plugin.json" "$plugin_root/.codex-plugin/plugin.json"; do
     if [[ -f "$manifest" ]]; then
       sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" | head -n 1
@@ -342,7 +342,7 @@ resolve_skill_dir() {
 
   # The snapshot wins unless the cache already holds a newer version, so
   # projection never waits for a provider plugin update.
-  cache_root="$provider_root/plugins/cache/$MARKETPLACE_NAME/astra-kit"
+  cache_root="$provider_root/plugins/cache/$MARKETPLACE_NAME/golfo-kit"
   while IFS= read -r candidate; do
     candidate="${candidate%/SKILL.md}"
     if is_valid_skill_dir "$candidate" "$require_asset_sync_helper"; then
@@ -389,7 +389,7 @@ resolve_skill_dir() {
   fi
 
   if project_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-    candidate="$project_root/plugins/astra-kit/skills/$SKILL_NAME"
+    candidate="$project_root/plugins/golfo-kit/skills/$SKILL_NAME"
     if is_valid_skill_dir "$candidate" "$require_asset_sync_helper"; then
       printf '%s\n' "$candidate"
       return 0

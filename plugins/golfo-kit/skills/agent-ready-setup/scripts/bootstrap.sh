@@ -21,7 +21,7 @@ exec 1>&2
 source "$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/instruction-normalization.sh"
 
 # shellcheck disable=SC2034
-readonly MARKETPLACE_NAME="astra-marketplace"
+readonly MARKETPLACE_NAME="golfo-marketplace"
 readonly SKILL_NAME="agent-ready-setup"
 # Codex resolves its user home from CODEX_HOME; config, snapshot and cache follow it.
 readonly CODEX_HOME_DIRECTORY="${CODEX_HOME:-$HOME/.codex}"
@@ -231,7 +231,7 @@ PY
 }
 
 marketplace_snapshot_skill_dir() {
-  printf '%s/plugins/astra-kit/skills/%s\n' "$(marketplace_snapshot_root "$1")" "$SKILL_NAME"
+  printf '%s/plugins/golfo-kit/skills/%s\n' "$(marketplace_snapshot_root "$1")" "$SKILL_NAME"
 }
 
 # Reads the plugin manifest version beside the snapshot skill; both provider
@@ -240,7 +240,7 @@ marketplace_snapshot_version() {
   local plugin_root
   local manifest
 
-  plugin_root="$(marketplace_snapshot_root "$1")/plugins/astra-kit"
+  plugin_root="$(marketplace_snapshot_root "$1")/plugins/golfo-kit"
   for manifest in "$plugin_root/.claude-plugin/plugin.json" "$plugin_root/.codex-plugin/plugin.json"; do
     if [[ -f "$manifest" ]]; then
       sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest" | head -n 1
@@ -294,7 +294,7 @@ resolve_skill_dir() {
   else
     provider_root="$CODEX_HOME_DIRECTORY"
   fi
-  cache_root="$provider_root/plugins/cache/$MARKETPLACE_NAME/astra-kit"
+  cache_root="$provider_root/plugins/cache/$MARKETPLACE_NAME/golfo-kit"
 
   if [[ "$REQUESTED_SKILL_DIR" != "$cache_root"/* ]] && \
     is_valid_skill_dir "$REQUESTED_SKILL_DIR"; then
@@ -347,7 +347,7 @@ resolve_skill_dir() {
   fi
 
   if project_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-    candidate="$project_root/plugins/astra-kit/skills/$SKILL_NAME"
+    candidate="$project_root/plugins/golfo-kit/skills/$SKILL_NAME"
     if [[ "$candidate" != "$REQUESTED_SKILL_DIR" ]] && is_valid_skill_dir "$candidate"; then
       printf '%s\n' "$candidate"
       return 0

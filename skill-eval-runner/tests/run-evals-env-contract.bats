@@ -5,8 +5,8 @@ bats_require_minimum_version 1.13.0
 load 'test_helper/eval-runner'
 
 setup() {
-    unset ASTRA_MARKETPLACE_EVAL_MODEL
-    unset ASTRA_MARKETPLACE_EVAL_REASONING_EFFORT
+    unset GOLFO_MARKETPLACE_EVAL_MODEL
+    unset GOLFO_MARKETPLACE_EVAL_REASONING_EFFORT
     setup_eval_runner_fixture
 }
 
@@ -19,7 +19,7 @@ setup() {
 }
 
 @test "uses the model override" {
-    ASTRA_MARKETPLACE_EVAL_MODEL='prefixed-model'
+    GOLFO_MARKETPLACE_EVAL_MODEL='prefixed-model'
 
     run_eval_runner
 
@@ -36,7 +36,7 @@ setup() {
 }
 
 @test "uses the reasoning effort override" {
-    ASTRA_MARKETPLACE_EVAL_REASONING_EFFORT='high'
+    GOLFO_MARKETPLACE_EVAL_REASONING_EFFORT='high'
 
     run_eval_runner
 
@@ -48,7 +48,7 @@ setup() {
     run --separate-stderr env \
         "PATH=${STUB_BIN}:${PATH}" \
         "CLAUDE_ARGS_LOG=${CLAUDE_ARGS_LOG}" \
-        "ASTRA_MARKETPLACE_EVAL_PROVIDER=claude" \
+        "GOLFO_MARKETPLACE_EVAL_PROVIDER=claude" \
         bash -c 'cd "$1" && "$2" --jobs 1 "$3"' \
         _ "$TEST_ROOT" "$EVAL_RUNNER" "$SKILL_NAME"
 
@@ -62,7 +62,7 @@ setup() {
     run --separate-stderr env \
         "PATH=${STUB_BIN}:${PATH}" \
         "CLAUDE_ARGS_LOG=${CLAUDE_ARGS_LOG}" \
-        "ASTRA_MARKETPLACE_EVAL_PROVIDER=${removed_provider}" \
+        "GOLFO_MARKETPLACE_EVAL_PROVIDER=${removed_provider}" \
         "${EVAL_RUNNER}" --jobs 1 "${SKILL_DIR}"
 
     [ "$status" -eq 1 ]

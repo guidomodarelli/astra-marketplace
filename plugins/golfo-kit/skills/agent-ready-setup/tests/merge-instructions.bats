@@ -2,7 +2,7 @@
 
 setup() {
   repository_root="$(cd "$BATS_TEST_DIRNAME/../../../../.." && pwd)"
-  skill_dir="$repository_root/plugins/astra-kit/skills/agent-ready-setup"
+  skill_dir="$repository_root/plugins/golfo-kit/skills/agent-ready-setup"
   test_root="$(mktemp -d)"
   # Native Windows symlinks under Git Bash (needs Developer Mode); ignored elsewhere.
   export MSYS="${MSYS:+$MSYS }winsymlinks:nativestrict"

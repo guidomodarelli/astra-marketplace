@@ -1,4 +1,4 @@
-# 🛒 Astra Marketplace
+# 🛒 Golfo Marketplace
 
 > Multi-provider marketplace de skills y plugins para agentes AI.  
 > Soporta **Claude Code** y **Codex** 🤖
@@ -46,7 +46,7 @@ Cada registro luego referencia la ruta del subdirectorio de su proveedor (ej. `.
 
 ## 🤖 Agent Ready multi-provider
 
-`plugins/astra-kit/skills/agent-ready-setup` prepara siempre los tres planos sin acoplar assets compartidos a un provider:
+`plugins/golfo-kit/skills/agent-ready-setup` prepara siempre los tres planos sin acoplar assets compartidos a un provider:
 
 ```text
 AGENTS.md                  # instrucciones canónicas
@@ -59,7 +59,7 @@ CLAUDE.md                  # raíz y subdirectorios: proxy exacto + regla
 .codex/.mcp.json           # MCP específico Codex
 ```
 
-Si `CLAUDE.md` ya contiene instrucciones, el setup las promueve a un `AGENTS.md` hermano y deja `CLAUDE.md` como copia exacta de `assets/claude-proxy.md`. Esto también aplica a `.claude/CLAUDE.md` y cualquier subnivel. Si ambos archivos existen y difieren, no sobrescribe ninguno y reporta conflicto para resolución manual. La normalización recursiva parte de la raíz Git y omite paths ignorados no trackeados, incluidos `node_modules/` y worktrees, sin perder archivos trackeados bajo esas rutas; los destinos explícitos `.claude/`, `.agents/` y `.codex/` se siguen preparando aunque estén ignorados. El bootstrap requiere ejecutarse dentro de un worktree Git y actualiza automáticamente `astra-marketplace` para provider activo antes de proyectar assets.
+Si `CLAUDE.md` ya contiene instrucciones, el setup las promueve a un `AGENTS.md` hermano y deja `CLAUDE.md` como copia exacta de `assets/claude-proxy.md`. Esto también aplica a `.claude/CLAUDE.md` y cualquier subnivel. Si ambos archivos existen y difieren, no sobrescribe ninguno y reporta conflicto para resolución manual. La normalización recursiva parte de la raíz Git y omite paths ignorados no trackeados, incluidos `node_modules/` y worktrees, sin perder archivos trackeados bajo esas rutas; los destinos explícitos `.claude/`, `.agents/` y `.codex/` se siguen preparando aunque estén ignorados. El bootstrap requiere ejecutarse dentro de un worktree Git y actualiza automáticamente `golfo-marketplace` para provider activo antes de proyectar assets.
 
 Después de `marketplace upgrade`, la actualización global no reproyecta assets sobre proyectos ya preparados. La ejecución directa de `agent-ready-setup` y el hook canónico `.agents/hooks/sync-marketplace.sh` seleccionan la versión cacheada semver más nueva y actualizan los assets gestionados bajo `.claude/`, `.agents/` y `.codex/`; ambos providers usan el mismo comportamiento con sus caches respectivas. La proyección recorre `assets/common/` y `assets/stacks/<stack>/`, incluyendo rules, agents, commands, skills, MCP y hooks; los hooks permanecen canónicos bajo `.agents/hooks/`, mientras `.claude/` recibe symlinks para assets no-hook. El hook normaliza instrucciones mediante `bootstrap.sh --normalize-only` cuando la versión instalada lo soporta y ejecuta el merge semántico de `AGENTS.md`. La normalización ocurre desde la raíz Git e incluye `.claude/CLAUDE.md`; conflictos, symlinks y destinos inseguros se preservan y reportan. Muestra diffs, aplica templates sobre archivos regulares modificados y conserva su versión local en un directorio temporal externo al proyecto; output muestra path exacto para revisión o diff. También combina el template con los settings JSON y preserva sus campos custom. El merge IA de `AGENTS.md` conserva cambios compatibles; si falla o queda sin resolución, aplica template y guarda backup temporal. `CLAUDE.md` nunca se modifica directamente por el merge IA.
 
@@ -73,12 +73,12 @@ Los nombres disponibles viven en `.claude-plugin/marketplace.json` y `.agents/pl
 
 ```bash
 # Claude Code, desde GitHub
-claude plugin marketplace add --scope user guidomodarelli/astra-marketplace
-claude plugin install --scope user <plugin-name>@astra-marketplace
+claude plugin marketplace add --scope user guidomodarelli/golfo-marketplace
+claude plugin install --scope user <plugin-name>@golfo-marketplace
 
 # Codex, desde la raíz de un clone local de este repo
 codex plugin marketplace add "$PWD"
-codex plugin add <plugin-name>@astra-marketplace
+codex plugin add <plugin-name>@golfo-marketplace
 ```
 
 ---
@@ -89,7 +89,7 @@ Usá esta guía para probar cualquier skill standalone, plugin o marketplace sin
 publicarlo. Definí variables según el árbol que quieras probar:
 
 ```bash
-MARKETPLACE_NAME="astra-marketplace"
+MARKETPLACE_NAME="golfo-marketplace"
 PLUGIN_NAME="<plugin-name>"
 SKILL_NAME="<skill-name>"
 PLUGIN_SRC="$PWD/plugins/$PLUGIN_NAME"
@@ -224,9 +224,9 @@ Usá el script `create-version` para hacer bump a la versión de un plugin. Actu
 
 ```bash
 pnpm create-version              # auto-detecta el único plugin cambiado sin bump en la branch; si no, muestra menú
-pnpm create-version astra-kit    # apuntá a un plugin directamente por nombre
+pnpm create-version golfo-kit    # apuntá a un plugin directamente por nombre
 pnpm create-version --dry-run  # preview sin escribir, commitear ni pushear (shorthand: -n)
-pnpm create-version astra-kit --bump minor  # sin prompts (patch | minor | major)
+pnpm create-version golfo-kit --bump minor  # sin prompts (patch | minor | major)
 pnpm create-version --set 2.0.0  # versión exacta sin prompts
 pnpm create-version --help     # ayuda (shorthand: -h)
 ```
@@ -278,8 +278,8 @@ lo que cubre el cambio y dejá la suite completa a la CI:
 
 | Cambio | Comando local |
 |---|---|
-| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `pnpm exec bats plugins/astra-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `pnpm exec bats --filter 'rules' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
-| Un flujo puntual de `agent-ready-setup` | `pnpm exec bats --filter '<parte del nombre del test>' plugins/astra-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `pnpm exec bats plugins/golfo-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `pnpm exec bats --filter 'rules' plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
+| Un flujo puntual de `agent-ready-setup` | `pnpm exec bats --filter '<parte del nombre del test>' plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
 | Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `pnpm run test:bootstrap` completo |
 | `review-fix-loop`, `sibling-worktree`, `create-version`, `check-version-bump` o el eval runner | Su suite (`pnpm run test:review-fix-loop`, `pnpm run test:sibling-worktree`, `pnpm exec bats tests/create-version.bats tests/check-version-bump.bats`, `pnpm exec bats skill-eval-runner/tests/*.bats`) |
 
@@ -318,5 +318,5 @@ run-evals plugins/<plugin-name>/skills/<skill-name> --provider codex
 run-evals plugins/<plugin-name>/skills/<skill-name> --baseline
 
 # Override persistente de proveedor
-export ASTRA_MARKETPLACE_EVAL_PROVIDER=codex
+export GOLFO_MARKETPLACE_EVAL_PROVIDER=codex
 ```
