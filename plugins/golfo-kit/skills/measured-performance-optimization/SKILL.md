@@ -34,19 +34,19 @@ Detectar qué MCPs y herramientas hay disponibles y usar la más directa para ca
 
 ### 3. Medir la línea base
 
-Antes de tocar código, registrar la línea base del flujo con las mismas condiciones que se usarán después (mismo build, mismo throttling de CPU/red, misma data, cache fría o caliente declarada). Repetir al menos 3 veces las mediciones ruidosas (tiempos de carga, LCP, INP) y reportar la mediana.
+Antes de tocar código, registrar la línea base del flujo con las mismas condiciones que se usarán después (mismo modo de build de producción y mismos flags, mismo entorno, mismo throttling de CPU/red, misma data, cache fría o caliente declarada), rebuildeando cada revisión del código antes de medirla. Repetir al menos 3 veces las mediciones ruidosas (tiempos de carga, LCP, INP) y reportar la mediana.
 
 ### 4. Diagnosticar y priorizar
 
-Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad. Leer solo la referencia del área que corresponda:
+Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad. Leer solo la referencia del área que corresponda; las señales de detección viven en la sección «Detectar» de cada referencia (o en los bullets «Detectar:» de cada subsección):
 
-| Área | Señal típica | Referencia |
+| Área | Alcance | Referencia |
 |---|---|---|
-| Renders innecesarios | INP alto, lag al tipear, Profiler con commits largos o componentes que re-renderizan sin cambio visible | [references/unnecessary-renders.md](references/unnecessary-renders.md) |
-| Bundle y lazy loading | JS inicial grande, TBT/LCP altos, dependencias pesadas en la ruta inicial | [references/bundle-lazy-loading.md](references/bundle-lazy-loading.md) |
-| Requests y caching | Waterfalls, requests duplicados, falta de `Cache-Control`/ETag, refetch innecesario | [references/requests-caching.md](references/requests-caching.md) |
-| Queries lentas y N+1 | Muchas queries casi iguales por request, endpoints cuyo tiempo crece con la cantidad de items, spans de DB repetidos en Sentry | [references/database-queries-n-plus-one.md](references/database-queries-n-plus-one.md) |
-| Imágenes, fuentes y scripts | LCP por imagen, CLS por fuentes o imágenes sin dimensiones, scripts de terceros bloqueantes | [references/images-fonts-scripts.md](references/images-fonts-scripts.md) |
+| Renders innecesarios | Trabajo de render y commits de componentes en el cliente | [references/unnecessary-renders.md](references/unnecessary-renders.md) |
+| Bundle y lazy loading | Tamaño y división del JavaScript que se descarga y ejecuta | [references/bundle-lazy-loading.md](references/bundle-lazy-loading.md) |
+| Requests y caching | Orden, cantidad y cacheo de requests entre cliente, red y servidor | [references/requests-caching.md](references/requests-caching.md) |
+| Queries lentas y N+1 | Acceso a base de datos desde el backend | [references/database-queries-n-plus-one.md](references/database-queries-n-plus-one.md) |
+| Imágenes, fuentes y scripts | Carga de imágenes, fuentes web y scripts de terceros | [references/images-fonts-scripts.md](references/images-fonts-scripts.md) |
 
 ### 5. Aplicar una optimización a la vez
 
@@ -54,7 +54,7 @@ Hacer un cambio por iteración para poder atribuir el resultado. Mantener el com
 
 ### 6. Medir después y decidir
 
-Repetir exactamente la medición del paso 3. Si la mejora no es significativa (dentro del ruido) o algo empeoró, revertir o replantear el cambio en lugar de dejarlo "por las dudas". Volver al paso 4 con el siguiente hallazgo.
+Rebuildear la revisión modificada con el mismo modo de build y flags, y repetir exactamente la medición del paso 3. Si la mejora no es significativa (dentro del ruido) o algo empeoró, revertir o replantear el cambio en lugar de dejarlo "por las dudas". Volver al paso 4 con el siguiente hallazgo.
 
 ### 7. Reportar
 
