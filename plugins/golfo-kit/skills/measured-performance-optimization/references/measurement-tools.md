@@ -17,7 +17,7 @@ Fijar siempre las mismas condiciones antes y después (por ejemplo, CPU 4x y red
 
 Sirve para recorrer el flujo como lo haría un usuario y repetirlo de forma idéntica:
 
-- Navegar, tipear, filtrar, paginar y medir tiempos con `performance.now()`, `PerformanceObserver` o `page.evaluate(() => performance.getEntriesByType('navigation'))`.
+- Navegar, tipear, filtrar, paginar y medir tiempos. Para interacciones del cliente (filtrar, paginar, abrir un panel) usar `performance.now()`, `performance.mark()`/`performance.measure()` o un `PerformanceObserver` del tipo de entrada que corresponda (`event`, `resource`, `longtask`). `page.evaluate(() => performance.getEntriesByType('navigation'))` sirve solo para la carga del documento: no mide interacciones posteriores.
 - Contar requests del flujo escuchando eventos de red, para aplicar los criterios de [Requests y caching → Detectar](requests-caching.md#detectar).
 - Confirmar que la optimización no rompió el flujo (el paso 5 del flujo principal).
 
@@ -41,3 +41,5 @@ Los datos de producción complementan al laboratorio: el laboratorio atribuye un
 | Renders | React DevTools Profiler, `<Profiler onRender>` temporal |
 | Queries | Log de queries del ORM, `EXPLAIN ANALYZE` (en escrituras, ver [advertencia](database-queries-n-plus-one.md#queries-lentas-que-no-son-n1)), `pg_stat_statements`, contador de queries en un test de integración |
 | Tiempos de endpoint | `autocannon`, `k6`, `hey`, o `curl -w '%{time_total}'` repetido |
+
+`autocannon`, `k6` y `hey` generan tráfico concurrente: usarlos solo contra entornos locales o de staging. Contra producción, únicamente con autorización explícita del usuario y límites acotados (target exacto, concurrencia o VUs, y duración); sin esa autorización, medir producción solo con datos pasivos (Sentry) o requests individuales con `curl`.
