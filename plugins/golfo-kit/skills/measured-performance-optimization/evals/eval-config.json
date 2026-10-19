@@ -61,6 +61,16 @@
           "description": "No difiere la imagen LCP y la prioriza"
         },
         {
+          "type": "regex",
+          "pattern": "(línea base|linea base|baseline|antes de (tocar|cambiar|optimizar|aplicar|modificar|empezar)|medir antes|medí antes|medición inicial)",
+          "description": "Exige una medición de línea base antes de aplicar los cambios"
+        },
+        {
+          "type": "regex",
+          "pattern": "(un (solo )?cambio|una (sola )?optimizaci|una por vez|uno por vez|una a la vez|uno a la vez|de a una|de a uno|por separado|aislad[ao]s?|cada (cambio|optimizaci|uno|una)).{0,120}(medi|medí|re-?medi|measure)|(medi|medí|re-?medi|measure).{0,120}(cada (cambio|optimizaci|uno|una)|por separado|de a una|de a uno|aislad[ao]s?)",
+          "description": "Aplica y mide cada optimización en una iteración separada"
+        },
+        {
           "type": "contains_any",
           "values": ["LCP"],
           "description": "Usa LCP como métrica"
