@@ -148,7 +148,7 @@
         },
         {
           "type": "regex",
-          "pattern": "((iteraci[oó]n 1|9 secciones|nueve secciones|reescritura).{0,120}(rechaz|descart|no (se )?acept|no vale|no es v[aá]lid|excede|supera|invalid|sobreajust)|(rechaz|descart|no (se )?acept|no vale|no es v[aá]lid|excede|supera|invalid|sobreajust).{0,120}(iteraci[oó]n 1|9 secciones|nueve secciones|reescritura))",
+          "pattern": "((iteraci.{1,2}n 1|9 secciones|nueve secciones|reescritura).{0,120}(rechaz|descart|no (se )?acept|no vale|no es v.{1,2}lid|excede|supera|invalid|sobreajust)|(rechaz|descart|no (se )?acept|no vale|no es v.{1,2}lid|excede|supera|invalid|sobreajust).{0,120}(iteraci.{1,2}n 1|9 secciones|nueve secciones|reescritura))",
           "description": "Rechaza o invalida el candidato de la iteración 1 (reescritura de 9 secciones diseñada mirando todos los outputs)"
         },
         {
