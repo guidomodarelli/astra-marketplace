@@ -143,8 +143,8 @@
         },
         {
           "type": "regex",
-          "pattern": "(presupuesto|tope|l[ií]mite|m[aá]ximo).{0,80}(edit|operaci|cambio)",
-          "description": "Limita la cantidad de edits por iteración"
+          "pattern": "(full.{0,60}([^0-9]|^)(5|cinco|five)([^0-9]|$)|([^0-9]|^)(5|cinco|five)([^0-9]|$).{0,60}full)",
+          "description": "Fija en 5 el tope de edits por iteración en modo full"
         },
         {
           "type": "contains_any",

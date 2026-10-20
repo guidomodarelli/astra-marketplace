@@ -83,7 +83,8 @@ Para skill existente, copiar target completo a un workspace hermano fuera del re
 <temporary-parent>/<skill-name>-workspace/
 ├── skill-snapshot/          # baseline inmutable
 ├── eval-split.json          # qué casos son de optimización y cuáles held-out
-├── rejected-edits.json      # edits descartados y por qué (ver Fase 3)
+├── rejected-edits.json      # bundles descartados, motivo opaco (ver Fase 3)
+├── held-out-gate.json       # detalle del gate; nunca lo lee el diseño de edits
 ├── iteration-1/
 │   └── <eval-name>/...
 └── manifest.json
@@ -92,6 +93,15 @@ Para skill existente, copiar target completo a un workspace hermano fuera del re
 No mezclar workspace con target ni dejarlo dentro del repositorio versionado. Crear path nuevo; no reutilizar resultados de otra ejecución. Si una restricción obliga a usar un path dentro del repositorio, debe estar cubierto por una regla exacta de `.gitignore`, no contener una skill publicable en su primer nivel y eliminarse antes del cierre. `manifest.json` debe registrar target, objetivo, modo, baseline fingerprint y archivos incluidos. No guardar secrets, tokens, env files ni cuerpos privados.
 
 Snapshot es baseline de comparación, no autorización para editarlo. Si target cambia durante ejecución, detener con `TARGET_CHANGED_DURING_RUN` (equivalente operativo de `TARGET_STALE`) y reconstruir snapshot.
+
+### Split de optimización y held-out
+
+Inmediatamente después del snapshot, antes de diseñar o rankear cualquier edit (Fase 3) y antes de ejecutar evals, dividir los casos en dos sets y persistirlo en `eval-split.json`. Si se eligiera el held-out después de pensar en los edits, se lo podría sesgar sin querer hacia los casos que el candidato no toca.
+
+- **Optimización:** casos que se ejecutan y analizan para diseñar edits.
+- **Held-out (selección):** casos que solo se usan en el gate de Fase 5; sus outputs y su detalle de fallos nunca se usan para proponer cambios.
+
+Incluir en held-out al menos un caso crítico de seguridad, autorización o no-mutation y, cuando sea posible, un tercio de los casos. Con menos de 5 casos totales, crear en workspace casos adicionales para held-out en este mismo paso. Si no se puede formar un held-out independiente, el gate no puede aceptar candidatos: se puede seguir en modo diagnóstico, pero ningún candidato se aplica y la ejecución termina en `NO_MEASURED_GAIN` (o `BLOCKED` si falta un dato que solo el usuario puede dar), indicándolo en Limitaciones. El split es fijo durante toda la ejecución: mover casos entre sets invalida la comparación. Sin held-out, una mejora en los mismos casos usados para diseñar edits puede ser solo sobreajuste a esas evals.
 
 ## Fase 3: diseño de optimización
 
@@ -121,22 +131,28 @@ Expresar cada candidato como operaciones discretas sobre el baseline de la itera
 
 El tope existe porque reescrituras grandes hacen imposible atribuir mejoras o regresiones a un cambio concreto, y suelen perder guards implícitos. Una reescritura completa solo procede con confirmación explícita del usuario y cuenta como iteración propia.
 
+**Límite de iteraciones:** como máximo 1 iteración en `quick` y 3 en `full`, salvo que el usuario fije otro tope. Terminar antes si no queda ningún candidato nuevo: todas las propuestas restantes repiten un bundle ya rechazado o no hay fallos en el set de optimización que justifiquen edits. Al agotar el tope sin candidato aceptado, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
+
 ### Registro de edits rechazados
 
-Mantener `<workspace>/rejected-edits.json` durante toda la ejecución. Cuando un candidato no pasa el gate (Fase 5), registrar cada operación descartada:
+Mantener `<workspace>/rejected-edits.json` como un **array JSON**: cada rechazo agrega un elemento al final sin reescribir los anteriores. Un candidato que no pasa el gate (Fase 5) se registra como **bundle**, una unidad con todas sus operaciones, porque el gate solo demuestra que la combinación falló, no que cada operación sea dañina:
 
 ```json
-{
-  "iteration": 2,
-  "operation": "delete",
-  "target_section": "Fase 1 / paso 4",
-  "summary": "quitar detección de skills relacionadas",
-  "reason": "EVAL_REGRESSION",
-  "evidence": "held-out ambiguous-target-stops: 3/3 → 1/3"
-}
+[
+  {
+    "iteration": 2,
+    "operations": [
+      { "operation": "delete", "target_section": "Fase 1 / paso 4", "summary": "quitar detección de skills relacionadas" },
+      { "operation": "replace", "target_section": "Fase 3 / fan-out", "summary": "subir límite de paralelismo a 8" }
+    ],
+    "reason": "HELD_OUT_GATE_FAILED"
+  }
+]
 ```
 
-Leer el registro antes de proponer edits: no reproponer una operación equivalente salvo que haya evidencia nueva (eval distinta, fallo nuevo o cambio de objetivo) y documentarla. Reportar en la salida cuántos edits se rechazaron y por qué.
+Este registro es visible para el diseño de edits, así que solo lleva motivos opacos (`HELD_OUT_GATE_FAILED`, `OPTIMIZATION_REGRESSION`, `CRITICAL_ASSERTION_FAILED`). El detalle de held-out (casos, scores, assertions) va a `<workspace>/held-out-gate.json`, que solo lee el gate y el reporte final, nunca la reflexión ni la propuesta de edits. Así el held-out sigue siendo independiente después de un rechazo.
+
+Leer `rejected-edits.json` antes de proponer: no reproponer el mismo bundle ni uno equivalente. Una operación individual de un bundle rechazado puede volver sola o en otra combinación; solo se descarta individualmente si una ablación sobre el set de optimización muestra que ella causa la regresión. Reportar en la salida cuántos bundles se rechazaron y por qué.
 
 ## Fase 4: evals baseline y candidato
 
@@ -154,16 +170,7 @@ Cada eval debe declarar:
 }
 ```
 
-### Split de optimización y held-out
-
-Antes de mirar cualquier output, dividir los casos en dos sets y registrarlo en `eval-split.json`:
-
-- **Optimización:** casos que se ejecutan y analizan para diseñar edits.
-- **Held-out (selección):** casos que solo se usan en el gate de Fase 5; sus outputs no se leen para proponer cambios.
-
-Incluir en held-out al menos un caso crítico de seguridad, autorización o no-mutation y, cuando sea posible, un tercio de los casos. Con menos de 5 casos totales, crear en workspace casos adicionales para held-out antes de ver el candidato; si no se puede, reportar en Limitaciones que el gate no tiene held-out independiente. El split es fijo durante toda la ejecución: mover casos entre sets después de ver resultados invalida la comparación. Sin held-out, una mejora en los mismos casos usados para diseñar edits puede ser solo sobreajuste a esas evals.
-
-En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
+Ejecutar ambos sets según el split fijado en Fase 2. En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
 
 Lanzar configuraciones en paralelo, no baseline primero y candidato después. Cada runner debe:
 
@@ -199,7 +206,7 @@ Un candidato reemplaza al baseline de la iteración solo si cumple todo:
 2. En held-out, pass rate igual o mayor que el baseline y ninguna assertion crítica nueva fallando.
 3. Si el objetivo es costo (`tokens`, `latency`, `tool_calls`), la mejora se observa también en held-out con trace real.
 
-Si gana en optimización pero empata o pierde en held-out, rechazarlo: registrar sus operaciones en `rejected-edits.json` y continuar desde el baseline previo. Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
+Empatar en held-out es aceptable para objetivos de calidad (criterio 2). Rechazar el candidato solo si su pass rate held-out baja, si falla una assertion crítica nueva o, en objetivos de costo, si la mejora no se observa en held-out. Al rechazarlo, registrar el bundle en `rejected-edits.json` con motivo opaco, guardar el detalle en `held-out-gate.json` y continuar desde el baseline previo dentro del límite de iteraciones (Fase 3). Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
 
 ## Fase 6: aplicar candidato
 
@@ -247,7 +254,7 @@ Responder en español, con paths/comandos/identificadores exactos:
 - Baseline/candidato: `<configuraciones y casos>`
 - Split: `<N casos de optimización / M held-out>`
 - Resultado: `<pass rate, tokens, tool calls, timing; optimización y held-out por separado>`
-- Iteraciones: `<edits aplicados/presupuesto por iteración, edits rechazados y motivo>`
+- Iteraciones: `<edits aplicados/presupuesto por iteración, bundles rechazados y motivo opaco>`
 - Evidencia: `<trace/benchmark o NO_MEASURED_GAIN>`
 - Viewer: `<path si fue generado>`
 
