@@ -42,7 +42,7 @@ Si no se puede medir la línea base (sin runtime, entorno, datos o herramienta) 
 
 ### 4. Diagnosticar y priorizar
 
-Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad. Leer solo la referencia del área que corresponda; las señales de detección viven en la sección «Detectar» de cada referencia (o en los bullets «Detectar:» de cada subsección):
+Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad. Si no hay medición posible (el usuario pidió solo un plan o prohibió ejecutar), presentar cada hallazgo como hipótesis etiquetada explícitamente, ordenada por impacto estimado con su justificación (la señal observada en el código o en la descripción) y con la medición que la confirmaría; no inventar números. Esto no habilita editar sin línea base (paso 3) y las métricas quedan como pendientes en el reporte (paso 7). Leer solo la referencia del área que corresponda; las señales de detección viven en la sección «Detectar» de cada referencia (o en los bullets «Detectar:» de cada subsección):
 
 | Área | Alcance | Referencia |
 |---|---|---|
