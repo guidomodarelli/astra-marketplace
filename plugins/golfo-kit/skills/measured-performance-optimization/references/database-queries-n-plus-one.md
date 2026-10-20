@@ -56,7 +56,8 @@ Cuidar listas de `IN` muy grandes (partir en chunks) y no traer relaciones que l
 ## Queries lentas que no son N+1
 
 - `EXPLAIN ANALYZE` de la query: buscar seq scans sobre tablas grandes, sorts en disco y estimaciones de filas muy erradas.
-  - `EXPLAIN ANALYZE` ejecuta la sentencia de verdad. Para `INSERT`/`UPDATE`/`DELETE` usar `EXPLAIN` sin `ANALYZE`, o envolverlo en una transacción revertida (`BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;`), preferentemente fuera de producción.
+  - `EXPLAIN ANALYZE` ejecuta la sentencia de verdad: usarlo solo contra una base local, de staging o una réplica de lectura. Contra producción, únicamente con autorización explícita del usuario y límites acotados (sentencia exacta, filas afectadas y `statement_timeout`), con el mismo criterio que los generadores de carga de [measurement-tools.md](measurement-tools.md#alternativas-sin-mcp); sin esa autorización, usar `EXPLAIN` sin `ANALYZE` o telemetría pasiva (`pg_stat_statements`, APM).
+  - Para `INSERT`/`UPDATE`/`DELETE` usar `EXPLAIN` sin `ANALYZE`, o envolverlo en una transacción revertida (`BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;`). El `ROLLBACK` deshace las filas, pero no evita la carga ni los locks que toma la sentencia, los avances de secuencias ni los efectos externos de triggers.
 - Índices sobre columnas de `WHERE`, `JOIN` y `ORDER BY`. En un índice compuesto, primero las columnas comparadas por igualdad y después la de rango (o la del `ORDER BY` que el índice debe resolver), sin copiar el orden textual del `WHERE`; verificar con `EXPLAIN` antes y después.
 - Paginación por cursor/keyset en lugar de `OFFSET` grande.
 - Proyectar solo las columnas necesarias en lugar de `SELECT *`.
