@@ -76,6 +76,11 @@
           "description": "Aplica y mide cada optimización en una iteración separada"
         },
         {
+          "type": "regex",
+          "pattern": "(mism[ao]s?|same|id(é|e)ntic[ao]s?|identical|equivalentes?|equivalent|comparables?)[[:space:]]+([^[:space:]]+[[:space:]]+)?(condici|condition|modo de build|build|throttling|perfil|datos|data|cach|configuraci|settings|setup|entorno|environment|flags)|(condiciones|conditions)[[:space:]]+(equivalentes|equivalent|id(é|e)nticas|identical|comparables|constantes)",
+          "description": "Exige medir antes y después en condiciones equivalentes (mismo build de producción, throttling, datos o caché)"
+        },
+        {
           "type": "contains_any",
           "values": ["LCP"],
           "description": "Usa LCP como métrica"
@@ -104,7 +109,7 @@
         },
         {
           "type": "regex",
-          "pattern": "\\|\\s*Antes\\s*\\|\\s*Después\\s*\\|",
+          "pattern": "\\|[[:space:]]*Antes[[:space:]]*\\|[[:space:]]*Después[[:space:]]*\\|",
           "description": "Usa la tabla de reporte con columnas Antes y Después"
         },
         {
