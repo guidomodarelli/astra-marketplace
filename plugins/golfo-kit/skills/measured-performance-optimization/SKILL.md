@@ -34,7 +34,9 @@ Detectar qué MCPs y herramientas hay disponibles y usar la más directa para ca
 
 ### 3. Medir la línea base
 
-Antes de tocar código, registrar la línea base del flujo con las mismas condiciones que se usarán después (mismo modo de build de producción y mismos flags, mismo entorno, mismo throttling de CPU/red, misma data, cache fría o caliente declarada), rebuildeando cada revisión del código antes de medirla. Repetir al menos 3 veces las mediciones ruidosas (tiempos de carga, LCP, INP) y reportar la mediana.
+Antes de tocar el código que se va a optimizar, registrar la línea base del flujo con las mismas condiciones que se usarán después (mismo modo de build de producción y mismos flags, mismo entorno, mismo throttling de CPU/red, misma data, cache fría o caliente declarada), rebuildeando cada revisión del código antes de medirla. Repetir al menos 3 veces las mediciones ruidosas (tiempos de carga, LCP, INP) y reportar la mediana.
+
+Única excepción: se permite agregar antes de la línea base instrumentación solo de medición que no cambie el comportamiento (por ejemplo, un `<Profiler onRender>` cuando no hay React DevTools). Esa instrumentación tiene que ser idéntica en las mediciones de antes y después, y se quita al terminar; no habilita adelantar ningún cambio de la optimización.
 
 Si no se puede medir la línea base (sin runtime, entorno, datos o herramienta) y el usuario pidió optimizar de verdad, detenerse antes de editar código: reportar qué falta para medir y cómo conseguirlo, y no avanzar al paso 5 hasta capturarla.
 
@@ -52,7 +54,7 @@ Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad.
 
 ### 5. Aplicar una optimización a la vez
 
-Hacer un cambio por iteración para poder atribuir el resultado. Mantener el comportamiento: correr los tests relevantes y, si el flujo tiene UI, recorrerlo con Playwright para confirmar que sigue funcionando.
+Hacer un cambio por iteración para poder atribuir el resultado. Mantener el comportamiento: correr los tests relevantes y, si el flujo tiene UI, recorrerlo con la automatización de navegador disponible (por ejemplo, Playwright o Chrome DevTools MCP) o con el runner UI/E2E del proyecto para confirmar que sigue funcionando.
 
 ### 6. Medir después y decidir
 
