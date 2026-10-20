@@ -52,8 +52,13 @@
         },
         {
           "type": "regex",
-          "pattern": "next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import dinámico",
-          "description": "Propone lazy loading del editor y los charts con un mecanismo concreto de import dinámico"
+          "pattern": "(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)([^.;]|\\.[^[:space:]]){0,80}(editor|rich[ -]?text|texto enriquecido)|(editor|rich[ -]?text|texto enriquecido)([^.;]|\\.[^[:space:]]){0,80}(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)",
+          "description": "Difiere el editor de texto enriquecido con un mecanismo concreto de import dinámico o lazy loading: el mecanismo aparece en la misma frase que el editor, en cualquier orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)([^.;]|\\.[^[:space:]]){0,80}(chart|gr(á|a)fic)|(chart|gr(á|a)fic)([^.;]|\\.[^[:space:]]){0,80}(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)",
+          "description": "Difiere la librería de charts con un mecanismo concreto de import dinámico o lazy loading: el mecanismo aparece en la misma frase que los charts o gráficos, en cualquier orden"
         },
         {
           "type": "contains_any",
@@ -93,9 +98,9 @@
       "input": "Usando measured-performance-optimization: nuestra pantalla de pedidos hace 3 requests en cascada (`/me`, luego `/orders?userId=`, luego `/products?ids=`) y cada vez que el usuario vuelve a la pestaña se repiten todas. No tengo acceso al entorno ni a Sentry ahora. No ejecutes ni edites nada: dame el reporte de optimización con la tabla de resultados.",
       "assertions": [
         {
-          "type": "contains_any",
-          "values": ["BFF", "backend for frontend", "endpoint agregado", "agregador", "aggregat", "server-side", "lado del servidor", "en el servidor", "en el server"],
-          "description": "Resuelve el waterfall componiendo los requests dependientes en el server/BFF o en un endpoint agregado"
+          "type": "regex",
+          "pattern": "BFF|backend[ -]for[ -]frontend|endpoint[^.;]{0,20}(agregad|combinad|compuest|unificad|consolidad|(ú|u)nico)|(ú|u)nico endpoint|(agregador|aggregator|aggregated|aggregation|composite|combined|unified|single)[^.;]{0,20}(endpoint|request|route|api|call)|(un|una) (sol[oa]|(ú|u)nic[oa])[^.;]{0,15}(request|endpoint|llamada|petici(ó|o)n|round[ -]?trip)|graphql[^.;]{0,40}(query|consulta|resolver|resuelv)|join[^.;]{0,30}(servidor|server|backend|sql|base de datos)|(sql|servidor|server-side|backend)[^.;]{0,30}join",
+          "description": "Colapsa el waterfall con una composición explícita: BFF, endpoint agregado o combinado, un único request o endpoint que devuelva todo, una query GraphQL que resuelva la cadena o un join en el servidor (no alcanza con mover las requests secuenciales al servidor)"
         },
         {
           "type": "regex",
