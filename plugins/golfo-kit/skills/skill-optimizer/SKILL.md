@@ -131,7 +131,7 @@ Expresar cada candidato como operaciones discretas sobre el baseline de la itera
 
 El tope existe porque reescrituras grandes hacen imposible atribuir mejoras o regresiones a un cambio concreto, y suelen perder guards implícitos. Una reescritura completa solo procede con confirmación explícita del usuario y cuenta como iteración propia.
 
-**Límite de iteraciones:** como máximo 1 iteración en `quick` y 3 en `full`, salvo que el usuario fije otro tope. Terminar antes si no queda ningún candidato nuevo: todas las propuestas restantes repiten un bundle ya rechazado o no hay fallos en el set de optimización que justifiquen edits. Al agotar el tope sin candidato aceptado, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
+**Límite de iteraciones:** como máximo 1 iteración en `quick` y 3 en `full`, salvo que el usuario fije otro tope. Terminar antes si no queda ningún candidato nuevo: todas las propuestas restantes repiten un bundle ya rechazado o no hay nada medido que justifique edits: ni fallos en el set de optimización ni, cuando el objetivo incluye costo (`tokens`, `latency`, `tool_calls` o `balanced`), un cuello de botella observado en el trace (lecturas repetidas, round-trips evitables, tool calls redundantes). Al agotar el tope sin candidato aceptado, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
 
 ### Registro de edits rechazados
 
@@ -203,10 +203,10 @@ Si runner no entrega trace real, marcar `NO_MEASURED_GAIN`; se pueden reportar s
 Un candidato reemplaza al baseline de la iteración solo si cumple todo:
 
 1. Mejora el objetivo en el set de optimización sin regresiones de assertions.
-2. En held-out, pass rate igual o mayor que el baseline y ninguna assertion crítica nueva fallando.
-3. Si el objetivo es costo (`tokens`, `latency`, `tool_calls`), la mejora se observa también en held-out con trace real.
+2. En held-out, pass rate igual o mayor que el baseline, y el candidato pasa **todas** las assertions críticas de ambos sets. No alcanza con no sumar fallos nuevos: si el baseline ya fallaba una crítica, el candidato tiene que corregirla para ser aceptado.
+3. Si la mejora que justifica aceptarlo es de costo (`tokens`, `latency`, `tool_calls`), sea porque ese es el objetivo o porque bajo `balanced` el candidato gana por costo, esa mejora se observa también en held-out con trace real.
 
-Empatar en held-out es aceptable para objetivos de calidad (criterio 2). Rechazar el candidato solo si su pass rate held-out baja, si falla una assertion crítica nueva o, en objetivos de costo, si la mejora no se observa en held-out. Al rechazarlo, registrar el bundle en `rejected-edits.json` con motivo opaco, guardar el detalle en `held-out-gate.json` y continuar desde el baseline previo dentro del límite de iteraciones (Fase 3). Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
+Empatar en held-out es aceptable cuando la mejora es de calidad (criterio 2). Rechazar el candidato si su pass rate held-out baja, si falla cualquier assertion crítica o si la mejora de costo que lo justifica no se observa en held-out. Al rechazarlo, registrar el bundle en `rejected-edits.json` con motivo opaco, guardar el detalle en `held-out-gate.json` y continuar desde el baseline previo dentro del límite de iteraciones (Fase 3). Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
 
 ## Fase 6: aplicar candidato
 
