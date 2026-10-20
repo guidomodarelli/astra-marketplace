@@ -110,7 +110,7 @@ El evaluador:
 1. Crea en el workspace **todos** los casos que falten, de optimización y de held-out, antes de dividir: si faltan evals o hay menos de 5 casos útiles, completar hasta cubrir éxito, error, edge case y seguridad en ambos sets. Así no aparecen casos nuevos después de congelar el split.
 2. Elige el held-out, con al menos un caso crítico de seguridad, autorización o no-mutation y, cuando sea posible, un tercio de los casos. Lo guarda en `<workspace>/held-out/`, que el diseñador nunca lee.
 3. Persiste `eval-split.json` con los ids de optimización y solo la **cantidad** de casos held-out, y le entrega al coordinador únicamente los casos de optimización.
-4. Corre el gate (Fase 5) **una sola vez por ejecución**, sobre el baseline y el candidato final, y devuelve un resultado opaco: `PASS` o `FAIL` con un motivo de la lista de `rejected-edits.json`. El detalle queda en `held-out-gate.json`, que solo lee el evaluador y el reporte final.
+4. Corre el gate (Fase 5) **una sola vez por ejecución**, sobre el baseline y el candidato final, y devuelve un resultado opaco: `PASS`, `NEEDS_APPROVAL` (ver Fase 5) o `FAIL` con un motivo de la lista de `rejected-edits.json`. El detalle queda en `held-out-gate.json`, que solo lee el evaluador y el reporte final.
 
 Por eso, en `quick` y `full` el coordinador lee de las evals, en Fase 1, solo el inventario (paths, cantidad, formato), no su contenido. Si el usuario no autoriza el subagente, no hay subagentes disponibles o no se puede formar un held-out independiente, el gate no puede aceptar candidatos: se puede seguir en modo diagnóstico, pero ningún candidato se aplica y la ejecución termina en `NO_MEASURED_GAIN` (o `BLOCKED` si falta un dato que solo el usuario puede dar), indicándolo en Limitaciones. El split es fijo durante toda la ejecución: mover casos entre sets invalida la comparación. Sin held-out, una mejora en los mismos casos usados para diseñar edits puede ser solo sobreajuste a esas evals.
 
@@ -167,7 +167,7 @@ Leer `rejected-edits.json` antes de proponer: no reproponer el mismo bundle ni u
 
 ## Fase 4: evals baseline y candidato
 
-Trabajar con el set de optimización que entregó el evaluador held-out en Fase 2. El evaluador toma los casos de `evals/eval-config.json`, la suite canónica que ejecuta `run-evals`; usa `evals/evals.json` solo como fallback legacy cuando no existe `eval-config.json`; y, para optimización de activación, suma `evals/trigger-evals.json` si existe (separando queries positivas, negativas y ambiguas). Los casos faltantes ya se crearon en Fase 2: no crear casos nuevos acá, porque quedarían fuera del split congelado. No cambiar evals existentes para hacer candidato parecer mejor.
+Trabajar con el set de optimización que entregó el evaluador held-out en Fase 2. El evaluador toma los casos de `evals/eval-config.json`, la suite canónica que ejecuta `run-evals`; usa `evals/evals.json` solo como fallback legacy cuando no existe `eval-config.json`; y, para optimización de activación, usa también `evals/trigger-evals.json` si existe. Las trigger evals tienen otro formato (array de `{query, should_trigger}`) y no pasan por `run-evals`: no se convierten a `eval-config.json`. El evaluador les asigna ids estables por posición en el archivo (`trigger-1`, `trigger-2`, …) y las divide en su propio split dentro de `eval-split.json`, con queries positivas y negativas en ambos sets. Después las ejecuta con el evaluador de activación de `skill-creator` (`scripts/run_eval.py`), con un archivo de queries por set, y el gate held-out las incluye. Los casos faltantes ya se crearon en Fase 2: no crear casos nuevos acá, porque quedarían fuera del split congelado. No cambiar evals existentes para hacer candidato parecer mejor.
 
 Los casos usan el schema canónico de `eval-config.json` que valida y ejecuta `run-evals` (`schema_version` 2): `id` string único, `input` string y `assertions` con `type` en cada una. Los casos que el evaluador crea en el workspace siguen el mismo schema:
 
@@ -186,7 +186,7 @@ Si el target solo tiene el formato legacy `evals/evals.json`, el evaluador lo co
 
 - **Envoltorio:** `skill_name` → `skill`, `evals` → `test_cases`, y se agrega `"schema_version": 2`.
 - **Ids:** pasarlos a string únicos (`1` → `"case-1"`), porque el runner rechaza ids numéricos o repetidos.
-- **Caso:** `prompt` → `input` y `expected_output` → `description`.
+- **Caso:** `prompt` → `input`. `expected_output` no queda solo como `description`, porque el runner no lo evalúa: cada requisito de comportamiento que contiene se convierte en una assertion verificable o, si no admite una, en una rúbrica del grader, igual que las expectations. El texto original se copia en `description` como referencia.
 - **Expectations:** son texto libre y no se convierten solas: el evaluador escribe por cada una una assertion verificable (`contains_any`, `not_contains_any`, `regex` o `contains`) y conserva el texto original en su `description`. Si una expectation no admite una assertion objetiva, se califica con el grader (`grading.json`) y se informa en Limitaciones.
 
 El coordinador ejecuta el set de optimización; el held-out lo ejecuta solo el evaluador aislado (Fase 2). En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
@@ -226,6 +226,13 @@ El evaluador aislado consulta el held-out una sola vez por ejecución, sobre el 
 3. Si la mejora que justifica aceptarlo es de costo (`tokens`, `latency`, `tool_calls`), sea porque ese es el objetivo o porque bajo `balanced` el candidato gana por costo, esa mejora se observa también en held-out con trace real.
 
 Empatar en held-out (mismas assertions pasando) es aceptable cuando la mejora es de calidad (criterio 2). Rechazar el candidato si alguna assertion held-out que el baseline pasaba ahora falla (salvo el intercambio de una assertion no crítica que el usuario aprobó explícitamente, criterio 2), si falla cualquier assertion crítica o si la mejora de costo que lo justifica no se observa en held-out. Al rechazarlo, registrar el bundle en `rejected-edits.json` con motivo `HELD_OUT_GATE_FAILED`, guardar el detalle en `held-out-gate.json`, terminar en `NO_MEASURED_GAIN` y conservar el snapshot. No proponer candidatos nuevos en la misma ejecución: cada consulta extra al mismo held-out lo convierte en un oráculo y deja de validar de forma independiente. Una ejecución posterior necesita un held-out nuevo, con casos nuevos creados por el evaluador.
+
+**Intercambio pendiente de aprobación (`NEEDS_APPROVAL`).** Si las únicas regresiones held-out son de assertions no críticas, todas las críticas pasan y la mejora en optimización es real, el evaluador no devuelve `FAIL` sino `NEEDS_APPROVAL`. Le muestra **al usuario**, no al diseñador, el intercambio a nivel de comportamiento: qué deja de cumplirse y qué mejora a cambio, sin prompts ni assertions literales de held-out. El usuario decide sobre ese mismo candidato:
+
+- **Aprueba:** el gate resuelve `PASS` sin rediseñar ni volver a correr held-out, y la aprobación queda registrada en `held-out-gate.json` y en el reporte.
+- **Rechaza:** el gate resuelve `FAIL` con `HELD_OUT_GATE_FAILED` y aplica el cierre de arriba.
+
+No es un oráculo, porque la ejecución termina en los dos casos y el diseñador nunca ve el detalle ni propone otro candidato.
 
 ## Fase 6: aplicar candidato
 
