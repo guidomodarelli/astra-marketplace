@@ -128,8 +128,8 @@
         },
         {
           "type": "regex",
-          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*[*_]*(pendiente|pending|sin medir|n/a|—)[*_]*[[:space:]]*\\|[[:space:]]*[*_]*(pendiente|pending|sin medir|n/a|—)[*_]*[[:space:]]*\\|",
-          "description": "Deja las celdas Antes y Después de las filas de resultados solo con el placeholder pendiente, sin texto adicional"
+          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*[*_`]*(pendiente|pending|sin medir|n/a|—)[*_`]*[[:space:]]*\\|[[:space:]]*[*_`]*(pendiente|pending|sin medir|n/a|—)[*_`]*[[:space:]]*\\|",
+          "description": "Deja las celdas Antes y Después de las filas de resultados solo con el placeholder pendiente, sin texto adicional (se aceptan énfasis o backticks opcionales alrededor del placeholder)"
         },
         {
           "type": "not_contains_any",
