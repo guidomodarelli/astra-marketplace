@@ -104,8 +104,8 @@
         },
         {
           "type": "contains_any",
-          "values": ["pendiente", "Pendiente", "sin medir", "Sin medir", "pending"],
-          "description": "Marca las mediciones como pendientes en vez de inventarlas"
+          "values": ["pendiente", "Pendiente", "sin medir", "Sin medir", "pending", "N/A", "—"],
+          "description": "Marca las mediciones como pendientes en vez de inventarlas, con los mismos placeholders que acepta la aserción de celda exacta (pendiente, sin medir, N/A o —)"
         },
         {
           "type": "regex",
