@@ -35,7 +35,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(cantidad|número|count|cont).{0,60}(queries|consultas)|(queries|consultas).{0,60}(por request|per request|contar|count)",
+          "pattern": "(contar|contamos|contá|conteo|cantidad|n(ú|u)mero|count|cu(á|a)ntas).{0,60}(quer(y|ies)|consultas?)|(quer(y|ies)|consultas?).{0,60}(por request|per request|contar|conteo|count)",
           "description": "Usa la cantidad de queries por request como métrica"
         }
       ]
@@ -72,7 +72,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(un (solo )?cambio|una (sola )?optimizaci|una por vez|uno por vez|una a la vez|uno a la vez|de a una|de a uno|por separado|aislad[ao]s?|cada (cambio|optimizaci|uno|una)).{0,120}(medi|medí|re-?medi|measure)|(medi|medí|re-?medi|measure).{0,120}(cada (cambio|optimizaci|uno|una)|por separado|de a una|de a uno|aislad[ao]s?)",
+          "pattern": "(un (solo )?cambio|una (sola )?optimizaci|una por vez|uno por vez|una a la vez|uno a la vez|de a una|de a uno|por separado|aislad[ao]s?|cada (cambio|optimizaci|uno|una)).{0,120}((re-?)?(medir|medí|medici|medimos|medilo|medila)|measure)|((re-?)?(medir|medí|medici|medimos|medilo|medila)|measure).{0,120}(cada (cambio|optimizaci|uno|una)|por separado|de a una|de a uno|aislad[ao]s?)",
           "description": "Aplica y mide cada optimización en una iteración separada"
         },
         {
