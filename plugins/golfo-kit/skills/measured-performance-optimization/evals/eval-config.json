@@ -19,9 +19,9 @@
           "description": "Cuantifica las 101 queries"
         },
         {
-          "type": "contains_any",
-          "values": ["JOIN", "WHERE IN", "IN (", "include", "in:"],
-          "description": "Propone JOIN, WHERE IN o eager loading con include"
+          "type": "regex",
+          "pattern": "JOIN|WHERE IN|IN \\(|include|in:|select([^.;]|\\.[^[:space:]]){0,40}orders|orders([^.;]|\\.[^[:space:]]){0,40}select",
+          "description": "Propone JOIN, WHERE IN o eager loading con include, o una selección anidada de la relación orders con select, en cualquier orden dentro de la misma frase"
         },
         {
           "type": "regex",
