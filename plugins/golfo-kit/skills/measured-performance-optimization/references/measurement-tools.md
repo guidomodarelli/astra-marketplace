@@ -11,7 +11,7 @@ Sirve para medir carga e interacción en un browser real:
 - **Coverage** (si está disponible): JS y CSS que se descarga pero no se ejecuta en la ruta.
 - **Console**: warnings de hydration, errores y logs de timing.
 
-Fijar siempre las mismas condiciones antes y después (por ejemplo, CPU 4x y red "Fast 4G", cache deshabilitada para carga fría).
+Las condiciones de medición y la cantidad de repeticiones las define el [paso 3 del flujo](../SKILL.md#3-medir-la-línea-base); en DevTools se traducen en el throttling de CPU y red y en el estado de la cache (por ejemplo, CPU 4x y red "Fast 4G", cache deshabilitada para carga fría).
 
 ## Playwright MCP — flujos reales y regresiones
 
@@ -36,7 +36,7 @@ Los datos de producción complementan al laboratorio: el laboratorio atribuye un
 
 | Necesidad | Alternativa |
 |---|---|
-| Web Vitals de laboratorio | `npx lighthouse <url> --output=json` (correr 3 veces, usar la mediana) |
+| Web Vitals de laboratorio | `npx lighthouse <url> --output=json`, con las repeticiones y la agregación del [paso 3 del flujo](../SKILL.md#3-medir-la-línea-base) |
 | Tamaño de bundle | Output del build del framework, `source-map-explorer`, `@next/bundle-analyzer`, `rollup-plugin-visualizer`, `webpack-bundle-analyzer` |
 | Renders | React DevTools Profiler, `<Profiler onRender>` temporal |
 | Queries | Log de queries del ORM, `EXPLAIN ANALYZE` (en escrituras, ver [advertencia](database-queries-n-plus-one.md#queries-lentas-que-no-son-n1)), `pg_stat_statements`, contador de queries en un test de integración |
