@@ -36,6 +36,8 @@ Detectar qué MCPs y herramientas hay disponibles y usar la más directa para ca
 
 Antes de tocar código, registrar la línea base del flujo con las mismas condiciones que se usarán después (mismo modo de build de producción y mismos flags, mismo entorno, mismo throttling de CPU/red, misma data, cache fría o caliente declarada), rebuildeando cada revisión del código antes de medirla. Repetir al menos 3 veces las mediciones ruidosas (tiempos de carga, LCP, INP) y reportar la mediana.
 
+Si no se puede medir la línea base (sin runtime, entorno, datos o herramienta) y el usuario pidió optimizar de verdad, detenerse antes de editar código: reportar qué falta para medir y cómo conseguirlo, y no avanzar al paso 5 hasta capturarla.
+
 ### 4. Diagnosticar y priorizar
 
 Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad. Leer solo la referencia del área que corresponda; las señales de detección viven en la sección «Detectar» de cada referencia (o en los bullets «Detectar:» de cada subsección):
@@ -74,4 +76,4 @@ Cerrar con este formato:
 **Próximos pasos:** <hallazgos pendientes ordenados por impacto>
 ```
 
-Los valores de "Antes" y "Después" tienen que venir de mediciones reales hechas en la sesión. Si el entorno no permite medir (por ejemplo, el usuario pidió solo un plan), dejar la tabla con la métrica y la herramienta planeadas, y "Antes/Después" como pendientes.
+Los valores de "Antes" y "Después" tienen que venir de mediciones reales hechas en la sesión. Solo cuando el usuario pidió un plan o diagnóstico sin editar código y el entorno no permite medir, dejar la tabla con la métrica y la herramienta planeadas, y "Antes/Después" como pendientes; si pidió una optimización real, aplica la detención del paso 3.
