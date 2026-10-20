@@ -6,7 +6,8 @@
 - Corregir:
   - Formatos modernos (AVIF/WebP) y `srcset`/`sizes` para servir el tamaño adecuado; usar el componente del framework si existe (`next/image`).
   - `width`/`height` o `aspect-ratio` para reservar espacio y evitar CLS.
-  - `loading="lazy"` solo debajo del primer viewport; la imagen LCP va sin lazy y con `fetchpriority="high"`. Si además se precarga, un `<link rel="preload" as="image">` de una imagen responsive lleva `imagesrcset` e `imagesizes` idénticos al `srcset`/`sizes` del `<img>` (o se usa el preload del framework, como `priority` de `next/image`); un preload con solo `href` puede bajar el fallback mientras el `<img>` elige otro candidato y descargar la imagen dos veces. Sin eso, usar solo `fetchpriority="high"`.
+  - `loading="lazy"` solo debajo del primer viewport; la imagen LCP va sin lazy y con una sola estrategia de prioridad: `fetchpriority="high"` o un preload, no ambos. Un `<link rel="preload" as="image">` manual de una imagen responsive lleva `imagesrcset` e `imagesizes` idénticos al `srcset`/`sizes` del `<img>`; un preload con solo `href` puede bajar el fallback mientras el `<img>` elige otro candidato y descargar la imagen dos veces. Sin eso, usar solo `fetchpriority="high"`.
+  - Con `next/image`, revisar la versión de `next` del proyecto: en Next.js 16 o posterior usar `preload` (reemplaza a `priority`, deprecado) o `fetchPriority="high"`, nunca ambos; en versiones anteriores, `priority`.
 - Medir: KB de imágenes de la página, LCP, CLS.
 
 ## Fuentes
