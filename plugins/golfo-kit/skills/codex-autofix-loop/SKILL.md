@@ -3,7 +3,7 @@ name: codex-autofix-loop
 description: "Relanzar y operar el loop local (vía Claude Code) que auto-fixea comentarios de Codex (chatgpt-codex-connector[bot]) en un PR: clone efímero → fix → push → closeout del hilo, o delegación a Codex con `@codex fix` en el propio hilo (modo `codex`/`auto` con fallback local), con dedup por PR, tope de rondas, auto-merge sin esperar revisión humana y guard de auto-cancelación. Para responder un solo comentario de Codex fuera del loop alcanza con `codex-comment-closeout`. Use when the user asks to relaunch/start the Codex auto-fix loop for a PR, set up Codex comment auto-fixing, mentions docs/codex-autofix-loop.md, processed-PR.json, or the codex-autofix workflow."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, codex, pull-request, autofix, convergence"
@@ -106,6 +106,19 @@ loop y mandá una PushNotification de una línea («PR #N no convergió en
 {{MAX_REVIEW_ROUNDS}} rondas: conviene reconsiderar el enfoque», con los hallazgos
 abiertos). Esos hallazgos quedan sin cerrar para que los vea una persona.
 
+**Tope de rondas de solo tests:** una ronda es «de solo tests» cuando todos los commits de
+los fixes de esa ronda tocan únicamente archivos de tests o evals (los que matchean
+`{{TEST_PATH_PATTERNS}}`). En esas rondas Codex suele seguir encontrando variantes de las
+mismas aserciones (por ejemplo, regex de evals evaluadas línea por línea) y el loop no
+converge aunque el código del producto ya esté resuelto. Por eso el loop cuenta en
+`testOnlyRounds` las rondas de solo tests **consecutivas**; una ronda que corrige algo
+fuera de los tests vuelve el contador a `0`. Si `testOnlyRounds` llega a
+`{{MAX_TEST_ONLY_ROUNDS}}`, NO postees otro `@codex review`: mergeá el PR como en el
+«Corte por convergencia» (siempre después del GATE DE CI del paso 5-bis) y auto-cancelá
+el loop con una PushNotification de una línea («PR #N mergeado: {{MAX_TEST_ONLY_ROUNDS}}
+rondas seguidas solo corregían tests»). Este tope aplica aunque el usuario haya subido o
+levantado `{{MAX_REVIEW_ROUNDS}}`, y gana el que se alcance primero.
+
 **Sin espera de revisión humana:** el loop no frena el merge para que una persona
 apruebe, sin importar qué archivos toque el PR ni el tamaño del diff. Los únicos
 requisitos para mergear son la review limpia de Codex (o el corte por convergencia) y el
@@ -172,12 +185,14 @@ Reglas del pedido a Codex:
 2. Inicializá el estado de dedup del PR (vacío procesa todo el backlog; con ids
    ya cargados procesa solo los nuevos):
    ```
-   .codex-autofix/processed-{{PR}}.json  ->  {"pr":{{PR}},"processedCommentIds":[],"inFlight":{},"codexAttempts":{},"delegationReplyIds":[],"reviewRounds":0,"lastReviewedSha":null,"outcomes":{}}
+   .codex-autofix/processed-{{PR}}.json  ->  {"pr":{{PR}},"processedCommentIds":[],"inFlight":{},"codexAttempts":{},"delegationReplyIds":[],"reviewRounds":0,"testOnlyRounds":0,"lastReviewedSha":null,"outcomes":{}}
    ```
    (`inFlight` registra los comentarios que tienen un subagente o un pedido
    `@codex fix` trabajando; `codexAttempts` cuenta los pedidos a Codex por comment id;
    `delegationReplyIds` guarda los ids de los pedidos `@codex fix` y de las respuestas
    de Codex a esos pedidos; `reviewRounds` cuenta los `@codex review` que posteó el loop;
+   `testOnlyRounds` cuenta las rondas consecutivas cuyos fixes solo tocaron tests o evals
+   (ver «Tope de rondas de solo tests»);
    `lastReviewedSha` es el head al postear el último; `outcomes` es el registro de
    findings de la política de convergencia: `id -> {result, severity, round, path, sha?, reason?}`,
    con `result` en `fixed`, `rejected`, `pre-existing`, `nit-skipped`, `edge-case` o
@@ -217,6 +232,11 @@ Reglas del pedido a Codex:
 >   el PR mientras está abierto (30 s o más por rate limit).
 > - `{{MAX_REVIEW_ROUNDS}}` = `3` — `@codex review` que el loop puede postear antes de
 >   cortar por falta de convergencia (ver «Tope de rondas»).
+> - `{{MAX_TEST_ONLY_ROUNDS}}` = `3` — rondas consecutivas en las que los fixes solo tocan
+>   tests o evals antes de dejar de pedir reviews y mergear (ver «Tope de rondas de solo
+>   tests»). Aplica aunque se suba o se levante `{{MAX_REVIEW_ROUNDS}}`.
+> - `{{TEST_PATH_PATTERNS}}` = `(^|/)(tests?|__tests__|specs?|evals?|fixtures?|e2e)/|\.(test|spec)\.[^/]+$|_test\.[^/]+$|\.bats$`
+>   — regex extendida (`grep -E`) que identifica un archivo de tests o evals por su path.
 >
 > Derivados (no los edites a mano; salen de `{{INTERVAL_MIN}}`):
 > - `{{INTERVAL}}` = `{{INTERVAL_MIN}}m` (= `3m`) — intervalo de `/loop`.
@@ -232,7 +252,9 @@ Claude, hay que relanzarlo. El loop se
 (mergeado/cerrado/borrado); (b) cuando Codex responde con una **review limpia**
 para el head actual, no quedan ítems pendientes y pasa el gate de CI (o se da el corte
 por convergencia): ahí el loop **mergea el PR** sin esperar revisión humana y se corta
-solo; (c) cuando se agota el tope de rondas sin converger. La review limpia se reconoce por el estado JSON del resumen de Codex
+solo; (c) cuando se agota el tope de rondas sin converger; (d) cuando se alcanzan
+`{{MAX_TEST_ONLY_ROUNDS}}` rondas seguidas que solo corrigen tests y el PR se mergea tras el
+gate de CI. La review limpia se reconoce por el estado JSON del resumen de Codex
 (`<!-- codex-review-state:v1 {...} -->` sin hallazgos) o, en el formato viejo, por el
 texto "Codex Review: Didn't find any major issues" (ver paso 5-bis).
 
@@ -277,7 +299,7 @@ Si OPEN, procesá:
    - Al vencer (aviso de expiración), rearmalo con el mismo `command` si el PR sigue `OPEN`. Si al empezar una vuelta del cron no está vivo (se perdió el aviso o falló el rearme), rearmalo en ese momento.
    - Cuando el PR deja de estar `OPEN` el script termina solo; si el loop se auto-cancela por otro motivo, detenelo con `TaskStop` (ver «Auto-cancelar»).
 
-(1) Leé `processedCommentIds` desde `.codex-autofix/processed-{{PR}}.json`. Los ids de comentarios (inline/generales) se guardan como número crudo; los ids de review-body se guardan namespaceados como `"review:<id>"` (evita colisión entre espacios de id distintos). `processedCommentIds` representa comentarios cerrados: fixes aplicados y los cerrados como «Sin cambios» (incluidos los bordes rebuscados del paso 3-pre). Leé también `inFlight` (mapa `id -> {label, startedAt}` con el mismo formato de id; si falta, tratalo como `{}`): son los comentarios que YA tienen un subagente trabajando, lanzado en esta vuelta o en una anterior. Las entradas delegadas a Codex llevan además `via: "codex"`, `triggerId` (id del comentario `@codex fix`), `triggerKind` (`inline` o `general`), `baseSha` (head del PR al pedir) y `groupIds` (todos los ids del grupo). Leé también `codexAttempts`, `delegationReplyIds`, `reviewRounds`, `lastReviewedSha` y `outcomes` (si faltan, `{}`, `[]`, `0`, `null` y `{}`). Modo de fix de esta corrida: `{{FIX_MODE}}`.
+(1) Leé `processedCommentIds` desde `.codex-autofix/processed-{{PR}}.json`. Los ids de comentarios (inline/generales) se guardan como número crudo; los ids de review-body se guardan namespaceados como `"review:<id>"` (evita colisión entre espacios de id distintos). `processedCommentIds` representa comentarios cerrados: fixes aplicados y los cerrados como «Sin cambios» (incluidos los bordes rebuscados del paso 3-pre). Leé también `inFlight` (mapa `id -> {label, startedAt}` con el mismo formato de id; si falta, tratalo como `{}`): son los comentarios que YA tienen un subagente trabajando, lanzado en esta vuelta o en una anterior. Las entradas delegadas a Codex llevan además `via: "codex"`, `triggerId` (id del comentario `@codex fix`), `triggerKind` (`inline` o `general`), `baseSha` (head del PR al pedir) y `groupIds` (todos los ids del grupo). Leé también `codexAttempts`, `delegationReplyIds`, `reviewRounds`, `testOnlyRounds`, `lastReviewedSha` y `outcomes` (si faltan, `{}`, `[]`, `0`, `0`, `null` y `{}`). Modo de fix de esta corrida: `{{FIX_MODE}}`.
 
 (1-bis) NO RELANCES COMENTARIOS CON UN SUBAGENTE TRABAJANDO. Una vuelta puede empezar mientras siguen corriendo subagentes de vueltas anteriores. Antes de armar grupos, reconciliá `inFlight`:
    - Si el subagente de una entrada sigue vivo (lo ves corriendo en tus tareas/agentes en background con ese label), el id queda BLOQUEADO: no lo agrupes, no lo spawnees de nuevo, no reacciones ni respondas. Esperá su resultado; el closeout lo hace el paso (4) cuando vuelva.
@@ -397,12 +419,13 @@ Si OPEN, procesá:
    - Si el merge FALLA (checks pendientes, no-mergeable, conflicto, branch protection): NO cortes el loop. PushNotification de una línea con el motivo (una sola vez) y dejá el loop vivo para reintentar en la próxima vuelta. No es trabajo del loop resolver conflictos de merge.
 
 (6) AL FINAL: si en esta vuelta fixeaste con éxito al menos 1 ítem nuevo (inline, general o review-body, por subagente local o por commit de Codex verificado; contador >= 1) y ya no quedan pendientes (ni ids en `inFlight`):
+   - **Ronda de solo tests**: juntá los shas de los fixes de esta ronda (`outcomes` con `result: "fixed"` y `round == reviewRounds`) y listá los archivos de cada commit con `gh api repos/{{OWNER}}/{{REPO}}/commits/<sha> --jq '.files[].filename'`. Si TODOS matchean `{{TEST_PATH_PATTERNS}}` (`grep -Ev '<patrón>'` no devuelve nada), sumá 1 a `testOnlyRounds`; si alguno no matchea, poné `testOnlyRounds` en `0`. Persistí el JSON en la misma unidad. Si `testOnlyRounds >= {{MAX_TEST_ONLY_ROUNDS}}`, NO postees otra review: aplicá el «Tope de rondas de solo tests» del skill (GATE DE CI del paso 5-bis, merge con squash y auto-cancelar) y terminá. Este chequeo va antes que el tope general.
    - **Tope de rondas**: si `reviewRounds >= {{MAX_REVIEW_ROUNDS}}`, NO postees otra review ni mergees. Aplicá el «Tope de rondas» del skill (auto-cancelar con PushNotification «no convergió») y terminá.
    - Si no, posteá UN único comentario general con el trigger exacto `@codex review`, sin texto adicional y en todas las rondas: `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"`. No uses `@codex review for …` ni otras instrucciones para enfocar la review en el delta: Codex las ignora y revisa el PR completo en el head actual. Los hallazgos repetidos los cierra el registro de `outcomes` (paso 3-pre), no el texto del pedido.
    - En la misma unidad, sumá 1 a `reviewRounds`, guardá el head actual en `lastReviewedSha` y persistí el JSON.
    Si NO fixeaste nada nuevo esta vuelta (contador == 0), NO postees nada (evitá spam). Si los únicos cierres de la vuelta fueron «Sin cambios», aplicá el «Corte por convergencia» de la «Regla de alcance y convergencia»: sin `@codex review`, mergeá el PR (pasando antes el GATE DE CI del paso 5-bis) y auto-cancelá el loop.
 
-(6-bis) RESUMEN DE LA VUELTA: en la PushNotification de cierre del loop (merge, tope o PR cerrado) incluí una línea con las rondas usadas (`reviewRounds`/`{{MAX_REVIEW_ROUNDS}}`) y el conteo de `outcomes` por resultado (por ejemplo «3 fixed, 2 edge-case, 1 pre-existing»). Esa línea mide el ruido de Codex y alimenta las evals del reviewer.
+(6-bis) RESUMEN DE LA VUELTA: en la PushNotification de cierre del loop (merge, tope o PR cerrado) incluí una línea con las rondas usadas (`reviewRounds`/`{{MAX_REVIEW_ROUNDS}}`), las rondas seguidas de solo tests (`testOnlyRounds`/`{{MAX_TEST_ONLY_ROUNDS}}`) y el conteo de `outcomes` por resultado (por ejemplo «3 fixed, 2 edge-case, 1 pre-existing»). Esa línea mide el ruido de Codex y alimenta las evals del reviewer.
 
 (7) SIEMPRE que postees `@codex review`, asegurá que el loop siga vivo SIN que el usuario lo pida: si el cron del loop (`{{CRON}}`, este PR) fue cancelado o pausado, relanzalo (mismo prompt parametrizado) y corré una iteración; si el `Monitor` del PR (paso 0) no está vivo, rearmalo. `@codex review` dispara comentarios nuevos; el loop debe quedar escuchando para auto-procesarlos. Nunca dejes el loop cancelado justo después de disparar una review.
 ```
@@ -485,7 +508,10 @@ regla de paridad con el step «Cerrar comentario» del Action
   limitada al delta, así que cada ronda pide un `@codex review` liso y el registro de
   `outcomes` cierra los hallazgos repetidos; los fixes cubren la clase
   de bug dentro del PR y, tras `{{MAX_REVIEW_ROUNDS}}` rondas sin converger, el loop corta
-  y avisa en vez de seguir. La política completa es compartida con `review-fix-loop`.
+  y avisa en vez de seguir. Si las rondas solo corrigen tests o evals, el loop corta antes:
+  tras `{{MAX_TEST_ONLY_ROUNDS}}` rondas seguidas así, mergea si pasa el gate de CI, porque
+  esos hallazgos suelen ser variantes de las mismas aserciones y no defectos del producto.
+  La política completa es compartida con `review-fix-loop`.
 - **Delegación a Codex (`@codex fix`)**: en `codex`/`auto` el loop pide el fix en el
   propio hilo del hallazgo (o en el PR si no hay hilo) y no lo cierra hasta verificar un
   commit nuevo en el head que toque el archivo del grupo. El pedido no reemplaza el
