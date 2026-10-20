@@ -99,8 +99,8 @@
         },
         {
           "type": "regex",
-          "pattern": "staleTime[^0-9,;]{0,15}([1-9]|Infinity)|dedupingInterval[^0-9,;]{0,15}[1-9]|(refetchOnWindowFocus|revalidateOnFocus)[^,;]{0,6}false|revalidateIfStale[^,;]{0,6}false|(s-)?max-?age=[1-9]|stale-while-revalidate",
-          "description": "Propone un mecanismo concreto de frescura o dedupe que evita el refetch al volver a la pestaña (no alcanza con nombrar la librería ni con no-store)"
+          "pattern": "staleTime[^0-9,;]{0,15}([1-9]|Infinity)|(refetchOnWindowFocus|revalidateOnFocus)[^,;]{0,6}false",
+          "description": "Propone un ajuste que suprime la revalidación por foco al volver a la pestaña: `refetchOnWindowFocus: false`, `revalidateOnFocus: false` o un `staleTime` positivo de TanStack Query (no alcanzan por sí solos `dedupingInterval`, `max-age`, `s-maxage`, `stale-while-revalidate`, nombrar la librería ni `no-store`)"
         },
         {
           "type": "contains_any",
@@ -120,12 +120,10 @@
         {
           "type": "not_contains_any",
           "values": [
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][^[:alpha:]]",
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][^[:alpha:]]",
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*%",
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*%"
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]"
           ],
-          "description": "No inventa valores medidos (ms, s, KB, MB, %) en ninguna parte de las celdas Antes o Después, aunque vayan precedidos por un placeholder"
+          "description": "No inventa valores en ninguna fila de resultados: las celdas Antes (cuarta columna) y Después (quinta columna) no contienen dígitos, con o sin unidad (ms, s, KB, MB, %, conteos de requests, queries o renders), aunque vayan precedidos por un placeholder; las columnas #, Optimización y Métrica pueden tener números"
         }
       ]
     }
