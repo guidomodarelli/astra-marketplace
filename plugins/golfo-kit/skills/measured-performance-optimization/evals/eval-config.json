@@ -20,8 +20,8 @@
         },
         {
           "type": "regex",
-          "pattern": "JOIN|WHERE IN|IN \\(|include|in:|select([^.;]|\\.[^[:space:]]){0,40}orders|orders([^.;]|\\.[^[:space:]]){0,40}select",
-          "description": "Propone JOIN, WHERE IN o eager loading con include, o una selección anidada de la relación orders con select, en cualquier orden dentro de la misma frase"
+          "pattern": "JOIN|WHERE IN|WHERE([^.;]|\\.[^[:space:]]){0,40}[[:space:]]IN[[:space:]]*\\(|[[:space:]]IN[[:space:]]*\\((\\.\\.\\.|\\$|\\?|:|[[:alnum:]_]*ids|SELECT)|in:[[:space:]]*(\\[|[[:alnum:]_.]*ids)|(include|select)([^.;]|\\.[^[:space:]]){0,40}orders|orders([^.;]|\\.[^[:space:]]){0,40}(include|select)",
+          "description": "Propone JOIN, WHERE IN (o `IN (...)`/`in: [ids]` sobre los ids de usuarios), o eager loading de la relación orders con include o select: include y select solo cuentan asociados a orders en la misma frase, en cualquier orden"
         },
         {
           "type": "regex",
@@ -67,8 +67,8 @@
         },
         {
           "type": "regex",
-          "pattern": "(LCP|hero)([^.;]|\\.[^[:space:]]){0,80}(fetchpriority|priority|preload|loading=.?eager|(sin|no|nunca|evitar|evitá)( (usar|uses|aplicar|apliques|hacer|hagas))?( el| un)?[ -]lazy)|(fetchpriority|priority|preload|loading=.?eager|(sin|no|nunca|evitar|evitá)( (usar|uses|aplicar|apliques|hacer|hagas))?( el| un)?[ -]lazy)([^.;]|\\.[^[:space:]]){0,80}(LCP|hero)",
-          "description": "Prioriza la imagen hero/LCP y no la difiere: el remedio de prioridad aparece en la misma frase que el hero o el LCP, en cualquier orden"
+          "pattern": "(LCP|hero)([^.;]|\\.[^[:space:]]){0,80}(fetchpriority|priority|preload)|(fetchpriority|priority|preload)([^.;]|\\.[^[:space:]]){0,80}(LCP|hero)",
+          "description": "Eleva la prioridad de descarga de la imagen hero/LCP con fetchpriority=\"high\", un preload o la API de Next.js (`priority` antes de la 16, `preload` desde la 16) en la misma frase que el hero o el LCP, en cualquier orden; no alcanzan `loading=\"eager\"` ni evitar el lazy loading, que son el comportamiento por defecto"
         },
         {
           "type": "regex",
