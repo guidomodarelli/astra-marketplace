@@ -43,7 +43,7 @@ apply: <false|true>
 Si usuario entrega solo nombre, resolverlo entre skills visibles/custom; una coincidencia única basta. Cero o varias coincidencias producen `TARGET_AMBIGUOUS` y detienen sin editar. Si falta target, preguntar una sola cosa: qué skill optimizar.
 
 - `audit`: read-only; entrega diagnóstico y plan, sin escribir target.
-- `quick`: snapshot, auditoría estática y 3 evals focales; propone cambios acotados y pide confirmación antes de editar.
+- `quick`: snapshot, auditoría estática y el set de optimización completo (mínimo 4 casos, ver Fase 2) en una sola iteración; propone cambios acotados y pide confirmación antes de editar.
 - `full`: snapshot, baseline/candidato, evals existentes o nuevas, grading, benchmark, viewer e iteración; aplicar solo candidato que preserve assertions y mejore objetivo. Si usuario pidió explícitamente aplicar, la autorización cubre target y workspace identificado, no otros archivos.
 
 `objective` por defecto es `balanced`: priorizar corrección/seguridad, después calidad, tokens y latencia. `apply=false` siempre mantiene target intacto; `apply=true` solo vale con path canónico, diff aprobado y autorización explícita. Nunca optimizar pass rate reduciendo cobertura.
@@ -57,6 +57,7 @@ Usar estados explícitos:
 - `OPTIMIZED`: candidato aplicado y validado.
 - `NO_MEASURED_GAIN`: candidato no demostró mejora; conservar baseline.
 - `BLOCKED`: falta target, eval, evidencia, permisos o decisión.
+- `NEEDS_APPROVAL`: el gate held-out encontró solo un intercambio no crítico y espera la decisión del usuario sobre ese candidato (ver Fase 5).
 - `TARGET_AMBIGUOUS`, `TARGET_CHANGED_DURING_RUN`, `CONTRACT_REGRESSION`, `EVAL_REGRESSION`, `VALIDATION_FAILED`, `WORKSPACE_UNSAFE`.
 
 ## Fase 1: preflight read-only
@@ -109,6 +110,7 @@ El evaluador:
 
 1. Crea en el workspace **todos** los casos que falten, de optimización y de held-out, antes de dividir. El criterio es la **cobertura por set**, no el total: cada set (optimización y held-out) necesita al menos un caso de éxito, uno de error, uno de edge case y uno de seguridad, o sea un mínimo de 8 casos bien repartidos. Planificar la distribución y crear los casos de las clases que le falten a cada set, aunque la suite ya tenga 5 o más. Así no aparecen casos nuevos después de congelar el split.
 2. Elige el held-out, con al menos un caso crítico de seguridad, autorización o no-mutation y, cuando sea posible, un tercio de los casos. Lo guarda en `<workspace>/held-out/`, que el diseñador nunca lee.
+   **Historial entre ejecuciones.** El evaluador mantiene, fuera del workspace de cada corrida, un historial persistente por target: `<temporary-parent>/<skill-name>-held-out-history.json`. Ahí guarda los fingerprints (hash de `input` + `assertions`) de cada caso que ya se usó como held-out en un gate consultado. En ejecuciones posteriores, esos casos no vuelven al held-out (pueden pasar al set de optimización) y el evaluador crea casos held-out nuevos para reemplazarlos. Si el historial no existe porque es la primera ejecución, se crea. Si existe pero no se puede leer o verificar, se crean casos held-out nuevos para todo el held-out. Sin este historial, volver a correr después de un `FAIL` reusaría los mismos casos ocultos y el gate funcionaría como oráculo entre ejecuciones. El diseñador nunca lee este archivo.
 3. Persiste `eval-split.json` con los ids de optimización y solo la **cantidad** de casos held-out, y le entrega al coordinador únicamente los casos de optimización.
 4. Corre el gate (Fase 5) **una sola vez por ejecución**, sobre el baseline y el candidato final, y devuelve un resultado opaco: `PASS`, `NEEDS_APPROVAL` (ver Fase 5) o `FAIL` con un motivo de la lista de `rejected-edits.json`. El detalle queda en `held-out-gate.json`, que solo lee el evaluador y el reporte final.
 
@@ -189,7 +191,7 @@ Si el target solo tiene el formato legacy `evals/evals.json`, el evaluador lo co
 - **Caso:** `prompt` → `input`. `expected_output` no queda solo como `description`, porque el runner no lo evalúa: cada requisito de comportamiento que contiene se convierte en una assertion verificable o, si no admite una, en una rúbrica del grader, igual que las expectations. El texto original se copia en `description` como referencia.
 - **Expectations:** son texto libre y no se convierten solas: el evaluador escribe por cada una una assertion verificable (`contains_any`, `not_contains_any`, `regex` o `contains`) y conserva el texto original en su `description`. Si una expectation no admite una assertion objetiva, se califica con el grader (`grading.json`) y se informa en Limitaciones.
 
-El coordinador ejecuta el set de optimización; el held-out lo ejecuta solo el evaluador aislado (Fase 2). En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
+El coordinador ejecuta el set de optimización; el held-out lo ejecuta solo el evaluador aislado (Fase 2). En `quick` y en `full` ejecutar **todo** el set de optimización: un caso que no corre no se compara entre baseline y candidato, y una regresión en él pasaría desapercibida. En `full`, además, repetir casos críticos 3 veces si el costo lo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
 
 Correr baseline y candidato sobre el mismo set y con el mismo harness, uno detrás del otro, sin cambios entre corridas. **No lanzar en paralelo dos invocaciones de `run-evals` para la misma skill:** el runner usa `.eval-results/<skill>` como workspace, borra al arrancar los `case-output-*` y `case-results-*` existentes y escribe `with-skill/<id>.txt`, así que dos corridas simultáneas se borran o pisan la evidencia. Solo se paraleliza con runners que tengan raíces de resultados aisladas por configuración, por ejemplo los subagentes de `skill-creator` con un directorio de outputs propio cada uno. Copiar los resultados de cada corrida al workspace de la iteración antes de lanzar la siguiente. Cada runner debe:
 
@@ -264,7 +266,7 @@ Responder en español, con paths/comandos/identificadores exactos:
 
 ```markdown
 ## Estado
-- Resultado: `<AUDIT_ONLY|OPTIMIZATION_READY|OPTIMIZED|NO_MEASURED_GAIN|BLOCKED|TARGET_AMBIGUOUS|TARGET_CHANGED_DURING_RUN|CONTRACT_REGRESSION|EVAL_REGRESSION|VALIDATION_FAILED|WORKSPACE_UNSAFE|NEEDS_REVIEW>`
+- Resultado: `<AUDIT_ONLY|OPTIMIZATION_READY|OPTIMIZED|NO_MEASURED_GAIN|BLOCKED|TARGET_AMBIGUOUS|TARGET_CHANGED_DURING_RUN|CONTRACT_REGRESSION|EVAL_REGRESSION|VALIDATION_FAILED|WORKSPACE_UNSAFE|NEEDS_APPROVAL|NEEDS_REVIEW>`
 - Objetivo: `<objective>`
 - Target: `<path>`
 
