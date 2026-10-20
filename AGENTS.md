@@ -12,9 +12,10 @@ For local development, skills symlink into each provider's own skills folder (`~
 
 ## Mandatory Rules
 
-1. **Use `/skill-creator`** for all skill creation, modification, validation, and description optimization. Never create skills manually from scratch.
+1. **Use `/skill-creator`** for all skill creation, modification, validation, and description optimization. Never create skills manually from scratch. Exception: work that `/skill-optimizer` performs on its target during its own run (the audit and validation of Phase 1 and the edits of Phase 6) does not go back through `/skill-creator`, so rules 1 and 4 cannot trigger each other in a loop.
 2. **Every skill must have `evals/eval-config.json`** (test cases + assertions). Use the central `run-evals` CLI to execute them — no per-skill `run-evals.sh` needed. Use `/skill-creator` to generate evals. (Legacy skills may use `evals/evals.json` — prefer `eval-config.json` for new work.)
 3. **All names in kebab-case** — plugins, skills, directories, commands. Names should convey expertise (e.g., `api-docs-expert` not `api-doc-guidelines`).
+4. **Run `/skill-optimizer` after every skill creation or modification.** Once `/skill-creator` finishes creating or changing a skill (its `SKILL.md`, references, scripts or evals), run `/skill-optimizer` on that skill with `mode=audit` before reporting the work as done, and include its status and findings in the report. Escalate to `mode=quick` or `mode=full` only if the audit finds a measurable problem and the user agrees. Exceptions: edits made by `/skill-optimizer` itself (it must not invoke itself recursively) and changes limited to metadata such as the `version` field.
 
 ## Conventions
 
