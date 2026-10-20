@@ -28,7 +28,7 @@ Son 101 queries cuando con 1 o 2 alcanza. El costo crece linealmente con la cant
 
 ## Corregir
 
-Elegir según el caso:
+Elegir según el caso. JOIN, `WHERE IN` y eager loading solo aplican cuando ambas relaciones viven en el mismo datastore; si los datos hijos pertenecen a otro servicio, no hay tabla compartida que consultar y corresponde un endpoint batch o DataLoader (ver [Equivalentes en ORMs y APIs](#equivalentes-en-orms-y-apis)).
 
 **JOIN** — una sola query, conveniente cuando se necesitan columnas de ambas tablas y la relación no multiplica demasiado las filas:
 
@@ -39,17 +39,17 @@ LEFT JOIN orders o ON o.user_id = u.id
 WHERE u.id IN (SELECT id FROM users LIMIT 100);
 ```
 
-**WHERE IN** — dos queries, conveniente cuando el JOIN duplicaría muchas filas o los datos vienen de servicios distintos; después se agrupa en memoria con un `Map`:
+**WHERE IN** — dos queries, conveniente cuando el JOIN duplicaría muchas filas; después se agrupa en memoria con un `Map`:
 
 ```sql
 SELECT id, name FROM users LIMIT 100;
 SELECT * FROM orders WHERE user_id IN (1, 2, ..., 100);
 ```
 
-**Equivalentes en ORMs y APIs**:
+<a id="equivalentes-en-orms-y-apis"></a>**Equivalentes en ORMs y APIs**:
 
 - Eager loading: Prisma `include`, TypeORM `relations`/`leftJoinAndSelect`, Sequelize `include`, Django `select_related`/`prefetch_related`, Rails `includes`, Hibernate `JOIN FETCH`/`@BatchSize`, GORM `Preload`.
-- GraphQL o llamadas remotas por item: DataLoader (batch + cache por request) o un endpoint batch.
+- GraphQL, llamadas remotas por item o datos que pertenecen a otro servicio: DataLoader (batch + cache por request) o un endpoint batch del servicio dueño, que reciba la lista de ids y devuelva los resultados en una sola llamada.
 
 Cuidar listas de `IN` muy grandes (partir en chunks) y no traer relaciones que la vista no usa.
 
