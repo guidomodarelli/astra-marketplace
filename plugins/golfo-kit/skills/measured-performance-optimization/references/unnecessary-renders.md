@@ -11,7 +11,7 @@ El criterio para decidir si un re-render es un problema vive en la sección [«D
 
 ## Corregir
 
-Aplicar los patrones de la skill `react-render-performance-patterns` (prioridad de updates, memoización, identidades estables, equality guards). Además, considerar:
+Aplicar los patrones de la skill `react-render-performance-patterns` en el orden de ataque que define su sección [«Diagnose before optimizing»](../../react-render-performance-patterns/SKILL.md#diagnose-before-optimizing). Además, considerar:
 
 - Bajar el estado al componente que lo usa o partir un context grande en varios.
 - Virtualizar listas o tablas largas (`@tanstack/react-virtual`, `react-window`).
