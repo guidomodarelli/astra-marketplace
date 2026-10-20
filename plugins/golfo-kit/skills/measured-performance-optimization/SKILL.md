@@ -78,4 +78,4 @@ Cerrar con este formato:
 **Próximos pasos:** <hallazgos pendientes ordenados por impacto>
 ```
 
-Los valores de "Antes" y "Después" tienen que venir de mediciones reales hechas en la sesión. Solo cuando el usuario pidió un plan o diagnóstico sin editar código y el entorno no permite medir, dejar la tabla con la métrica y la herramienta planeadas, y "Antes/Después" como pendientes; si pidió una optimización real, aplica la detención del paso 3.
+Los valores de "Antes" y "Después" tienen que venir de mediciones reales hechas en la sesión. Cuando el usuario pidió solo un plan o diagnóstico sin editar código, haya o no herramientas de medición, dejar la tabla con la métrica y la herramienta planeadas y "Después" como pendiente, porque no existe una revisión optimizada que medir; "Antes" puede venir de una medición real si hay herramientas y el usuario no prohibió ejecutar, y si no, queda pendiente. Si pidió una optimización real, aplica la detención del paso 3.
