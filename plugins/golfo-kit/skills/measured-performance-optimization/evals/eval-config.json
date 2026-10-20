@@ -67,8 +67,8 @@
         },
         {
           "type": "regex",
-          "pattern": "(LCP|hero)([^.;]|\\.[^[:space:]]){0,80}(fetchpriority|priority|preload)|(fetchpriority|priority|preload)([^.;]|\\.[^[:space:]]){0,80}(LCP|hero)",
-          "description": "Eleva la prioridad de descarga de la imagen hero/LCP con fetchpriority=\"high\", un preload o la API de Next.js (`priority` antes de la 16, `preload` desde la 16) en la misma frase que el hero o el LCP, en cualquier orden; no alcanzan `loading=\"eager\"` ni evitar el lazy loading, que son el comportamiento por defecto"
+          "pattern": "(LCP|hero)([^.;]|\\.[^[:space:]]){0,80}(fetchpriority[^[:alnum:].;]{0,6}high|(^|[^[:alpha:]])priority|preload)|(fetchpriority[^[:alnum:].;]{0,6}high|(^|[^[:alpha:]])priority|preload)([^.;]|\\.[^[:space:]]){0,80}(LCP|hero)",
+          "description": "Eleva la prioridad de descarga de la imagen hero/LCP con fetchpriority=\"high\" (fetchpriority solo cuenta emparejado con high, nunca con low o auto), un preload o la API de Next.js (`priority` antes de la 16, `preload` desde la 16) en la misma frase que el hero o el LCP, en cualquier orden; no alcanzan `loading=\"eager\"` ni evitar el lazy loading, que son el comportamiento por defecto"
         },
         {
           "type": "regex",
@@ -87,8 +87,17 @@
         },
         {
           "type": "contains_any",
-          "values": ["LCP"],
-          "description": "Usa LCP como métrica"
+          "values": [
+            "LCP",
+            "Largest Contentful Paint",
+            "pintura de contenido más grande",
+            "pintura de contenido mas grande",
+            "pintura del contenido más grande",
+            "pintura del contenido mas grande",
+            "mayor pintura con contenido",
+            "mayor pintura de contenido"
+          ],
+          "description": "Usa LCP como métrica, por su sigla, su nombre en inglés (Largest Contentful Paint) o su equivalente en español"
         }
       ]
     },
@@ -99,8 +108,8 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "BFF|backend[ -]for[ -]frontend|endpoint[^.;]{0,20}(agregad|combinad|compuest|unificad|consolidad|(ú|u)nico)|(ú|u)nico endpoint|(agregador|aggregator|aggregated|aggregation|composite|combined|unified|single)[^.;]{0,20}(endpoint|request|route|api|call)|(un|una) (sol[oa]|(ú|u)nic[oa])[^.;]{0,15}(request|endpoint|llamada|petici(ó|o)n|round[ -]?trip)|graphql[^.;]{0,40}(query|consulta|resolver|resuelv)|join[^.;]{0,30}(servidor|server|backend|sql|base de datos)|(sql|servidor|server-side|backend)[^.;]{0,30}join",
-          "description": "Colapsa el waterfall con una composición explícita: BFF, endpoint agregado o combinado, un único request o endpoint que devuelva todo, una query GraphQL que resuelva la cadena o un join en el servidor (no alcanza con mover las requests secuenciales al servidor)"
+          "pattern": "BFF|backend[ -]for[ -]frontend|endpoint[^.;]{0,20}(agregad|combinad|compuest|unificad|consolidad|(ú|u)nico)|(ú|u)nico endpoint|(agregador|aggregator|aggregated|aggregation|composite|combined|unified)[^.;]{0,20}(endpoint|request|route|api|call)|single[^.;]{0,20}(endpoint|route)|(un|una) (sol[oa]|(ú|u)nic[oa])[^.;]{0,15}(endpoint|round[ -]?trip)|((un|una) (sol[oa]|(ú|u)nic[oa])|single)[^.;]{0,20}(request|llamada|petici(ó|o)n|call|api)[^.;]{0,40}(devuelv|retorn|traiga|trae|agreg|combin|incluy|resuelv|re(ú|u)n|return|aggregat|includ|resolv|bundl)|graphql[^.;]{0,40}(query|consulta|resolver|resuelv)|join[^.;]{0,30}(servidor|server|backend|sql|base de datos)|(sql|servidor|server-side|backend)[^.;]{0,30}join",
+          "description": "Colapsa el waterfall con una composición explícita: BFF, endpoint agregado o combinado, un único request o endpoint que devuelva todo, una query GraphQL que resuelva la cadena o un join en el servidor (no alcanza con mover las requests secuenciales al servidor, y un único request o llamada solo cuenta si devuelve, agrega o combina los datos: `un solo request por vez` no colapsa la cascada)"
         },
         {
           "type": "regex",
@@ -110,7 +119,7 @@
         {
           "type": "contains_any",
           "values": ["pendiente", "Pendiente", "sin medir", "Sin medir", "pending", "N/A", "—"],
-          "description": "Marca las mediciones como pendientes en vez de inventarlas, con los mismos placeholders que acepta la aserción de celda exacta (pendiente, sin medir, N/A o —)"
+          "description": "Marca las mediciones como pendientes en vez de inventarlas, con los mismos placeholders que acepta la aserción de celda exacta (pendiente, pending, sin medir, N/A o —)"
         },
         {
           "type": "regex",
@@ -119,7 +128,7 @@
         },
         {
           "type": "regex",
-          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*[*_]*(pendiente|sin medir|n/a|—)[*_]*[[:space:]]*\\|[[:space:]]*[*_]*(pendiente|sin medir|n/a|—)[*_]*[[:space:]]*\\|",
+          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*[*_]*(pendiente|pending|sin medir|n/a|—)[*_]*[[:space:]]*\\|[[:space:]]*[*_]*(pendiente|pending|sin medir|n/a|—)[*_]*[[:space:]]*\\|",
           "description": "Deja las celdas Antes y Después de las filas de resultados solo con el placeholder pendiente, sin texto adicional"
         },
         {
