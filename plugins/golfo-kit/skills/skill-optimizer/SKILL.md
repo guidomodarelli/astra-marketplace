@@ -169,17 +169,20 @@ Leer `rejected-edits.json` antes de proponer: no reproponer el mismo bundle ni u
 
 Trabajar con el set de optimización que entregó el evaluador held-out en Fase 2. El evaluador toma los casos de `evals/eval-config.json`, la suite canónica que ejecuta `run-evals`; usa `evals/evals.json` solo como fallback legacy cuando no existe `eval-config.json`; y, para optimización de activación, suma `evals/trigger-evals.json` si existe (separando queries positivas, negativas y ambiguas). Los casos faltantes ya se crearon en Fase 2: no crear casos nuevos acá, porque quedarían fuera del split congelado. No cambiar evals existentes para hacer candidato parecer mejor.
 
-Cada eval debe declarar:
+Los casos usan el schema canónico de `eval-config.json` que valida y ejecuta `run-evals` (`schema_version` 2): `id` string único, `input` string y `assertions` con `type` en cada una. Los casos que el evaluador crea en el workspace siguen el mismo schema:
 
 ```json
 {
-  "id": 1,
-  "prompt": "solicitud realista",
-  "expected_output": "resultado observable",
-  "files": [],
-  "expectations": ["assertion verificable"]
+  "id": "descriptive-case-id",
+  "description": "qué comportamiento cubre",
+  "input": "solicitud realista",
+  "assertions": [
+    { "type": "contains_any", "values": ["evidencia observable"], "description": "assertion verificable" }
+  ]
 }
 ```
+
+Si el target solo tiene el formato legacy `evals/evals.json` (`prompt`, `expected_output`, `expectations`), el evaluador normaliza cada caso al schema canónico en el workspace (`prompt` → `input`, cada `expectations[i]` → assertion), sin modificar el archivo original.
 
 El coordinador ejecuta el set de optimización; el held-out lo ejecuta solo el evaluador aislado (Fase 2). En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
 
