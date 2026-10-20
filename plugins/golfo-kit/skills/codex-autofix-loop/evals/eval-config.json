@@ -15,8 +15,31 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|sin|nunca|not|never|do not)[^.]{0,60}(@codex review|otra review|otra revisi|nueva review|nueva revisi|another review|new review|pedir review|pido review)",
+          "pattern": "(^|[^[:alpha:]])(no|nunca|sin) (voy a |vamos a |se |lo |va a )?(postea|posteo|postear|publico|publica|publicar|pido|pide|pedir|lanzo|lanza|lanzar|dispar|solicit)[a-z]*[^.]{0,40}(review|revisi|@codex)|(won.t|will not|do not|don.t|never|skip|skipping|without|not) (post|request|trigger|ask for)[a-z]*[^.]{0,40}(review|@codex)",
           "description": "Decide explícitamente no pedir otro `@codex review`"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "así que pediré",
+            "así que pido otra review",
+            "así que voy a pedir",
+            "así que posteo",
+            "así que postearé",
+            "entonces pediré",
+            "entonces pido otra review",
+            "que pediré otra review",
+            "que pediré otro @codex review",
+            "pediré otra review con @codex",
+            "postearé otro @codex review",
+            "postearé @codex review",
+            "publicaré otro @codex review",
+            "I will request another review",
+            "I'll request another review",
+            "I will post another @codex review",
+            "I'll post another @codex review"
+          ],
+          "description": "No contiene frases afirmativas de pedir o postear otra review"
         },
         {
           "type": "regex",
@@ -64,8 +87,31 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(no|sin|nunca|not|never|do not)[^.]{0,60}(@codex review|otra review|otra revisi|nueva review|nueva revisi|another review|new review|pedir review|pido review)",
+          "pattern": "(^|[^[:alpha:]])(no|nunca|sin) (voy a |vamos a |se |lo |va a )?(postea|posteo|postear|publico|publica|publicar|pido|pide|pedir|lanzo|lanza|lanzar|dispar|solicit)[a-z]*[^.]{0,40}(review|revisi|@codex)|(won.t|will not|do not|don.t|never|skip|skipping|without|not) (post|request|trigger|ask for)[a-z]*[^.]{0,40}(review|@codex)",
           "description": "No pide otro `@codex review` con el tope ya alcanzado"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "así que pediré",
+            "así que pido otra review",
+            "así que voy a pedir",
+            "así que posteo",
+            "así que postearé",
+            "entonces pediré",
+            "entonces pido otra review",
+            "que pediré otra review",
+            "que pediré otro @codex review",
+            "pediré otra review con @codex",
+            "postearé otro @codex review",
+            "postearé @codex review",
+            "publicaré otro @codex review",
+            "I will request another review",
+            "I'll request another review",
+            "I will post another @codex review",
+            "I'll post another @codex review"
+          ],
+          "description": "No contiene frases afirmativas de pedir o postear otra review"
         },
         {
           "type": "regex",
@@ -86,6 +132,28 @@
           "type": "contains",
           "value": "squash",
           "description": "Cuando la CI quede verde mergea con squash"
+        },
+        {
+          "type": "regex",
+          "pattern": "(cuando|hasta que|una vez que|apenas|después de que|despues de que|after|once|until|as soon as)[^.]{0,40}(CI|checks?)[^.]{0,30}(pase|pasen|verde|green|pass|termin|complet|success|éxito|exito)|(^|[^[:alpha:]])no (voy a |se )?(mergeo|mergear|mergea|hago (el )?merge|ejecuto (el )?merge)[^.]{0,40}(todav(í|i)a|ahora|aún|aun|hasta)|(do not|don.t|won.t|will not|not) merge[^.]{0,30}(yet|now|until)",
+          "description": "Condiciona el merge a que la CI quede verde en vez de mergear ahora"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "así que mergeo",
+            "igual mergeo",
+            "mergeo igual",
+            "mergeo de todos modos",
+            "mergear de todos modos",
+            "mergeo sin esperar",
+            "mergear inmediatamente",
+            "I will merge now",
+            "I'll merge now",
+            "merge anyway",
+            "merge without waiting"
+          ],
+          "description": "No mergea de inmediato con la CI pendiente"
         }
       ]
     },
