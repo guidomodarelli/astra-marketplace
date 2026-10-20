@@ -1,0 +1,120 @@
+{
+  "schema_version": 2,
+  "skill": "codex-autofix-loop",
+  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido.",
+  "test_cases": [
+    {
+      "id": "third-test-only-round-merges",
+      "description": "Con `testOnlyRounds` en 2 y una tercera ronda que solo tocó `evals/eval-config.json`, llega al tope: no pide otra review, pasa el gate de CI y mergea con squash aunque `MAX_REVIEW_ROUNDS` esté subido.",
+      "input": "Usando codex-autofix-loop: estoy operando el loop sobre el PR #42 de `acme/widgets`. Subí `MAX_REVIEW_ROUNDS` a 6 y `reviewRounds` vale 3. En `.codex-autofix/processed-42.json` tengo `testOnlyRounds: 2` y `lastReviewedSha: 1a2b3c4`. Los fixes de esta ronda ya están pusheados y el rango `1a2b3c4..HEAD` solo cambió `plugins/kit/skills/foo/evals/eval-config.json`. No ejecutes nada, describí qué harías ahora en el paso de cierre de la ronda.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "testOnlyRounds[^.]{0,60}(3|tres)|(3|tres)[^.]{0,40}rondas[^.]{0,40}(solo|sólo)[^.]{0,20}tests",
+          "description": "Incrementa `testOnlyRounds` a 3 por ser una tercera ronda consecutiva de solo tests"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca|not|never|do not)[^.]{0,60}(@codex review|otra review|otra revisi|nueva review|nueva revisi|another review|new review|pedir review|pido review)",
+          "description": "Decide explícitamente no pedir otro `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "gate de CI|CI gate|gh pr checks|checks?[^.]{0,40}(verde|green|pas|ok)|(verde|green)[^.]{0,30}(CI|checks?)",
+          "description": "Pasa por el gate de CI antes de mergear"
+        },
+        {
+          "type": "contains",
+          "value": "squash",
+          "description": "Mergea con estrategia squash"
+        },
+        {
+          "type": "regex",
+          "pattern": "(aunque|aun|even|regardless|independiente|no importa|gana)[^.]{0,80}(MAX_REVIEW_ROUNDS|6|tope general|reviewRounds)|(MAX_REVIEW_ROUNDS|tope general)[^.]{0,80}(no (aplica|importa|cambia|bloquea)|primero|antes)",
+          "description": "Aplica el tope de solo tests aunque `MAX_REVIEW_ROUNDS` esté subido"
+        }
+      ]
+    },
+    {
+      "id": "source-change-resets-counter",
+      "description": "Con `testOnlyRounds` en 2, la ronda actual toca `SKILL.md` además de evals: el contador vuelve a 0 y el loop pide `@codex review` porque no alcanzó ningún tope.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`, `MAX_REVIEW_ROUNDS` = 3 y `reviewRounds` = 1. En `.codex-autofix/processed-42.json` tengo `testOnlyRounds: 2` y `lastReviewedSha: 5d6e7f8`. Las dos rondas anteriores solo tocaron tests, pero el fix de esta ronda cambió `plugins/kit/skills/foo/SKILL.md` y `plugins/kit/skills/foo/evals/eval-config.json` en el rango `5d6e7f8..HEAD`. No ejecutes nada, describí qué harías ahora en el paso de cierre de la ronda.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "testOnlyRounds[^.]{0,60}(0|cero)|(resete|reset|reinici|vuelve a (0|cero)|vuelva a (0|cero)|back to (0|zero))",
+          "description": "Resetea `testOnlyRounds` a 0"
+        },
+        {
+          "type": "regex",
+          "pattern": "SKILL\\.md[^.]{0,120}(no (matchea|coincide|es (un )?test|es de test|entra)|fuera|outside|no-test|not a test|no match)|(fuera|outside)[^.]{0,80}(tests|patr|TEST_PATH_PATTERNS)",
+          "description": "Justifica el reset porque `SKILL.md` queda fuera de los patrones de tests/evals"
+        },
+        {
+          "type": "regex",
+          "pattern": "(postea|posteo|postear|publico|publica|publicar|pido|pide|pedir|lanzo|lanza|dispar|comento|comenta|post|request)[^.]{0,60}@codex review",
+          "description": "Pide un nuevo `@codex review` porque no alcanzó ningún tope"
+        }
+      ]
+    },
+    {
+      "id": "cap-reached-ci-pending-retries",
+      "description": "Con el tope de solo tests ya persistido y la CI pendiente, no pide review ni mergea todavía: reintenta el gate de CI y el merge en las vueltas siguientes evaluando el tope persistido en cada vuelta.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`. En la vuelta anterior `testOnlyRounds` llegó a 3 (`MAX_TEST_ONLY_ROUNDS` = 3) y quedó persistido en `.codex-autofix/processed-42.json`, pero el merge no se hizo porque `gh pr checks 42` mostraba checks pendientes. Arranca una nueva vuelta del loop: no hay comentarios nuevos de Codex y uno de los checks sigue pendiente. No ejecutes nada, describí qué harías en esta vuelta y en las siguientes.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca|not|never|do not)[^.]{0,60}(@codex review|otra review|otra revisi|nueva review|nueva revisi|another review|new review|pedir review|pido review)",
+          "description": "No pide otro `@codex review` con el tope ya alcanzado"
+        },
+        {
+          "type": "regex",
+          "pattern": "pendiente|pending|en curso|in progress|esper",
+          "description": "Reconoce que la CI sigue pendiente y no mergea todavía"
+        },
+        {
+          "type": "regex",
+          "pattern": "reintent|retry|pr(ó|o)xima vuelta|siguiente vuelta|vueltas siguientes|pr(ó|o)ximas vueltas|next (turn|iteration|tick|loop|run)",
+          "description": "Reintenta el gate de CI y el merge en las vueltas siguientes"
+        },
+        {
+          "type": "regex",
+          "pattern": "(tope|testOnlyRounds|MAX_TEST_ONLY_ROUNDS)[^.]{0,80}(persist|guardad|cada vuelta|every (turn|iteration|loop)|each (turn|iteration|loop))|(persist|cada vuelta|each (turn|iteration))[^.]{0,80}(tope|testOnlyRounds|MAX_TEST_ONLY_ROUNDS)",
+          "description": "Evalúa el tope persistido en cada vuelta en vez de recalcularlo desde cero"
+        },
+        {
+          "type": "contains",
+          "value": "squash",
+          "description": "Cuando la CI quede verde mergea con squash"
+        }
+      ]
+    },
+    {
+      "id": "external-commit-in-range-resets",
+      "description": "Aunque el fix de la ronda solo tocó un `.bats`, el rango `lastReviewedSha..HEAD` incluye un commit externo en `src/`: el contador vuelve a 0 y se pide `@codex review`.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`, `MAX_REVIEW_ROUNDS` = 3 y `reviewRounds` = 2. En `.codex-autofix/processed-42.json` tengo `testOnlyRounds: 2` y `lastReviewedSha: 9a8b7c6`. El fix de esta ronda solo cambió `tests/loop-state.bats`, pero mientras corría el subagente otra persona pusheó a la rama del PR un commit que modifica `src/api/client.ts`, y ese commit está dentro de `9a8b7c6..HEAD`. No ejecutes nada, describí qué harías ahora en el paso de cierre de la ronda.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "testOnlyRounds[^.]{0,60}(0|cero)|(resete|reset|reinici|vuelve a (0|cero)|vuelva a (0|cero)|back to (0|zero))",
+          "description": "Resetea `testOnlyRounds` a 0"
+        },
+        {
+          "type": "regex",
+          "pattern": "src/api/client\\.ts|commit externo|external commit|otra persona|otro autor|another author",
+          "description": "Atribuye el reset al commit externo fuera de los tests"
+        },
+        {
+          "type": "regex",
+          "pattern": "9a8b7c6\\.\\.HEAD|lastReviewedSha\\.\\.HEAD|rango|range",
+          "description": "Evalúa todo el rango `lastReviewedSha..HEAD` y no solo los commits del fix"
+        },
+        {
+          "type": "regex",
+          "pattern": "(postea|posteo|postear|publico|publica|publicar|pido|pide|pedir|lanzo|lanza|dispar|comento|comenta|post|request)[^.]{0,60}@codex review",
+          "description": "Pide un nuevo `@codex review` porque el contador se reseteó y no hay tope alcanzado"
+        }
+      ]
+    }
+  ]
+}
