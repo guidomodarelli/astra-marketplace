@@ -61,9 +61,9 @@
           "description": "Difiere la librería de charts con un mecanismo concreto de import dinámico o lazy loading: el mecanismo aparece en la misma frase que los charts o gráficos, en cualquier orden"
         },
         {
-          "type": "contains_any",
-          "values": ["AVIF", "WebP", "next/image", "srcset"],
-          "description": "Optimiza la imagen hero con formato moderno o tamaño adaptado"
+          "type": "regex",
+          "pattern": "(AVIF|WebP|next/image|srcset|sizes|responsiv|formato moderno|modern format|comprim|compress|redimension|resize)([^.;]|\\.[^[:space:]]){0,80}(hero|LCP)|(hero|LCP)([^.;]|\\.[^[:space:]]){0,80}(AVIF|WebP|next/image|srcset|sizes|responsiv|formato moderno|modern format|comprim|compress|redimension|resize)",
+          "description": "Optimiza la imagen hero con formato moderno o tamaño adaptado: el remedio (AVIF, WebP, next/image, srcset/sizes, compresión o redimensionado) aparece en la misma frase que el hero o el LCP, en cualquier orden"
         },
         {
           "type": "regex",
@@ -126,9 +126,10 @@
           "type": "not_contains_any",
           "values": [
             "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]",
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]"
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]"
           ],
-          "description": "No inventa valores en ninguna fila de resultados: las celdas Antes (cuarta columna) y Después (quinta columna) no contienen dígitos, con o sin unidad (ms, s, KB, MB, %, conteos de requests, queries o renders), aunque vayan precedidos por un placeholder; las columnas #, Optimización y Métrica pueden tener números"
+          "description": "No inventa valores en ninguna fila de resultados: las celdas Antes (cuarta columna), Después (quinta columna) y Delta (sexta columna) no contienen dígitos, con o sin unidad (ms, s, KB, MB, %, conteos de requests, queries o renders), aunque vayan precedidos por un placeholder; las columnas #, Optimización y Métrica pueden tener números"
         }
       ]
     }
