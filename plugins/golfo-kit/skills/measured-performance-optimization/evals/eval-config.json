@@ -109,16 +109,18 @@
         },
         {
           "type": "regex",
-          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*(pendiente|sin medir|n/a|—)[^|]*\\|[[:space:]]*(pendiente|sin medir|n/a|—)[^|]*\\|",
-          "description": "Deja como pendientes las celdas Antes y Después de las filas de resultados"
+          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*[*_]*(pendiente|sin medir|n/a|—)[*_]*[[:space:]]*\\|[[:space:]]*[*_]*(pendiente|sin medir|n/a|—)[*_]*[[:space:]]*\\|",
+          "description": "Deja las celdas Antes y Después de las filas de resultados solo con el placeholder pendiente, sin texto adicional"
         },
         {
           "type": "not_contains_any",
           "values": [
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[[:space:]]*~\\{0,1\\}[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][[:space:]]*|",
-            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[[:space:]]*~\\{0,1\\}[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][[:space:]]*|"
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][^[:alpha:]]",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*[mk]\\{0,1\\}[sb][^[:alpha:]]",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*%",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9][0-9.,]*[[:space:]]*%"
           ],
-          "description": "No inventa valores medidos (ms, s, KB, MB) en las celdas Antes o Después"
+          "description": "No inventa valores medidos (ms, s, KB, MB, %) en ninguna parte de las celdas Antes o Después, aunque vayan precedidos por un placeholder"
         }
       ]
     }
