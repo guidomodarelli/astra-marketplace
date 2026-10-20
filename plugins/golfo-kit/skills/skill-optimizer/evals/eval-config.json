@@ -147,6 +147,11 @@
           "description": "Fija en 5 el tope de edits por iteración en modo full"
         },
         {
+          "type": "regex",
+          "pattern": "((iteraci[oó]n 1|9 secciones|nueve secciones|reescritura).{0,120}(rechaz|descart|no (se )?acept|no vale|no es v[aá]lid|excede|supera|invalid|sobreajust)|(rechaz|descart|no (se )?acept|no vale|no es v[aá]lid|excede|supera|invalid|sobreajust).{0,120}(iteraci[oó]n 1|9 secciones|nueve secciones|reescritura))",
+          "description": "Rechaza o invalida el candidato de la iteración 1 (reescritura de 9 secciones diseñada mirando todos los outputs)"
+        },
+        {
           "type": "contains_any",
           "values": ["rejected-edits", "edits rechazados", "edits descartados", "registro de rechaz", "cambios rechazados"],
           "description": "Registra los edits rechazados"

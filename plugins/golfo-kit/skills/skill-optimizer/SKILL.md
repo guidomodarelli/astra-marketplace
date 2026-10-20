@@ -203,10 +203,10 @@ Si runner no entrega trace real, marcar `NO_MEASURED_GAIN`; se pueden reportar s
 Un candidato reemplaza al baseline de la iteración solo si cumple todo:
 
 1. Mejora el objetivo en el set de optimización sin regresiones de assertions.
-2. En held-out, pass rate igual o mayor que el baseline, y el candidato pasa **todas** las assertions críticas de ambos sets. No alcanza con no sumar fallos nuevos: si el baseline ya fallaba una crítica, el candidato tiene que corregirla para ser aceptado.
+2. En held-out, ninguna regresión por caso ni por assertion: toda assertion que el baseline pasaba la sigue pasando el candidato. Un pass rate agregado igual no alcanza, porque puede esconder un intercambio (arregla una y rompe otra que ya funcionaba); ese intercambio solo se acepta con aprobación explícita del usuario. Además, el candidato pasa **todas** las assertions críticas de ambos sets. No alcanza con no sumar fallos nuevos: si el baseline ya fallaba una crítica, el candidato tiene que corregirla para ser aceptado.
 3. Si la mejora que justifica aceptarlo es de costo (`tokens`, `latency`, `tool_calls`), sea porque ese es el objetivo o porque bajo `balanced` el candidato gana por costo, esa mejora se observa también en held-out con trace real.
 
-Empatar en held-out es aceptable cuando la mejora es de calidad (criterio 2). Rechazar el candidato si su pass rate held-out baja, si falla cualquier assertion crítica o si la mejora de costo que lo justifica no se observa en held-out. Al rechazarlo, registrar el bundle en `rejected-edits.json` con motivo opaco, guardar el detalle en `held-out-gate.json` y continuar desde el baseline previo dentro del límite de iteraciones (Fase 3). Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
+Empatar en held-out (mismas assertions pasando) es aceptable cuando la mejora es de calidad (criterio 2). Rechazar el candidato si alguna assertion held-out que el baseline pasaba ahora falla, si falla cualquier assertion crítica o si la mejora de costo que lo justifica no se observa en held-out. Al rechazarlo, registrar el bundle en `rejected-edits.json` con motivo opaco, guardar el detalle en `held-out-gate.json` y continuar desde el baseline previo dentro del límite de iteraciones (Fase 3). Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
 
 ## Fase 6: aplicar candidato
 
