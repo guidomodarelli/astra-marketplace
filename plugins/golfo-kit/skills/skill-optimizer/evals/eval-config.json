@@ -142,9 +142,9 @@
           "description": "Fija el split antes de ver outputs o advierte sobreajuste"
         },
         {
-          "type": "regex",
-          "pattern": "(full.{0,60}([^0-9]|^)(5|cinco|five)([^0-9]|$)|([^0-9]|^)(5|cinco|five)([^0-9]|$).{0,60}full)",
-          "description": "Fija en 5 el tope de edits por iteración en modo full"
+          "type": "contains_any",
+          "values": ["5 operaciones", "5 edits", "5 cambios", "cinco operaciones", "cinco edits", "cinco cambios", "tope de 5", "presupuesto de 5", "máximo 5", "maximo 5", "máximo de 5", "maximo de 5"],
+          "description": "Fija en 5 el tope de edits por iteración (el prompt usa mode=full)"
         },
         {
           "type": "contains_any",

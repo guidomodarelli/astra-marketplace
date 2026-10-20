@@ -182,7 +182,12 @@ Los casos usan el schema canónico de `eval-config.json` que valida y ejecuta `r
 }
 ```
 
-Si el target solo tiene el formato legacy `evals/evals.json` (`prompt`, `expected_output`, `expectations`), el evaluador normaliza cada caso al schema canónico en el workspace (`prompt` → `input`, cada `expectations[i]` → assertion), sin modificar el archivo original.
+Si el target solo tiene el formato legacy `evals/evals.json`, el evaluador lo convierte entero al schema canónico en el workspace, sin modificar el archivo original, y valida el resultado contra lo que exige `run-evals` antes de usarlo:
+
+- **Envoltorio:** `skill_name` → `skill`, `evals` → `test_cases`, y se agrega `"schema_version": 2`.
+- **Ids:** pasarlos a string únicos (`1` → `"case-1"`), porque el runner rechaza ids numéricos o repetidos.
+- **Caso:** `prompt` → `input` y `expected_output` → `description`.
+- **Expectations:** son texto libre y no se convierten solas: el evaluador escribe por cada una una assertion verificable (`contains_any`, `not_contains_any`, `regex` o `contains`) y conserva el texto original en su `description`. Si una expectation no admite una assertion objetiva, se califica con el grader (`grading.json`) y se informa en Limitaciones.
 
 El coordinador ejecuta el set de optimización; el held-out lo ejecuta solo el evaluador aislado (Fase 2). En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
 
