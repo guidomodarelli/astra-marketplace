@@ -4,7 +4,7 @@ description: "Optimiza skills existentes de Claude Code de forma segura y medibl
 allowed-tools: Read Write Edit Bash Agent Skill
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "skills"
   tags: "skills, optimization, evals, benchmark"
@@ -82,6 +82,8 @@ Para skill existente, copiar target completo a un workspace hermano fuera del re
 ```text
 <temporary-parent>/<skill-name>-workspace/
 ├── skill-snapshot/          # baseline inmutable
+├── eval-split.json          # qué casos son de optimización y cuáles held-out
+├── rejected-edits.json      # edits descartados y por qué (ver Fase 3)
 ├── iteration-1/
 │   └── <eval-name>/...
 └── manifest.json
@@ -104,6 +106,38 @@ Priorizar, en este orden:
 
 Modelar flujo como DAG: distinguir lecturas paralelas, barreras y mutations seriales. No reducir calidad por contar menos pasos conceptuales si aumenta round-trips reales o elimina evidencia.
 
+### Reflexión separada de éxitos y fallos
+
+Desde la segunda iteración (o con resultados baseline disponibles), analizar por separado los runs que pasaron y los que fallaron en el set de optimización antes de proponer edits:
+
+- **Fallos:** qué procedimiento faltó, se ignoró o se interpretó mal; de acá salen los edits candidatos.
+- **Éxitos:** qué instrucciones sostuvieron el comportamiento correcto; esas secciones quedan protegidas y un edit que las toque debe justificarse con un fallo concreto.
+
+Mezclar ambos en un único análisis tiende a producir edits que arreglan un caso y rompen otro que ya funcionaba. Basar la reflexión solo en evals de optimización; nunca mirar outputs held-out para diseñar edits.
+
+### Presupuesto de edits por iteración
+
+Expresar cada candidato como operaciones discretas sobre el baseline de la iteración: `add`, `delete` o `replace` de una sección o regla. Limitar cada iteración a un presupuesto: **3 operaciones en `quick`, 5 en `full`** salvo que usuario fije otro. Si hay más propuestas que presupuesto, rankearlas por fallo que resuelven e impacto esperado en el objetivo, y diferir el resto a la iteración siguiente.
+
+El tope existe porque reescrituras grandes hacen imposible atribuir mejoras o regresiones a un cambio concreto, y suelen perder guards implícitos. Una reescritura completa solo procede con confirmación explícita del usuario y cuenta como iteración propia.
+
+### Registro de edits rechazados
+
+Mantener `<workspace>/rejected-edits.json` durante toda la ejecución. Cuando un candidato no pasa el gate (Fase 5), registrar cada operación descartada:
+
+```json
+{
+  "iteration": 2,
+  "operation": "delete",
+  "target_section": "Fase 1 / paso 4",
+  "summary": "quitar detección de skills relacionadas",
+  "reason": "EVAL_REGRESSION",
+  "evidence": "held-out ambiguous-target-stops: 3/3 → 1/3"
+}
+```
+
+Leer el registro antes de proponer edits: no reproponer una operación equivalente salvo que haya evidencia nueva (eval distinta, fallo nuevo o cambio de objetivo) y documentarla. Reportar en la salida cuántos edits se rechazaron y por qué.
+
 ## Fase 4: evals baseline y candidato
 
 Reutilizar `evals/evals.json` del target. Para optimización de activación, reutilizar `evals/trigger-evals.json` si existe; separar queries positivas, negativas y ambiguas. Si faltan evals o hay menos de tres casos útiles, crear 3–5 casos en workspace, cubriendo éxito, error, edge case y seguridad. No cambiar evals existentes para hacer candidato parecer mejor.
@@ -119,6 +153,15 @@ Cada eval debe declarar:
   "expectations": ["assertion verificable"]
 }
 ```
+
+### Split de optimización y held-out
+
+Antes de mirar cualquier output, dividir los casos en dos sets y registrarlo en `eval-split.json`:
+
+- **Optimización:** casos que se ejecutan y analizan para diseñar edits.
+- **Held-out (selección):** casos que solo se usan en el gate de Fase 5; sus outputs no se leen para proponer cambios.
+
+Incluir en held-out al menos un caso crítico de seguridad, autorización o no-mutation y, cuando sea posible, un tercio de los casos. Con menos de 5 casos totales, crear en workspace casos adicionales para held-out antes de ver el candidato; si no se puede, reportar en Limitaciones que el gate no tiene held-out independiente. El split es fijo durante toda la ejecución: mover casos entre sets después de ver resultados invalida la comparación. Sin held-out, una mejora en los mismos casos usados para diseñar edits puede ser solo sobreajuste a esas evals.
 
 En `quick`, ejecutar 3 casos representativos. En `full`, ejecutar todos los casos razonables y repetir casos críticos 3 veces si costo permite. Para skill existente comparar `old_skill` snapshot contra `with_skill` candidato; para skill nueva comparar `without_skill` contra `with_skill`.
 
@@ -147,6 +190,16 @@ python eval-viewer/generate_review.py <workspace>/iteration-N \
 ```
 
 Si runner no entrega trace real, marcar `NO_MEASURED_GAIN`; se pueden reportar señales cualitativas, no latencia/round-trips como hechos. Analizar media, mediana, p95, desviación, tokens, tool calls, errores, pass rate y regresiones por eval. `run_loop` no sustituye holdout ni análisis de estabilidad/ties: exigir repetición crítica y revisión manual del benchmark. Usar viewer en modo `--static`; no levantar server, matar procesos por puerto ni ejecutar cleanup fuera workspace. Un candidato pierde si falla cualquier assertion crítica de seguridad, autorización, aislamiento o no-mutation, aunque sea más corto.
+
+### Gate held-out
+
+Un candidato reemplaza al baseline de la iteración solo si cumple todo:
+
+1. Mejora el objetivo en el set de optimización sin regresiones de assertions.
+2. En held-out, pass rate igual o mayor que el baseline y ninguna assertion crítica nueva fallando.
+3. Si el objetivo es costo (`tokens`, `latency`, `tool_calls`), la mejora se observa también en held-out con trace real.
+
+Si gana en optimización pero empata o pierde en held-out, rechazarlo: registrar sus operaciones en `rejected-edits.json` y continuar desde el baseline previo. Si ninguna iteración pasa el gate, terminar en `NO_MEASURED_GAIN` y conservar el snapshot.
 
 ## Fase 6: aplicar candidato
 
@@ -192,7 +245,9 @@ Responder en español, con paths/comandos/identificadores exactos:
 
 ## Evaluación
 - Baseline/candidato: `<configuraciones y casos>`
-- Resultado: `<pass rate, tokens, tool calls, timing>`
+- Split: `<N casos de optimización / M held-out>`
+- Resultado: `<pass rate, tokens, tool calls, timing; optimización y held-out por separado>`
+- Iteraciones: `<edits aplicados/presupuesto por iteración, edits rechazados y motivo>`
 - Evidencia: `<trace/benchmark o NO_MEASURED_GAIN>`
 - Viewer: `<path si fue generado>`
 
