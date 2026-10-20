@@ -38,8 +38,8 @@ Los datos de producción complementan al laboratorio: el laboratorio atribuye un
 |---|---|
 | Web Vitals de laboratorio | `npx lighthouse <url> --output=json`, con las repeticiones y la agregación del [paso 3 del flujo](../SKILL.md#3-medir-la-línea-base) |
 | Tamaño de bundle | Output del build del framework, `source-map-explorer`, `@next/bundle-analyzer`, `rollup-plugin-visualizer`, `webpack-bundle-analyzer` |
-| Renders | React DevTools Profiler, `<Profiler onRender>` temporal |
-| Queries | Log de queries del ORM, `EXPLAIN ANALYZE` (en escrituras, ver [advertencia](database-queries-n-plus-one.md#queries-lentas-que-no-son-n1)), `pg_stat_statements`, contador de queries en un test de integración |
+| Renders | Ver [Renders innecesarios → Detectar](unnecessary-renders.md#detectar) |
+| Queries | Ver [Queries lentas y N+1 → Detectar](database-queries-n-plus-one.md#detectar), [Queries lentas que no son N+1](database-queries-n-plus-one.md#queries-lentas-que-no-son-n1) y [Métricas antes/después](database-queries-n-plus-one.md#métricas-antesdespués) |
 | Tiempos de endpoint | `autocannon`, `k6`, `hey`, o `curl -w '%{time_total}'` repetido |
 
 `autocannon`, `k6` y `hey` generan tráfico concurrente: usarlos solo contra entornos locales o de staging. Contra producción, únicamente con autorización explícita del usuario y límites acotados (target exacto, concurrencia o VUs, y duración); sin esa autorización, medir producción solo con datos pasivos (Sentry) o requests individuales con `curl`.

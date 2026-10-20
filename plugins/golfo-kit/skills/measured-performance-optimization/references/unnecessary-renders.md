@@ -5,6 +5,7 @@ El criterio para decidir si un re-render es un problema vive en la sección [«D
 ## Detectar
 
 - React DevTools Profiler: grabar la interacción lenta y buscar commits largos y componentes que se renderizan sin que cambien sus props visibles ("Why did this render?").
+- `<Profiler onRender>` temporal alrededor del árbol sospechoso: registra la duración y la cantidad de commits de la interacción sin depender de la extensión; quitarlo después de medir.
 - Chrome DevTools MCP: performance trace de la interacción; long tasks atribuidas a scripting de React indican render caro.
 - Causas frecuentes: estado en un nivel demasiado alto, contexts que cambian de valor en cada render, props inline (objetos, arrays, callbacks) que rompen `React.memo`, `setState` con valores iguales, listas largas sin virtualización.
 

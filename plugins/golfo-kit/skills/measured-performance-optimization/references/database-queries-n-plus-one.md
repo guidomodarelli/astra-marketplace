@@ -21,6 +21,7 @@ Son 101 queries cuando con 1 o 2 alcanza. El costo crece linealmente con la cant
 ## Detectar
 
 - Log de queries del ORM durante un request: muchas queries con la misma forma y distinto parámetro.
+- `pg_stat_statements`: queries con más tiempo total o medio acumulado, para elegir cuál optimizar.
 - Sentry: issue de tipo "N+1 Query" o spans `db` repetidos dentro de una transacción.
 - Señales en el código: aplicar el criterio de [Database And Remote Calls](../../review-performance/SKILL.md#database-and-remote-calls) de `review-performance`; acá solo se confirma con las señales en runtime de esta sección.
 - Un endpoint cuyo tiempo crece proporcionalmente con el tamaño de la página.
