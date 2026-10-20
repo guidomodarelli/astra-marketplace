@@ -57,7 +57,7 @@ Cuidar listas de `IN` muy grandes (partir en chunks) y no traer relaciones que l
 
 - `EXPLAIN ANALYZE` de la query: buscar seq scans sobre tablas grandes, sorts en disco y estimaciones de filas muy erradas.
   - `EXPLAIN ANALYZE` ejecuta la sentencia de verdad. Para `INSERT`/`UPDATE`/`DELETE` usar `EXPLAIN` sin `ANALYZE`, o envolverlo en una transacción revertida (`BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;`), preferentemente fuera de producción.
-- Índices sobre columnas de `WHERE`, `JOIN` y `ORDER BY` (índices compuestos en el orden en que se filtra).
+- Índices sobre columnas de `WHERE`, `JOIN` y `ORDER BY`. En un índice compuesto, primero las columnas comparadas por igualdad y después la de rango (o la del `ORDER BY` que el índice debe resolver), sin copiar el orden textual del `WHERE`; verificar con `EXPLAIN` antes y después.
 - Paginación por cursor/keyset en lugar de `OFFSET` grande.
 - Proyectar solo las columnas necesarias en lugar de `SELECT *`.
 - Mover filtros, sorts y agregaciones a la base en lugar de hacerlos en memoria.
