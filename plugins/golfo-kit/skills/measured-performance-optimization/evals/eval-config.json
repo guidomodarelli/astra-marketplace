@@ -1,0 +1,146 @@
+{
+  "schema_version": 2,
+  "skill": "measured-performance-optimization",
+  "description": "Evalúa optimización de rendimiento guiada por medición: línea base antes del cambio, una optimización por vez, medición posterior con las mismas condiciones, uso de Chrome DevTools/Playwright/Sentry, corrección de N+1 con JOIN o WHERE IN, lazy loading, caching y assets.",
+  "test_cases": [
+    {
+      "id": "n-plus-one-users-orders",
+      "description": "Ante 100 usuarios con una query de pedidos por usuario, identifica el N+1, propone JOIN o WHERE IN/eager loading y mide cantidad de queries antes y después.",
+      "input": "Usando measured-performance-optimization: el endpoint `GET /users` trae 100 usuarios con `prisma.user.findMany({ take: 100 })` y después hace `for (const user of users) { user.orders = await prisma.order.findMany({ where: { userId: user.id } }) }`. Tarda 2,3 segundos. No ejecutes ni edites nada: explicá el problema, cómo lo medirías y qué cambiarías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["N+1", "n+1"],
+          "description": "Identifica el problema como N+1"
+        },
+        {
+          "type": "contains_any",
+          "values": ["101"],
+          "description": "Cuantifica las 101 queries"
+        },
+        {
+          "type": "regex",
+          "pattern": "JOIN|WHERE IN|WHERE([^.;]|\\.[^[:space:]]){0,40}[[:space:]]IN[[:space:]]*\\(|[[:space:]]IN[[:space:]]*\\((\\.\\.\\.|\\$|\\?|:|[[:alnum:]_]*ids|SELECT)|in:[[:space:]]*(\\[|[[:alnum:]_.]*ids)|(include|select)([^.;]|\\.[^[:space:]]){0,40}orders|orders([^.;]|\\.[^[:space:]]){0,40}(include|select)",
+          "description": "Propone JOIN, WHERE IN (o `IN (...)`/`in: [ids]` sobre los ids de usuarios), o eager loading de la relación orders con include o select: include y select solo cuentan asociados a orders en la misma frase, en cualquier orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "antes|before|línea base|linea base|baseline",
+          "description": "Plantea medir antes del cambio"
+        },
+        {
+          "type": "regex",
+          "pattern": "después|despues|after",
+          "description": "Plantea medir después del cambio"
+        },
+        {
+          "type": "regex",
+          "pattern": "(contar|contamos|contá|conteo|cantidad|n(ú|u)mero|count|cu(á|a)ntas).{0,60}(quer(y|ies)|consultas?)|(quer(y|ies)|consultas?).{0,60}(por request|per request|contar|conteo|count)",
+          "description": "Usa la cantidad de queries por request como métrica"
+        }
+      ]
+    },
+    {
+      "id": "slow-landing-bundle-images",
+      "description": "Ante una landing lenta, mide con Chrome DevTools o Lighthouse antes de optimizar, propone lazy loading del bundle y optimización de la imagen LCP, y no la difiere.",
+      "input": "Usando measured-performance-optimization: la home de nuestra app Next.js tarda en cargar en mobile. El bundle inicial pesa 1,4 MB porque importa un editor de texto enriquecido y una librería de charts que solo se usan en un modal y en otra pestaña, y el hero es un PNG de 2,5 MB. Tengo el MCP de Chrome DevTools conectado. No ejecutes ni edites nada: armá el plan de optimización.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["Chrome DevTools", "Lighthouse", "performance trace", "trace"],
+          "description": "Mide con Chrome DevTools o Lighthouse"
+        },
+        {
+          "type": "regex",
+          "pattern": "(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)([^.;]|\\.[^[:space:]]){0,80}(editor|rich[ -]?text|texto enriquecido)|(editor|rich[ -]?text|texto enriquecido)([^.;]|\\.[^[:space:]]){0,80}(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)",
+          "description": "Difiere el editor de texto enriquecido con un mecanismo concreto de import dinámico o lazy loading: el mecanismo aparece en la misma frase que el editor, en cualquier orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)([^.;]|\\.[^[:space:]]){0,80}(chart|gr(á|a)fic)|(chart|gr(á|a)fic)([^.;]|\\.[^[:space:]]){0,80}(next/dynamic|React\\.lazy|import\\(|dynamic\\(|dynamic import|import din(á|a)mico|lazy)",
+          "description": "Difiere la librería de charts con un mecanismo concreto de import dinámico o lazy loading: el mecanismo aparece en la misma frase que los charts o gráficos, en cualquier orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "(AVIF|WebP|next/image|srcset|sizes|responsiv|formato moderno|modern format|comprim|compress|redimension|resize)([^.;]|\\.[^[:space:]]){0,80}(hero|LCP)|(hero|LCP)([^.;]|\\.[^[:space:]]){0,80}(AVIF|WebP|next/image|srcset|sizes|responsiv|formato moderno|modern format|comprim|compress|redimension|resize)",
+          "description": "Optimiza la imagen hero con formato moderno o tamaño adaptado: el remedio (AVIF, WebP, next/image, srcset/sizes, compresión o redimensionado) aparece en la misma frase que el hero o el LCP, en cualquier orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "(LCP|hero)([^.;]|\\.[^[:space:]]){0,80}(fetchpriority[^[:alnum:].;]{0,6}high|(^|[^[:alpha:]])priority|preload)|(fetchpriority[^[:alnum:].;]{0,6}high|(^|[^[:alpha:]])priority|preload)([^.;]|\\.[^[:space:]]){0,80}(LCP|hero)",
+          "description": "Eleva la prioridad de descarga de la imagen hero/LCP con fetchpriority=\"high\" (fetchpriority solo cuenta emparejado con high, nunca con low o auto), un preload o la API de Next.js (`priority` antes de la 16, `preload` desde la 16) en la misma frase que el hero o el LCP, en cualquier orden; no alcanzan `loading=\"eager\"` ni evitar el lazy loading, que son el comportamiento por defecto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(línea base|linea base|baseline|antes de (tocar|cambiar|optimizar|aplicar|modificar|empezar)|medir antes|medí antes|medición inicial)",
+          "description": "Exige una medición de línea base antes de aplicar los cambios"
+        },
+        {
+          "type": "regex",
+          "pattern": "(un (solo )?cambio|una (sola )?optimizaci|una por vez|uno por vez|una a la vez|uno a la vez|de a una|de a uno|por separado|aislad[ao]s?|cada (cambio|optimizaci|uno|una)).{0,120}((re-?)?(medir|medí|medici|medimos|medilo|medila)|measure)|((re-?)?(medir|medí|medici|medimos|medilo|medila)|measure).{0,120}(cada (cambio|optimizaci|uno|una)|por separado|de a una|de a uno|aislad[ao]s?)",
+          "description": "Aplica y mide cada optimización en una iteración separada"
+        },
+        {
+          "type": "regex",
+          "pattern": "(mism[ao]s?|same|id(é|e)ntic[ao]s?|identical|equivalentes?|equivalent|comparables?)[[:space:]]+([^[:space:]]+[[:space:]]+)?(condici|condition|modo de build|build|throttling|perfil|datos|data|cach|configuraci|settings|setup|entorno|environment|flags)|(condiciones|conditions)[[:space:]]+(equivalentes|equivalent|id(é|e)nticas|identical|comparables|constantes)",
+          "description": "Exige medir antes y después en condiciones equivalentes (mismo build de producción, throttling, datos o caché)"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "LCP",
+            "Largest Contentful Paint",
+            "pintura de contenido más grande",
+            "pintura de contenido mas grande",
+            "pintura del contenido más grande",
+            "pintura del contenido mas grande",
+            "mayor pintura con contenido",
+            "mayor pintura de contenido"
+          ],
+          "description": "Usa LCP como métrica, por su sigla, su nombre en inglés (Largest Contentful Paint) o su equivalente en español"
+        }
+      ]
+    },
+    {
+      "id": "report-requires-real-measurements",
+      "description": "Al pedir solo un plan sin poder medir, deja Antes/Después como pendientes en lugar de inventar números.",
+      "input": "Usando measured-performance-optimization: nuestra pantalla de pedidos hace 3 requests en cascada (`/me`, luego `/orders?userId=`, luego `/products?ids=`) y cada vez que el usuario vuelve a la pestaña se repiten todas. No tengo acceso al entorno ni a Sentry ahora. No ejecutes ni edites nada: dame el reporte de optimización con la tabla de resultados.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "BFF|backend[ -]for[ -]frontend|endpoint[^.;]{0,20}(agregad|combinad|compuest|unificad|consolidad|(ú|u)nico)|(ú|u)nico endpoint|(agregador|aggregator|aggregated|aggregation|composite|combined|unified)[^.;]{0,20}(endpoint|request|route|api|call)|single[^.;]{0,20}(endpoint|route)|(un|una) (sol[oa]|(ú|u)nic[oa])[^.;]{0,15}(endpoint|round[ -]?trip)|((un|una) (sol[oa]|(ú|u)nic[oa])|single)[^.;]{0,20}(request|llamada|petici(ó|o)n|call|api)[^.;]{0,40}(devuelv|retorn|traiga|trae|agreg|combin|incluy|resuelv|re(ú|u)n|return|aggregat|includ|resolv|bundl)|graphql[^.;]{0,40}(query|consulta|resolver|resuelv)|join[^.;]{0,30}(servidor|server|backend|sql|base de datos)|(sql|servidor|server-side|backend)[^.;]{0,30}join",
+          "description": "Colapsa el waterfall con una composición explícita: BFF, endpoint agregado o combinado, un único request o endpoint que devuelva todo, una query GraphQL que resuelva la cadena o un join en el servidor (no alcanza con mover las requests secuenciales al servidor, y un único request o llamada solo cuenta si devuelve, agrega o combina los datos: `un solo request por vez` no colapsa la cascada)"
+        },
+        {
+          "type": "regex",
+          "pattern": "staleTime[^0-9,;]{0,15}([1-9]|Infinity)|(refetchOnWindowFocus|revalidateOnFocus)[^,;]{0,6}false",
+          "description": "Propone un ajuste que suprime la revalidación por foco al volver a la pestaña: `refetchOnWindowFocus: false`, `revalidateOnFocus: false` o un `staleTime` positivo de TanStack Query (no alcanzan por sí solos `dedupingInterval`, `max-age`, `s-maxage`, `stale-while-revalidate`, nombrar la librería ni `no-store`)"
+        },
+        {
+          "type": "contains_any",
+          "values": ["pendiente", "Pendiente", "sin medir", "Sin medir", "pending", "N/A", "—"],
+          "description": "Marca las mediciones como pendientes en vez de inventarlas, con los mismos placeholders que acepta la aserción de celda exacta (pendiente, pending, sin medir, N/A o —)"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\|[[:space:]]*Antes[[:space:]]*\\|[[:space:]]*Después[[:space:]]*\\|",
+          "description": "Usa la tabla de reporte con columnas Antes y Después"
+        },
+        {
+          "type": "regex",
+          "pattern": "^[[:space:]]*\\|[^|]*\\|[^|]*\\|[^|]*\\|[[:space:]]*[*_`]*(pendiente|pending|sin medir|n/a|—)[*_`]*[[:space:]]*\\|[[:space:]]*[*_`]*(pendiente|pending|sin medir|n/a|—)[*_`]*[[:space:]]*\\|",
+          "description": "Deja las celdas Antes y Después de las filas de resultados solo con el placeholder pendiente, sin texto adicional (se aceptan énfasis o backticks opcionales alrededor del placeholder)"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]",
+            "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]"
+          ],
+          "description": "No inventa valores en ninguna fila de resultados: las celdas Antes (cuarta columna), Después (quinta columna) y Delta (sexta columna) no contienen dígitos, con o sin unidad (ms, s, KB, MB, %, conteos de requests, queries o renders), aunque vayan precedidos por un placeholder; las columnas #, Optimización y Métrica pueden tener números"
+        }
+      ]
+    }
+  ]
+}
