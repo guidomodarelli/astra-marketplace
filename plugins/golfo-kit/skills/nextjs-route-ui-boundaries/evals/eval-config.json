@@ -1,0 +1,352 @@
+{
+  "schema_version": 2,
+  "skill": "nextjs-route-ui-boundaries",
+  "description": "Evalúa decisiones de boundaries de ruta en Next.js App Router: loading.tsx por segmento con skeleton, error.tsx que preserva la chrome, layouts compartidos con route groups, split server/cliente del sidebar, modo liviano ante cambios puntuales, uso de APIs de Next.js con valor y scope negativo en Pages Router.",
+  "test_cases": [
+    {
+      "id": "plain-text-loading-to-skeleton",
+      "description": "Reemplaza un loading.tsx con texto plano por un skeleton con la forma de la página, accesible y con reduced motion, y explica por qué el loading del padre no cubre la navegación entre hermanos.",
+      "input": "Tengo una app Next.js 16 con App Router. En `app/(platform)/[slug]/loading.tsx` hay esto:\n\n```tsx\nexport default function Loading() {\n  return <p>Cargando...</p>;\n}\n```\n\nLas páginas hijas `app/(platform)/[slug]/members/page.tsx` (lista de miembros con buscador y botón 'Invitar') y `app/(platform)/[slug]/payments/page.tsx` (tabla de pagos) hacen `await params` y consultan la base. Cuando navego de miembros a pagos la pantalla se queda congelada un segundo y cuando entro directo veo el texto 'Cargando...' y después todo salta. No ejecutes nada: decime qué archivos crear o cambiar y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "skeleton",
+          "description": "Propone un skeleton en lugar del texto plano"
+        },
+        {
+          "type": "regex",
+          "pattern": "members/loading\\.tsx|payments/loading\\.tsx|loading\\.tsx (por|en cada) segmento|cada segmento",
+          "description": "Agrega loading.tsx en los segmentos hoja que esperan datos"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "hermanas",
+            "hermanos",
+            "sibling",
+            "layout compartido",
+            "debajo del layout",
+            "re-renderiza"
+          ],
+          "description": "Explica que el boundary del padre no cubre la navegación entre rutas hermanas"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "aria-busy",
+            "aria-hidden",
+            "lector de pantalla",
+            "screen reader",
+            "visually"
+          ],
+          "description": "Hace el skeleton accesible"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "prefers-reduced-motion",
+            "reduced motion",
+            "reduce motion"
+          ],
+          "description": "Desactiva la animación del skeleton con reduced motion"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "CLS",
+            "layout shift",
+            "salto",
+            "salte",
+            "misma forma",
+            "misma grilla"
+          ],
+          "description": "Justifica el skeleton por evitar el salto de layout"
+        }
+      ]
+    },
+    {
+      "id": "sidebar-server-client-split",
+      "description": "Parte un sidebar marcado entero como 'use client' en contenedor server con items filtrados por permisos e islas cliente mínimas para link activo y colapsado, con estado inicial desde cookie.",
+      "input": "En mi app Next.js (App Router, 16.x) el sidebar está en `components/app-sidebar.tsx` con `\"use client\"` arriba. Hace `useEffect` + `fetch('/api/me/navigation')` para traer los items según los permisos del usuario, usa `usePathname()` para marcar el link activo y guarda si está colapsado en `localStorage`. Se monta en `app/(platform)/layout.tsx`. Al cargar se ve el sidebar vacío, después aparecen los items y a veces cambia de ancho. ¿Cómo lo reestructuro? ¿Qué más del shell (header, breadcrumbs, tabs) debería renderizarse en server? No ejecutes nada, proponé la estructura y el código clave.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "server component|en (el )?server|server-side|renderiza(r|do)? en server",
+          "description": "Mueve el contenedor y los items del sidebar a Server Component"
+        },
+        {
+          "type": "regex",
+          "pattern": "isla|island|hoja interactiva|componente cliente (pequeño|mínimo)|NavLink",
+          "description": "Deja en cliente solo islas mínimas (link activo, toggle)"
+        },
+        {
+          "type": "contains",
+          "value": "cookie",
+          "description": "Lee el estado colapsado desde cookie en server en vez de localStorage"
+        },
+        {
+          "type": "regex",
+          "pattern": "permis",
+          "description": "Filtra los items por permisos en server"
+        },
+        {
+          "type": "contains",
+          "value": "Suspense",
+          "description": "Envuelve la parte del sidebar con datos runtime en Suspense con skeleton"
+        },
+        {
+          "type": "regex",
+          "pattern": "header|breadcrumb|tabs",
+          "description": "Analiza otros elementos del shell además del sidebar"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "children",
+            "como prop",
+            "pasar el contenido",
+            "composición"
+          ],
+          "description": "Usa composición (children) para no arrastrar Server Components al bundle cliente"
+        }
+      ]
+    },
+    {
+      "id": "shared-layout-and-error-placement",
+      "description": "Extrae un layout compartido con route group para páginas que repiten el shell y ubica error.tsx por sección preservando sidebar, con global-error y sin exponer error.message.",
+      "input": "Next.js 16 App Router. Tengo `app/dashboard/page.tsx`, `app/courses/page.tsx` y `app/settings/page.tsx`; las tres copian el mismo `<AppShell sidebar={...} header={...}>` adentro de la página. Además `app/landing/page.tsx` y `app/pricing/page.tsx` usan otro header de marketing. Solo existe `app/error.tsx`, que muestra `{error.message}` y un botón que llama a `reset()`. Cuando falla la query de cursos se cae toda la app incluida la navegación. Proponé la estructura de carpetas y los archivos especiales que corresponden, sin ejecutar nada.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\((platform|app|dashboard|main|private)\\)|route group|grupo de rutas",
+          "description": "Agrupa las páginas con el mismo shell en un route group"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\(marketing\\)|\\(public\\)|\\(site\\)",
+          "description": "Separa las páginas de marketing en otro grupo con su propio layout"
+        },
+        {
+          "type": "regex",
+          "pattern": "layout\\.tsx",
+          "description": "Mueve el AppShell a un layout.tsx compartido"
+        },
+        {
+          "type": "regex",
+          "pattern": "courses/error\\.tsx|error\\.tsx (por|en cada) sección|\\(platform\\)/error\\.tsx|segmento m[aá]s bajo",
+          "description": "Ubica error.tsx debajo del layout para que el sidebar siga usable"
+        },
+        {
+          "type": "contains",
+          "value": "global-error",
+          "description": "Agrega global-error.tsx para errores del root layout"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "error.message",
+            "digest",
+            "detalles internos",
+            "copy seguro",
+            "mensaje genérico"
+          ],
+          "description": "Evita mostrar error.message y usa digest para logs"
+        },
+        {
+          "type": "contains",
+          "value": "use client",
+          "description": "Indica que error.tsx debe ser Client Component"
+        }
+      ]
+    },
+    {
+      "id": "slow-layout-data-blocks-navigation",
+      "description": "Detecta un fetch lento en layout.tsx que bloquea la navegación y que loading.tsx del mismo segmento no cubre; propone Suspense propio o mover el fetch a la página, y no leer searchParams en el layout.",
+      "input": "Next.js 16 con `cacheComponents: true`. En `app/(platform)/[slug]/layout.tsx` hago `const tribe = await getTribe((await params).slug)` y `const unread = await getUnreadCount(userId)` para pintar el header de la tribu y un badge. También leo `searchParams` ahí para saber qué tab marcar. Tengo `loading.tsx` en el mismo segmento pero no se muestra nunca y la navegación tarda. ¿Qué está mal y cómo lo arreglo? Sin ejecutar nada.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "no cubre",
+            "no envuelve",
+            "debajo del layout",
+            "por debajo",
+            "does not wrap",
+            "no captura"
+          ],
+          "description": "Explica que loading.tsx del mismo segmento no cubre al layout"
+        },
+        {
+          "type": "contains",
+          "value": "Suspense",
+          "description": "Envuelve los datos runtime del layout en su propio Suspense"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "a la página",
+            "en la página",
+            "page.tsx",
+            "mover datos",
+            "mové los datos",
+            "componente propio",
+            "dentro de <Suspense>",
+            "dentro de `<Suspense>`"
+          ],
+          "description": "Saca los datos del top-level del layout: a la página o a un componente dentro de su propio Suspense"
+        },
+        {
+          "type": "regex",
+          "pattern": "searchParams.{0,120}(stale|desactualiz|no se re-?renderiza|página)",
+          "description": "Saca la lectura de searchParams del layout"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "useSelectedLayoutSegment",
+            "usePathname",
+            "segmento activo"
+          ],
+          "description": "Resuelve la tab activa con el segmento en cliente en lugar de searchParams en el layout"
+        }
+      ]
+    },
+    {
+      "id": "light-mode-small-component-change",
+      "description": "Ante un cambio puntual (agregar un botón con estado a una página server) aplica el modo liviano: deja 'use client' en la hoja, no convierte la página y no re-audita rutas ajenas.",
+      "input": "Proyecto Next.js 16 con App Router. En `app/(platform)/[slug]/courses/page.tsx` (Server Component que hace `await getCourses(slug)` y renderiza la lista) quiero agregar un botón 'Marcar como favorito' en cada curso que cambie de ícono al clickearlo y llame a una Server Action. Mi idea es poner `\"use client\"` arriba de page.tsx y usar useState. Escribí el cambio.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "favorite-button|FavoriteButton|componente cliente|isla|hoja",
+          "description": "Extrae el botón a un componente cliente propio"
+        },
+        {
+          "type": "regex",
+          "pattern": "page\\.tsx.{0,120}(server|Server Component)|no (marques|pongas|agregues) .use client. (en|a) (la )?page|mantener la página",
+          "description": "Mantiene page.tsx como Server Component"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "use server",
+            "Server Action",
+            "server action"
+          ],
+          "description": "Usa una Server Action para la mutación"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "useOptimistic",
+            "useTransition",
+            "useActionState",
+            "useFormStatus",
+            "pending",
+            "pendiente"
+          ],
+          "description": "Maneja estado pendiente u optimista con las APIs de React"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "updateTag",
+            "revalidateTag",
+            "revalidatePath",
+            "refresh"
+          ],
+          "description": "Invalida o refresca los datos después de la mutación"
+        }
+      ]
+    },
+    {
+      "id": "nextjs-apis-replace-manual-code",
+      "description": "Reemplaza código manual por APIs de Next.js con valor: Form para búsqueda por searchParams, unstable_rethrow o notFound fuera del try, next/image con tamaño y Link en lugar de <a>.",
+      "input": "Next.js 16 App Router. Revisá este código de `app/(platform)/[slug]/members/page.tsx` y mejoralo usando lo que Next.js ya trae:\n\n```tsx\nexport default async function MembersPage({ params, searchParams }) {\n  const { slug } = await params;\n  const { q } = await searchParams;\n  try {\n    const tribe = await getTribe(slug);\n    if (!tribe) notFound();\n    const members = await getMembers(tribe.id, q);\n    return (\n      <>\n        <SearchBox defaultValue={q} />\n        {members.map((member) => (\n          <a href={`/${slug}/members/${member.id}`} key={member.id}>\n            <img src={member.avatarUrl} /> {member.name}\n          </a>\n        ))}\n      </>\n    );\n  } catch (error) {\n    return <p>Error al cargar</p>;\n  }\n}\n```\n\n`SearchBox` es un componente cliente con `useState` y un botón que hace `router.push('?q=' + value)`. No ejecutes nada, mostrame el código final.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "unstable_rethrow",
+            "fuera del try",
+            "antes del try",
+            "traga",
+            "se come",
+            "captura el error de notFound",
+            "atrapa",
+            "capturaba",
+            "elimina el `try",
+            "elimina el try",
+            "quitar el try",
+            "sacar el try"
+          ],
+          "description": "Detecta que el try/catch se traga notFound()"
+        },
+        {
+          "type": "regex",
+          "pattern": "<Form|next/form",
+          "description": "Usa <Form> de next/form para la búsqueda por searchParams"
+        },
+        {
+          "type": "regex",
+          "pattern": "next/image|<Image",
+          "description": "Usa next/image con tamaño declarado"
+        },
+        {
+          "type": "regex",
+          "pattern": "<Link|next/link|navigation/link",
+          "description": "Reemplaza <a> por Link"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "error.tsx",
+            "catchError"
+          ],
+          "description": "Mueve el manejo de errores a error.tsx o catchError en lugar de un try/catch con texto plano"
+        },
+        {
+          "type": "regex",
+          "pattern": "[Ss]keleton|loading\\.tsx|Suspense",
+          "description": "Agrega un estado de carga con skeleton o Suspense para la lista"
+        }
+      ]
+    },
+    {
+      "id": "pages-router-out-of-scope",
+      "description": "Reconoce que en Pages Router no existen loading.tsx/error.tsx por segmento, lo dice explícitamente y ofrece alternativas o migración.",
+      "input": "Mi proyecto es Next.js 13 pero con Pages Router (`pages/_app.tsx`, `pages/members.tsx` con getServerSideProps). ¿Dónde pongo el `loading.tsx` y el `error.tsx` para la página de miembros? No ejecutes nada.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "pages router.{0,200}(no (existen|aplica|soporta|tiene)|solo (existe|aplica)|app router)",
+          "description": "Aclara que esas convenciones son de App Router"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "_error",
+            "500.tsx",
+            "404.tsx",
+            "router.events",
+            "routeChangeStart",
+            "migrar",
+            "migración"
+          ],
+          "description": "Ofrece las alternativas de Pages Router o la migración"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "no haría nada",
+            "no existen",
+            "solo existen en App Router",
+            "no aplica",
+            "no hay lugar"
+          ],
+          "description": "Dice explícitamente que crear esos archivos en pages/ no tiene efecto"
+        }
+      ]
+    }
+  ]
+}
