@@ -1,0 +1,251 @@
+{
+  "schema_version": 2,
+  "skill": "ui-ux-flow-patterns",
+  "description": "Evalúa decisiones de UI/UX por estado y por flujo: vacíos diferenciados (primera vez vs filtro), carga inicial vs recarga, error por región con reintento, canal de feedback correcto (inline, banner, toast, diálogo), confirmar vs deshacer en acciones destructivas, pending y doble envío en acciones, uploads por archivo y scope negativo en código sin interfaz.",
+  "test_cases": [
+    {
+      "id": "empty-list-first-use-vs-filtered",
+      "description": "Ante una lista que devuelve null cuando está vacía, distingue el vacío de primera vez (con CTA de crear) del vacío por filtro (con limpiar filtros y la toolbar visible) y del estado de carga o error.",
+      "input": "En mi app React tengo `StudentsPage` con un buscador, un filtro por estado (Activo/Inactivo) y la tabla de alumnos. El componente hace:\n\n```tsx\nconst { data: students, isLoading } = useStudents({ query, status });\nif (isLoading) return <Spinner />;\nif (!students?.length) return null;\nreturn (<><StudentsToolbar /><StudentsTable rows={students} /></>);\n```\n\nCuando un profe nuevo entra ve la pantalla en blanco, y cuando alguien filtra por 'Inactivo' y no hay ninguno también desaparece todo, incluido el buscador. No ejecutes nada: decime qué estados tendría que tener esta pantalla y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "primera vez|primer uso|first[- ]use|todav(i|í)a no (hay|ten(e|é)s|agregaste)|ning(u|ú)n alumno a(u|ú)n",
+          "description": "Identifica el vacío de primera vez"
+        },
+        {
+          "type": "regex",
+          "pattern": "(limpiar|quitar|borrar|resetear) (los )?filtros|clear filters",
+          "description": "Ofrece limpiar filtros en el vacío por filtro"
+        },
+        {
+          "type": "regex",
+          "pattern": "(toolbar|buscador|filtros).{0,80}(visible|siempre|mantener|mantené|no desaparec|seguir mostrando|fuera del)|(mantener|mantené|conservar|dejar).{0,40}(toolbar|buscador|filtros)",
+          "description": "Mantiene la toolbar o los filtros visibles en el estado vacío"
+        },
+        {
+          "type": "regex",
+          "pattern": "(crear|agregar|invitar|sumar|nuevo).{0,30}alumno|CTA|llamado a la acci(o|ó)n",
+          "description": "El vacío de primera vez trae una acción para crear el primer alumno"
+        },
+        {
+          "type": "regex",
+          "pattern": "isError|error.{0,60}(reintentar|retry|volver a intentar)|(reintentar|retry).{0,60}error",
+          "description": "Agrega un estado de error con reintento distinto del vacío"
+        },
+        {
+          "type": "contains_any",
+          "values": ["skeleton", "Skeleton"],
+          "description": "Reemplaza el spinner de carga inicial por un skeleton con la forma de la tabla"
+        }
+      ]
+    },
+    {
+      "id": "toast-channel-misuse",
+      "description": "Corrige el uso de toasts para errores de validación, para confirmar algo ya visible y para un error de carga de página; los manda a inline, cambio directo de la UI y estado de error de la región.",
+      "input": "Revisá cómo damos feedback en esta pantalla de 'Tareas' (React):\n\n1. Al enviar el formulario de nueva tarea, si el título está vacío hacemos `toast.error('El título es obligatorio')`.\n2. Cuando la tarea se crea, aparece arriba de la lista y además mostramos `toast.success('Operación exitosa')`.\n3. Si falla el `GET /tasks` al entrar, mostramos `toast.error('Error')` y la lista queda vacía.\n4. Si el plan del usuario está vencido mostramos un toast de warning cada vez que entra.\n\nNo ejecutes nada: decime qué canal de feedback debería usar cada caso y por qué.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "inline|junto al campo|debajo del campo|al lado del campo|en el campo",
+          "description": "Manda el error de validación inline junto al campo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(ya (es |est(a|á) )?visible|ya se ve|ya aparece|ya lo ve|el propio cambio|cambio (directo|de la UI)|la lista (misma |ya )?(es|funciona como) (el )?feedback).{0,160}|(sin|no hace falta|sobra|innecesario|ruido).{0,40}toast",
+          "description": "Señala que el toast de éxito sobra porque la tarea ya aparece en la lista"
+        },
+        {
+          "type": "regex",
+          "pattern": "reintentar|retry|volver a intentar",
+          "description": "El error de carga ofrece reintentar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,40}(mostrar|dejar|confundir).{0,40}(vac(i|í)a|vac(i|í)o)|(vac(i|í)o|vac(i|í)a).{0,80}(error|fall)|estado de error",
+          "description": "Distingue el error de carga del estado vacío"
+        },
+        {
+          "type": "contains_any",
+          "values": ["banner", "Banner", "alerta persistente", "aviso persistente", "alert persistente"],
+          "description": "Usa un banner persistente para el plan vencido"
+        },
+        {
+          "type": "regex",
+          "pattern": "Operaci(o|ó)n exitosa.{0,200}(gen(e|é)rico|concreto|espec(i|í)fico|vago|nombra|objeto)|(gen(e|é)rico|vago).{0,120}Operaci(o|ó)n exitosa|['\"]Error['\"].{0,120}(gen(e|é)rico|qu(e|é) pas(o|ó)|vago)",
+          "description": "Critica el copy genérico ('Operación exitosa' o 'Error')"
+        }
+      ]
+    },
+    {
+      "id": "destructive-confirm-vs-undo",
+      "description": "Elige deshacer para archivar (reversible y frecuente) y una confirmación fuerte (escribir el nombre) para borrar la organización, con botones de verbo + objeto en vez de '¿Estás seguro?' Sí/No.",
+      "input": "En nuestra app de comunidades, archivar una conversación abre un modal '¿Estás seguro?' con botones 'Sí' / 'No', y borrar toda la organización (con sus miembros, pagos y contenido, sin vuelta atrás) abre exactamente el mismo modal. La gente se queja de que archivar es lento y una vez alguien borró la organización sin querer. No ejecutes nada: proponé cómo debería funcionar cada acción y el copy.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "deshacer|undo",
+          "description": "Propone deshacer para archivar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(sin|eliminar|quitar|sacar|no (usar|mostrar|hace falta)).{0,40}(modal|di(a|á)logo|confirmaci(o|ó)n).{0,80}archiv|archiv.{0,120}(sin|eliminar|quitar|sacar|no (usar|mostrar|hace falta)).{0,40}(modal|di(a|á)logo|confirmaci(o|ó)n)",
+          "description": "Saca la confirmación de archivar"
+        },
+        {
+          "type": "regex",
+          "pattern": "escrib(ir|a|í|e).{0,60}nombre|tipe(ar|á).{0,40}nombre|type.{0,30}name",
+          "description": "Pide escribir el nombre de la organización para habilitar el borrado"
+        },
+        {
+          "type": "regex",
+          "pattern": "Eliminar (la )?organizaci(o|ó)n|Borrar (la )?organizaci(o|ó)n|verbo.{0,20}objeto",
+          "description": "Usa un botón destructivo con verbo y objeto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(consecuencia|se (borrar|eliminar)(a|á)n|miembros.{0,40}pagos|qu(e|é) se pierde)",
+          "description": "Explica las consecuencias concretas en la confirmación"
+        },
+        {
+          "type": "regex",
+          "pattern": "(foco|focus).{0,60}(Cancelar|cancel)|(Cancelar|cancel).{0,60}(foco|focus)",
+          "description": "Pone el foco inicial en Cancelar en el diálogo destructivo"
+        }
+      ]
+    },
+    {
+      "id": "refetch-keeps-previous-data",
+      "description": "Separa la carga inicial (skeleton con la forma de la tabla) de la recarga al filtrar o paginar (mantener los datos anteriores con un indicador sutil), evitando el spinner de página completa.",
+      "input": "Mi tabla de pagos (React + TanStack Query) muestra un spinner que tapa toda la página cada vez que el usuario cambia de página, ordena una columna o cambia el filtro de fecha, y cuando vuelve la respuesta el scroll salta arriba. La primera carga también es ese spinner. Las respuestas tardan entre 400 ms y 1,5 s. No ejecutes nada: explicá qué debería mostrar en cada caso y mostrame el código.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["skeleton", "Skeleton"],
+          "description": "Usa skeleton para la carga inicial"
+        },
+        {
+          "type": "regex",
+          "pattern": "placeholderData|keepPreviousData|keep previous|datos (anteriores|previos|viejos)|mantener (las filas|los datos)",
+          "description": "Mantiene los datos anteriores durante la recarga"
+        },
+        {
+          "type": "regex",
+          "pattern": "isFetching|isPlaceholderData|opacidad|opacity|atenuad|barra (fina|de progreso)|indicador sutil",
+          "description": "Muestra un indicador sutil de recarga sobre los datos existentes"
+        },
+        {
+          "type": "regex",
+          "pattern": "carga inicial.{0,200}recarga|recarga.{0,200}carga inicial|primera carga.{0,200}(refetch|recarga)|isLoading.{0,200}isFetching|isPending.{0,200}isFetching",
+          "description": "Distingue explícitamente la carga inicial de la recarga"
+        },
+        {
+          "type": "regex",
+          "pattern": "scroll",
+          "description": "Aborda la pérdida de scroll"
+        },
+        {
+          "type": "regex",
+          "pattern": "aria-busy|aria-live|role=\"status\"|lector de pantalla|screen reader",
+          "description": "Hace accesible el estado de carga"
+        }
+      ]
+    },
+    {
+      "id": "file-upload-flow",
+      "description": "Diseña un upload múltiple con validación previa de tipo y tamaño, progreso y reintento por archivo, éxito parcial del lote y alternativa al drag and drop.",
+      "input": "Tengo que hacer la pantalla para que un profesor suba hasta 20 PDFs o videos (máximo 500 MB cada uno) como material de un curso. Hoy es un `<input type=file multiple>` y un botón 'Subir' que manda todo junto; si uno falla sale un alert('Error al subir') y no se sabe cuál. No ejecutes nada: diseñame la experiencia completa, con los componentes y todos los estados.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(antes de subir|al seleccionar|al elegir|antes de (enviar|empezar)).{0,120}(tipo|tama(n|ñ)o|500)|(tipo|tama(n|ñ)o|500).{0,120}(antes de subir|al seleccionar|al elegir)",
+          "description": "Valida tipo y tamaño antes de subir"
+        },
+        {
+          "type": "regex",
+          "pattern": "por archivo|cada archivo|de cada uno|individual",
+          "description": "Muestra progreso y estado por archivo"
+        },
+        {
+          "type": "regex",
+          "pattern": "reintentar|retry",
+          "description": "Permite reintentar el archivo que falló"
+        },
+        {
+          "type": "regex",
+          "pattern": "parcial|([0-9]+ de [0-9]+)|algunos (archivos )?(fallaron|no se)",
+          "description": "Contempla el éxito parcial del lote"
+        },
+        {
+          "type": "regex",
+          "pattern": "drop ?zone|zona de (arrastre|soltar)|arrastr",
+          "description": "Propone drop zone"
+        },
+        {
+          "type": "regex",
+          "pattern": "(bot(o|ó)n|input|seleccionar archivos|teclado).{0,80}(respaldo|alternativ|fallback|tambi(e|é)n)|(respaldo|alternativ|fallback).{0,80}(bot(o|ó)n|input|teclado)",
+          "description": "Mantiene una alternativa accesible al drag and drop"
+        },
+        {
+          "type": "regex",
+          "pattern": "cancelar",
+          "description": "Permite cancelar subidas en curso"
+        }
+      ]
+    },
+    {
+      "id": "light-mode-invite-button",
+      "description": "En modo liviano, al agregar un botón 'Invitar' que llama a la API, cubre pending, doble envío, error que conserva el input y el canal de la confirmación, sin generar un rediseño completo de la pantalla.",
+      "input": "Agregá en `components/members/invite-form.tsx` (React) un campo email y un botón 'Invitar' que llame a `inviteMember(email)`, que devuelve una promesa. El resto de la pantalla de miembros ya existe y no hay que tocarlo. Mostrame el código del componente.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "disabled|isPending|pending|isSubmitting|loading",
+          "description": "El botón muestra un estado pending mientras se envía"
+        },
+        {
+          "type": "regex",
+          "pattern": "doble (env(i|í)o|click|clic)|double[- ]submit|dos veces|m(a|á)s de una vez",
+          "description": "Previene el doble envío"
+        },
+        {
+          "type": "regex",
+          "pattern": "catch|onError|isError|error",
+          "description": "Maneja el error de la acción"
+        },
+        {
+          "type": "regex",
+          "pattern": "conserv|mantien|no (se )?(borra|limpia|pierde)|preserv",
+          "description": "Conserva el email ingresado ante un error"
+        },
+        {
+          "type": "regex",
+          "pattern": "toast|aria-live|role=\"status\"|role=\"alert\"",
+          "description": "Da feedback del resultado por un canal accesible"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["## Matriz de estados"],
+          "description": "No convierte un cambio puntual en el reporte completo"
+        }
+      ]
+    },
+    {
+      "id": "no-ui-cli-out-of-scope",
+      "description": "Ante un script de backend sin interfaz, no aplica matrices de estados, skeletons ni toasts.",
+      "input": "Escribí un script Node `scripts/purge-expired-sessions.mjs` que borre de Postgres las sesiones vencidas hace más de 30 días usando `pg` y que imprima por consola cuántas filas borró. Mostrame solo el código.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["DELETE", "delete"],
+          "description": "Resuelve la tarea pedida"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["skeleton", "empty state", "Matriz de estados", "toast", "snackbar"],
+          "description": "No aplica patrones de UI a un script sin interfaz"
+        }
+      ]
+    }
+  ]
+}
