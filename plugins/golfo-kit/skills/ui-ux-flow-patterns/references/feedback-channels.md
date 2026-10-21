@@ -29,13 +29,13 @@ Ordenados de menos a más interruptivo:
 
 Recorrer en orden y quedarse con la primera respuesta que aplique:
 
-1. **¿El resultado ya se ve en pantalla donde el usuario está mirando y la acción no necesita "Deshacer"?** (el ítem aparece, el valor cambia) → cambio directo de la UI, sin toast. Agregar un toast acá es ruido. **Excepción:** si es una acción reversible que se hace de inmediato y se ofrece deshacer (archivar, mover, quitar una etiqueta, mandar a la papelera; ver [confirmar o deshacer](#confirmar-o-deshacer)), el cambio directo de la UI va acompañado de un toast con "Deshacer" aunque el resultado esté a la vista: ese toast no confirma, da la salida.
-2. **¿Es sobre un campo o control concreto?** (validación, guardado de un campo, pending) → inline junto al control.
-3. **¿El usuario tiene que decidir antes de seguir y la acción no se puede deshacer?** → diálogo de confirmación ([confirmar o deshacer](#confirmar-o-deshacer)).
-4. **¿Es una condición que sigue vigente y requiere atención o acción?** (error que persiste, offline, falta configurar algo, cuota casi llena) → banner en la página o sección afectada. No toast: un toast que desaparece no sirve para algo que sigue pasando.
-5. **¿Es la confirmación de una acción que salió bien pero cuyo resultado no está a la vista?** (se envió una invitación, se archivó y el ítem desapareció, se copió al portapapeles, terminó un proceso en segundo plano) → toast, con "Deshacer" si la acción es reversible.
-6. **¿Falló una acción y el usuario ya no está en el contexto donde la hizo?** → toast de error **con acción** ("Reintentar") que no se descarta solo, o un banner si el problema persiste.
-7. **¿Es el final de un flujo largo o con consecuencias?** (pago, envío de solicitud, alta de cuenta) → página o paso de confirmación con qué pasó, qué sigue y un comprobante.
+1. **¿Es el cierre exitoso de un flujo largo o con consecuencias?** (pago, envío de solicitud, alta de cuenta) → página o paso de confirmación con qué pasó, qué sigue y un comprobante.
+2. **¿El usuario tiene que decidir antes de seguir y la acción no se puede deshacer?** → diálogo de confirmación ([confirmar o deshacer](#confirmar-o-deshacer)).
+3. **¿Es sobre un campo o control concreto?** (validación, guardado de un campo, pending) → inline junto al control.
+4. **¿El resultado ya se ve en pantalla donde el usuario está mirando y la acción no necesita "Deshacer"?** (el ítem aparece, el valor cambia) → cambio directo de la UI, sin toast. Agregar un toast acá es ruido. **Excepción:** si es una acción reversible que se hace de inmediato y se ofrece deshacer (archivar, mover, quitar una etiqueta, mandar a la papelera; ver [confirmar o deshacer](#confirmar-o-deshacer)), el cambio directo de la UI va acompañado de un toast con "Deshacer" aunque el resultado esté a la vista: ese toast no confirma, da la salida.
+5. **¿Falló una acción y el usuario ya no está en el contexto donde la hizo?** → toast de error **con acción** ("Reintentar") que no se descarta solo, o un banner si el problema persiste.
+6. **¿Es una condición que sigue vigente y requiere atención o acción?** (error que persiste, offline, falta configurar algo, cuota casi llena) → banner en la página o sección afectada. No toast: un toast que desaparece no sirve para algo que sigue pasando.
+7. **¿Es la confirmación de una acción que salió bien pero cuyo resultado no está a la vista?** (se envió una invitación, se archivó y el ítem desapareció, se copió al portapapeles, terminó un proceso en segundo plano) → toast, con "Deshacer" si la acción es reversible.
 8. **¿Es un conteo o estado de un objeto?** → badge o chip.
 
 Si dos canales parecen válidos, elegir el **menos interruptivo** que garantiza que el usuario lo vea y pueda actuar.
