@@ -182,9 +182,18 @@
           "description": "Envuelve los datos runtime del layout en su propio Suspense"
         },
         {
-          "type": "regex",
-          "pattern": "mover.{0,40}(page|página)|a la página|en la página",
-          "description": "Propone mover datos del layout a la página cuando corresponde"
+          "type": "contains_any",
+          "values": [
+            "a la página",
+            "en la página",
+            "page.tsx",
+            "mover datos",
+            "mové los datos",
+            "componente propio",
+            "dentro de <Suspense>",
+            "dentro de `<Suspense>`"
+          ],
+          "description": "Saca los datos del top-level del layout: a la página o a un componente dentro de su propio Suspense"
         },
         {
           "type": "regex",
@@ -264,7 +273,12 @@
             "traga",
             "se come",
             "captura el error de notFound",
-            "atrapa"
+            "atrapa",
+            "capturaba",
+            "elimina el `try",
+            "elimina el try",
+            "quitar el try",
+            "sacar el try"
           ],
           "description": "Detecta que el try/catch se traga notFound()"
         },
@@ -300,7 +314,7 @@
     },
     {
       "id": "pages-router-out-of-scope",
-      "description": "Reconoce que en Pages Router no existen loading.tsx/error.tsx por segmento y no inventa esos archivos.",
+      "description": "Reconoce que en Pages Router no existen loading.tsx/error.tsx por segmento, lo dice explícitamente y ofrece alternativas o migración.",
       "input": "Mi proyecto es Next.js 13 pero con Pages Router (`pages/_app.tsx`, `pages/members.tsx` con getServerSideProps). ¿Dónde pongo el `loading.tsx` y el `error.tsx` para la página de miembros? No ejecutes nada.",
       "assertions": [
         {
@@ -322,12 +336,15 @@
           "description": "Ofrece las alternativas de Pages Router o la migración"
         },
         {
-          "type": "not_contains_any",
+          "type": "contains_any",
           "values": [
-            "pages/members/loading.tsx",
-            "pages/loading.tsx"
+            "no haría nada",
+            "no existen",
+            "solo existen en App Router",
+            "no aplica",
+            "no hay lugar"
           ],
-          "description": "No inventa loading.tsx dentro de pages/"
+          "description": "Dice explícitamente que crear esos archivos en pages/ no tiene efecto"
         }
       ]
     }
