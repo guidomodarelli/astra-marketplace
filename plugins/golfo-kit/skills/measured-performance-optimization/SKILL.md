@@ -1,9 +1,9 @@
 ---
 name: measured-performance-optimization
-description: 'Mide y optimiza rendimiento web: app web lenta, Core Web Vitals, bundle, renders, caching o queries N+1.'
+description: 'Mide y optimiza rendimiento web: app lenta, Core Web Vitals, bundle, renders, caching o N+1. Usar también sin pedido explícito al crear un flujo nuevo o sumarle a uno existente requests, llamadas, queries o pasos nuevos; no en refactors, fixes ni cambios de copy o estilos que no agregan carga.'
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "performance"
   tags: "performance, web-vitals, bundle, caching, n+1, lazy-loading, chrome-devtools, playwright, sentry"
@@ -19,6 +19,31 @@ Optimiza una aplicación web de punta a punta (frontend, red, backend y base de 
 - Revisar un diff buscando riesgos de performance sin optimizar ni medir: `review-performance`.
 - Detalle de patrones de render en React (`startTransition`, `useMemo`, `React.memo`, equality guards): `react-render-performance-patterns`. Esta skill decide *si* el render es el cuello de botella y mide; esa define *cómo* arreglarlo.
 - Arquitectura de fetching SSR/BFF: `refactor-ssr-data-fetching`.
+
+## Invocación automática por funcionalidad nueva
+
+Además de los pedidos explícitos de optimización, usar esta skill por iniciativa propia cuando el trabajo **agrega carga nueva** a la app: el costo de rendimiento es más barato de evitar al diseñar el flujo que de encontrar después en producción.
+
+**Se activa** cuando el cambio crea un flujo nuevo (página, interacción, endpoint, job) o le suma a uno existente trabajo que antes no hacía, por ejemplo:
+
+- una request o llamada nueva (API propia, servicio externo, server action, fetch en el cliente);
+- una query o acceso nuevo a base de datos, sobre todo dentro de un loop o por ítem;
+- un paso nuevo dentro del flujo (otro `await` en la cadena, otra pantalla de un wizard, otra validación remota);
+- una dependencia de cliente pesada, una imagen grande, un script de terceros, polling o listeners nuevos.
+
+**No se activa** ante cambios que no agregan trabajo por request, render o navegación: refactors sin cambio de comportamiento, fixes que no suman llamadas, copy, estilos, tipos, tests, docs, renombres, ni cambios que quitan carga. Criterio ante la duda: ¿después del cambio el flujo hace algo que antes no hacía (otra llamada, otra query, otro paso, más bytes)? Si no, no aplica.
+
+En este modo la skill acompaña la implementación sin reemplazarla y se acota al costo agregado:
+
+1. **Inventariar la carga nueva**: qué requests, queries, pasos y bytes suma el cambio y en qué flujo crítico (paso 1).
+2. **Revisar las señales** de la referencia del área afectada (tabla del paso 4): N+1 por un `await` dentro de un loop, cascadas secuenciales evitables, requests duplicadas o sin cache, listados sin límite, imports pesados en el bundle inicial. Si una señal aparece mientras se diseña, elegir directamente la forma correcta (batch, `WHERE IN`, `Promise.all`, import dinámico) en lugar de implementar la versión lenta para optimizarla después.
+3. **Medir el costo agregado** con las condiciones del paso 3:
+   - Flujo existente: la línea base es la revisión sin la funcionalidad nueva (medirla antes de agregarla o, si ya está agregada, sobre el commit base) y se compara contra la revisión con la funcionalidad.
+   - Flujo nuevo: no hay "antes"; medir el costo absoluto (requests por carga, queries por request, KB de JS agregado, latencia p95) y compararlo con un flujo análogo existente o con el presupuesto del proyecto si lo hay.
+4. **Optimizar solo si hay un hallazgo**: aplicar los pasos 4 a 6 a ese hallazgo. Si el costo agregado es razonable, no tocar nada más.
+5. **Reportar** con el formato del paso 7, con una fila por carga nueva medida ("Antes" = revisión sin la funcionalidad, o "— (flujo nuevo)").
+
+Si no se puede medir, no bloquear la entrega de la funcionalidad: la detención del paso 3 aplica a pedidos de optimización. Declarar en **Sin medir** qué faltó y cómo medirlo, y dejar las optimizaciones no medidas como hipótesis en **Próximos pasos**, sin aplicarlas.
 
 ## Flujo obligatorio
 

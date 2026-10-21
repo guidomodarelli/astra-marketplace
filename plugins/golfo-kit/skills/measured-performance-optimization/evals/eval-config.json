@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "measured-performance-optimization",
-  "description": "Evalúa optimización de rendimiento guiada por medición: línea base antes del cambio, una optimización por vez, medición posterior con las mismas condiciones, uso de Chrome DevTools/Playwright/Sentry, corrección de N+1 con JOIN o WHERE IN, lazy loading, caching y assets.",
+  "description": "Evalúa optimización de rendimiento guiada por medición: línea base antes del cambio, una optimización por vez, medición posterior con las mismas condiciones, uso de Chrome DevTools/Playwright/Sentry, corrección de N+1 con JOIN o WHERE IN, lazy loading, caching y assets. También evalúa el modo automático ante funcionalidad nueva: inventaria la carga agregada y la mide contra la revisión sin esa funcionalidad.",
   "test_cases": [
     {
       "id": "n-plus-one-users-orders",
@@ -139,6 +139,33 @@
             "^[[:space:]]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*|[^|]*[0-9]"
           ],
           "description": "No inventa valores en ninguna fila de resultados: las celdas Antes (cuarta columna), Después (quinta columna) y Delta (sexta columna) no contienen dígitos, con o sin unidad (ms, s, KB, MB, %, conteos de requests, queries o renders), aunque vayan precedidos por un placeholder; las columnas #, Optimización y Métrica pueden tener números"
+        }
+      ]
+    },
+    {
+      "id": "new-step-adds-per-item-requests",
+      "description": "Ante un paso nuevo en un flujo existente que agrega una request por ítem, detecta la carga nueva, propone agruparla en una sola request y mide contra la revisión sin el paso.",
+      "input": "Usando measured-performance-optimization: estoy agregando al checkout, que ya existía, un paso nuevo que valida stock antes de mostrar el resumen. Lo implementé así: `for (const item of cart.items) { item.stock = await fetch(`/api/stock?sku=${item.sku}`).then((response) => response.json()) }`. Los carritos tienen entre 5 y 40 ítems. No ejecutes ni edites nada: decime qué harías con este agregado antes de darlo por terminado.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "N\\+1|n\\+1|cascada|waterfall|secuencial|sequential|una request por (í|i)tem|por cada (í|i)tem",
+          "description": "Identifica la request por ítem dentro del loop como N+1 o cascada secuencial"
+        },
+        {
+          "type": "regex",
+          "pattern": "batch|lote|skus=|sku[s]?\\[\\]|WHERE[^.;]{0,30}IN|una (sola|(ú|u)nica) (request|llamada|petici)|single (request|call)|endpoint[^.;]{0,30}(varios|m(ú|u)ltiples|lista|todos los)|Promise\\.all",
+          "description": "Propone agrupar las consultas de stock (batch, una sola request con la lista de SKUs, WHERE IN) o al menos paralelizarlas"
+        },
+        {
+          "type": "regex",
+          "pattern": "sin (el|ese|este) (paso|agregado|cambio)|revisi(ó|o)n (anterior|base|previa)|commit base|antes de (agregar|sumar|incorporar)|l(í|i)nea base|baseline",
+          "description": "Toma como línea base el checkout sin el paso nuevo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(cantidad|n(ú|u)mero|cu(á|a)ntas|count|conteo|contar)[^.;]{0,60}(requests?|llamadas|peticiones|fetch)|(requests?|llamadas|peticiones)[^.;]{0,40}(por carga|por checkout|por ítem|por item|agregad)",
+          "description": "Usa la cantidad de requests agregadas como métrica"
         }
       ]
     }
