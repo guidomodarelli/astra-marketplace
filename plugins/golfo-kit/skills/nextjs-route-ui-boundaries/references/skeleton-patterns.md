@@ -52,13 +52,14 @@ Adaptar nombres de clases, primitivo `Skeleton` y forma de estilos a las convenc
 
 1. **Misma forma que el contenido.** Reusar las clases de layout de la página (contenedor, grid, gaps). Si la página tiene 3 columnas de cards, el skeleton también.
 2. **Alturas reales.** Cada placeholder con la altura del elemento final (línea de texto, avatar, fila de tabla). Una cantidad de filas parecida a la típica (o al tamaño de página de la paginación).
-3. **Mostrar lo conocido.** Títulos de sección, labels de filtros, tabs y botones que no dependen de datos se renderizan reales (deshabilitados si su acción depende de los datos).
+3. **Mostrar lo conocido.** Títulos de sección, breadcrumbs estáticos, labels de filtros, tabs y botones que no dependen de datos se renderizan reales (deshabilitados si su acción depende de los datos).
 4. **Un skeleton por boundary.** El de `loading.tsx` cubre la página; cada `<Suspense>` interno tiene el skeleton de su bloque. Si la página usa ambos, el skeleton de `loading.tsx` se compone de los skeletons de bloque para que no diverjan.
 5. **Accesible.** Contenedor con `aria-busy="true"` y un texto oculto visualmente que diga qué se carga; placeholders con `aria-hidden="true"`. Si la región es `aria-live`, no anunciar cada placeholder.
 6. **Motion contenido.** Shimmer o pulse sutil, desactivado con `@media (prefers-reduced-motion: reduce)`. Respetar los tokens de motion del proyecto.
 7. **Sin layout shift.** Medir antes/después (CLS en Lighthouse o el overlay de Layout Shift en DevTools): el reemplazo skeleton → contenido no debería mover nada que no sea el placeholder mismo.
 8. **No para respuestas instantáneas.** Si el bloque tarda menos que un frame en promedio, un skeleton genera parpadeo. Preferir cachear o renderizar directo.
 9. **Ubicación.** El skeleton de una pantalla vive junto a sus componentes (no dentro de `app/`), así lo reutilizan `loading.tsx`, `<Suspense>` y los tests.
+10. **Reutilización.** Construirlo con el primitivo de skeleton del design system del proyecto. Extraer el skeleton de cada pantalla a un componente propio cuando lo usan `loading.tsx` y un `<Suspense>` de la misma página, para que no diverjan. Segmentos hijos con la misma forma reexportan el skeleton del padre (`export { default } from "../loading";`) en vez de duplicarlo.
 
 ## Spinners y texto: cuándo sí
 

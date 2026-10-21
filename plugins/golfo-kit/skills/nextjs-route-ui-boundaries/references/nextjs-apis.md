@@ -67,7 +67,7 @@ Usarlos dentro de islas cliente pequeñas, nunca para convertir el contenedor en
 
 | API | Aporta valor cuando |
 |---|---|
-| `notFound()` | El recurso no existe; renderiza el `not-found.tsx` más cercano. Llamarlo antes del primer `await` que suspenda para poder devolver 404. |
+| `notFound()` | El recurso no existe; renderiza el `not-found.tsx` más cercano. Para recursos dinámicos, llamarlo después del lookup aunque esté dentro de `<Suspense>`: con el streaming iniciado la respuesta sale 200 con `<meta name="robots" content="noindex">`. Solo si se requiere un HTTP 404 real (compliance, analytics), chequear antes de que empiece el streaming o en `proxy`. Ver [decision-rules.md](decision-rules.md#not-foundtsx-forbidden-unauthorized). |
 | `redirect()` / `permanentRedirect()` | Redirigir desde Server Components, Server Actions o Route Handlers (307/303 vs 308). |
 | `forbidden()` / `unauthorized()` (**experimental**) | 403/401 con su archivo especial; mejor que ocultar con 404. |
 | `catchError()` (`next/error`) | Error boundary a nivel componente (widget, gráfico, embed) sin `error.tsx` de ruta; integra `retry` de Next.js. |

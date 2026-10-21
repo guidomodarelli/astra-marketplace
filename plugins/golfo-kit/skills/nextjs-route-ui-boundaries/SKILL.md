@@ -56,51 +56,25 @@ Marcar en cada `page.tsx` y `layout.tsx`: `await` de datos, lectura de `params` 
 
 ## 2. Decidir cada archivo especial
 
-Usar las reglas de [decision-rules.md](references/decision-rules.md). Resumen:
+Leer [decision-rules.md](references/decision-rules.md) antes de decidir: es la fuente única de los criterios. Para cada segmento del mapa, recorrer en este orden:
 
-| Archivo | Ponerlo cuando | No ponerlo cuando |
-|---|---|---|
-| `layout.tsx` compartido | Dos o más rutas hermanas repiten la misma chrome (sidebar, header, tabs, breadcrumbs base) o el mismo provider. Agruparlas con un route group `(nombre)` si no comparten prefijo de URL. | La UI "compartida" cambia por página o necesita resetear estado al navegar (usar `template.tsx`). Nunca para leer `searchParams`: el layout no se re-renderiza y quedarían stale. |
-| `loading.tsx` | El segmento espera datos (o lee datos runtime) antes de pintar. Con navegaciones instantáneas, **cada segmento que espera** necesita su propio `loading.tsx`: el de un segmento padre no cubre la navegación entre hermanos. | La página es estática o cacheada y renderiza sin esperar. No sirve para datos que espera el `layout.tsx` del mismo segmento. |
-| `<Suspense>` dentro de la página | Hay partes con latencias distintas: el título y los filtros pueden salir ya, la tabla espera. Un boundary por bloque independiente, con su skeleton. | El bloque es barato o no tiene sentido mostrarlo a medias. |
-| `error.tsx` | El segmento hace I/O que puede fallar y conviene que el resto de la app (sidebar, header) siga usable. Ubicarlo en el nivel más bajo que todavía muestre contexto útil. | Repetirlo idéntico en cada hoja: un `error.tsx` en el segmento padre cubre a los hijos. Recordar que **no** captura errores del `layout.tsx` del mismo segmento. |
-| `global-error.tsx` | Siempre, una vez en la raíz: es lo único que cubre errores del root layout. Lleva su propio `<html>`/`<body>`. | — |
-| `not-found.tsx` | El segmento recibe un id/slug que puede no existir y la página llama a `notFound()`. Llamar `notFound()` antes de cualquier `await` que suspenda para poder devolver 404. | Para errores de permisos: usar `forbidden()` / `unauthorized()` si la versión lo soporta, o un estado vacío explícito. |
-| `template.tsx` | Hay que resetear estado de hijos cliente o re-disparar un efecto en cada navegación, o mostrar el fallback de Suspense en cada navegación. | Por defecto: un template remonta en cada navegación y pierde las ventajas del layout. |
+1. Jerarquía de render y qué cubre cada boundary: [introducción de decision-rules.md](references/decision-rules.md#reglas-de-decisión-por-archivo-especial).
+2. Chrome compartida: [layout.tsx compartido](references/decision-rules.md#layouttsx-compartido).
+3. Espera de datos: [loading.tsx](references/decision-rules.md#loadingtsx) y [Suspense granular](references/decision-rules.md#suspense-granular).
+4. Fallos: [error.tsx](references/decision-rules.md#errortsx), incluidos `global-error.tsx` y los error boundaries de componente.
+5. Recursos inexistentes o sin permiso: [not-found.tsx, forbidden, unauthorized](references/decision-rules.md#not-foundtsx-forbidden-unauthorized).
+6. Remontaje por navegación: [template.tsx](references/decision-rules.md#templatetsx).
+7. Regiones independientes de una misma URL: [Parallel e intercepting routes](references/decision-rules.md#parallel-e-intercepting-routes).
 
-Errores de un componente puntual (un widget de terceros, un gráfico) se contienen con un error boundary de componente (`catchError` o el patrón del proyecto), no con un `error.tsx` de ruta.
+Registrar cada decisión en la tabla del reporte y reportar los [anti-patrones](references/decision-rules.md#anti-patrones-a-reportar) que aparezcan en los segmentos analizados.
 
 ## 3. Decidir qué renderiza el server
 
-Por defecto todo es Server Component. Bajar a cliente **solo la hoja interactiva**, nunca el contenedor entero. Ver el catálogo por elemento en [server-client-split.md](references/server-client-split.md).
-
-Regla general:
-
-```text
-Server: estructura, datos, permisos, links, listas, textos, íconos, markup estático
-Cliente: estado efímero, handlers, hooks de browser (usePathname para resaltar el link activo,
-         useState para colapsar, refs, media queries, drag & drop)
-```
-
-Ejemplo típico, el sidebar:
-
-- El `<aside>`, la lista de navegación filtrada por permisos, los `<Link>` y los íconos se renderizan en server dentro del `layout.tsx`.
-- El resaltado del link activo es una isla cliente pequeña (`usePathname`) que envuelve o recibe los items, o un `NavLink` cliente por item.
-- El estado colapsado/expandido se lee de una cookie en server para que el primer HTML ya salga con el ancho correcto (sin salto), y un botón cliente lo alterna y persiste la cookie.
-- Si los items dependen de datos runtime (usuario, membresías), envolver esa parte en `<Suspense>` con un skeleton del sidebar, para que el resto del layout no bloquee la navegación.
-
-Pasar Server Components como `children` o props a un componente cliente en lugar de importarlos dentro de él: así siguen renderizándose en server.
+Por defecto todo es Server Component y solo baja a cliente **la hoja interactiva**, nunca el contenedor entero. Leer [server-client-split.md](references/server-client-split.md) y, para cada elemento de la pantalla, aplicar el reparto, las preguntas y el catálogo (sidebar, header, tablas, filtros, formularios, gráficos y demás), con sus [patrones de composición](references/server-client-split.md#patrones-de-composición), y registrar cada cambio en la tabla "Server vs cliente" del reporte.
 
 ## 4. Skeletons en vez de texto plano
 
-Un `loading.tsx` que devuelve "Cargando..." o un spinner centrado provoca salto de layout (CLS) y no anticipa nada. Reemplazarlo por un skeleton que replique la **forma final** del segmento. Ver [skeleton-patterns.md](references/skeleton-patterns.md).
-
-- Mismo contenedor, grid y anchos que la página real; placeholders con la altura de cada bloque (título, toolbar, filas de tabla, cards).
-- Mostrar sin placeholder lo que ya se conoce: título de la sección, breadcrumbs estáticos, botones primarios deshabilitados.
-- Accesibilidad: el contenedor con `aria-busy="true"` y un texto solo para lectores de pantalla ("Cargando miembros"), placeholders con `aria-hidden="true"`. No anunciar cada placeholder.
-- Animación de shimmer/pulse desactivada con `prefers-reduced-motion`.
-- Reutilizar el primitivo de skeleton del design system y extraer el skeleton de cada pantalla a un componente propio cuando lo usan `loading.tsx` y un `<Suspense>` de la misma página, para que no diverjan.
-- Segmentos hijos que comparten la misma forma pueden reexportar el skeleton del padre (`export { default } from "../loading"`) en vez de duplicarlo.
+Un `loading.tsx` o un fallback de `<Suspense>` que devuelve texto ("Cargando...") o un spinner centrado se reemplaza por un skeleton con la **forma final** del segmento. Antes de escribirlo, leer las [reglas de skeleton-patterns.md](references/skeleton-patterns.md#reglas) y cumplir cada una en el código entregado (forma, alturas, contenido conocido, accesibilidad, motion con `prefers-reduced-motion`, ubicación y reutilización); usar spinners o texto solo en los [casos que esa referencia admite](references/skeleton-patterns.md#spinners-y-texto-cuándo-sí).
 
 ## 5. Aplicar y verificar
 

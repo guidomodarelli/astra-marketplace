@@ -2,6 +2,14 @@
 
 Principio: el server renderiza la estructura y los datos; el cliente agrega solo la interactividad que necesita el browser. Cuando un elemento mezcla ambas cosas, se parte: contenedor en server, hoja interactiva en cliente.
 
+Reparto por defecto:
+
+```text
+Server: estructura, datos, permisos, links, listas, textos, íconos, markup estático
+Cliente: estado efímero, handlers, hooks de browser (usePathname para resaltar el link activo,
+         useState para colapsar, refs, media queries, drag & drop)
+```
+
 Preguntas para cada elemento:
 
 1. ¿Necesita estado, handlers, refs, efectos o APIs del browser? Si no, es server.
@@ -12,7 +20,7 @@ Preguntas para cada elemento:
 
 | Elemento | Server | Isla cliente | Notas |
 |---|---|---|---|
-| Sidebar / nav principal | `<aside>`, items filtrados por permisos, `<Link>`, íconos, badges con conteos | Resaltado del link activo (`usePathname`), botón colapsar, drawer en mobile | Estado colapsado en cookie leída en server. Items que dependen del usuario dentro de `<Suspense>` con skeleton del sidebar. |
+| Sidebar / nav principal | `<aside>`, items filtrados por permisos, `<Link>`, íconos, badges con conteos, todo dentro del `layout.tsx` | Resaltado del link activo (`usePathname`) como isla que envuelve o recibe los items, o un `NavLink` cliente por item; botón colapsar que alterna y persiste la cookie; drawer en mobile | Estado colapsado en cookie leída en server para que el primer HTML salga con el ancho correcto, sin salto. Items que dependen de datos runtime (usuario, membresías) dentro de `<Suspense>` con skeleton del sidebar, para que el resto del layout no bloquee la navegación. |
 | Header / topbar | Logo, título de la sección, nombre y avatar del usuario | Menú de usuario (dropdown), toggle de tema, buscador con atajo de teclado, campana de notificaciones en vivo | El dropdown recibe el contenido ya renderizado como `children`. |
 | Breadcrumbs | Derivados de la ruta y de los datos del recurso (nombre de la tribu, del curso) | Solo si se truncan dinámicamente según el ancho | Generarlos en la página o con `generateMetadata`/datos del segmento, no en el layout si dependen de `params`. |
 | Tabs de sección | Lista de tabs como `<Link>` | Indicador de tab activa (`useSelectedLayoutSegment`) | Las tabs viven en el layout de la sección. |
