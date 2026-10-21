@@ -12,6 +12,9 @@ metadata:
 
 # Codex auto-fix loop (local, vía Claude Code)
 
+> **Primera acción al lanzar o relanzar el loop:** preguntá el tope de rondas de
+> `@codex review` antes de cualquier otra cosa (ver paso 0 de «Cómo relanzarlo»).
+
 Loop local que escucha comentarios de **Codex** (`chatgpt-codex-connector[bot]`)
 en un PR y **spawnea subagentes en paralelo** (uno por GRUPO de archivo, tantos
 como permitan la CPU, la RAM y el disco libres en cada vuelta) que delegan el fix en la skill
@@ -104,7 +107,10 @@ inicial del PR es la ronda 0. Si ya se postearon `{{MAX_REVIEW_ROUNDS}}` y la ú
 review sigue dejando hallazgos realistas, NO postees otra ni mergees: auto-cancelá el
 loop y mandá una PushNotification de una línea («PR #N no convergió en
 {{MAX_REVIEW_ROUNDS}} rondas: conviene reconsiderar el enfoque», con los hallazgos
-abiertos). Esos hallazgos quedan sin cerrar para que los vea una persona.
+abiertos). Esos hallazgos quedan sin cerrar para que los vea una persona. Con
+`{{MAX_REVIEW_ROUNDS}}` = `sin límite` este tope nunca se agota (`reviewRounds >=
+{{MAX_REVIEW_ROUNDS}}` es siempre falso): el loop sigue hasta la review limpia, el corte
+por convergencia, el tope de solo tests o el cierre del PR.
 
 **Tope de rondas de solo tests:** una ronda es «de solo tests» cuando todos los commits que
 entraron al PR desde la última clasificación (los fixes de esa ronda y cualquier commit
@@ -184,6 +190,21 @@ Reglas del pedido a Codex:
 
 ## Cómo relanzarlo (cualquier PR)
 
+0. Definí `{{MAX_REVIEW_ROUNDS}}` con el usuario apenas se activa la skill: es la
+   **primera acción**, antes de leer el PR, consultar `gh`, inicializar el estado o
+   completar placeholders. Así el usuario contesta al toque y el resto del setup corre sin
+   volver a interrumpirlo. Decide cuánto puede iterar el loop sin
+   supervisión. Si el pedido ya lo dice («sin límite», «tope 5»), usalo sin preguntar. Si
+   no, preguntá una sola vez con tres opciones:
+   - **Default** (recomendada): `{{DEFAULT_MAX_REVIEW_ROUNDS}}` rondas.
+   - **Sin límite**: `sin límite`; el loop solo corta por review limpia, convergencia,
+     tope de solo tests o cierre del PR.
+   - **Personalizado**: el usuario indica un entero positivo; si no es válido, repreguntá.
+
+   En Claude Code usá la herramienta `AskUserQuestion` (la opción «Other» cubre el valor
+   personalizado); en Codex, o si esa herramienta no está disponible, hacé la pregunta
+   directa en el chat y esperá la respuesta antes de lanzar. Esta pregunta no cambia
+   `{{MAX_TEST_ONLY_ROUNDS}}`, que sigue aplicando igual.
 1. Reemplazá los placeholders del prompt de abajo (`{{OWNER}}`, `{{REPO}}`,
    `{{PR}}`, `{{BRANCH}}`) por los del PR objetivo.
 2. Inicializá el estado de dedup del PR (vacío procesa todo el backlog; con ids
@@ -208,7 +229,8 @@ Reglas del pedido a Codex:
    /loop {{INTERVAL}} <pegá acá el prompt ya completado>
    ```
    O, más simple, decile a Claude: «relanzá el loop de Codex para el PR {{PR}}
-   usando el skill codex-autofix-loop» y completa la plantilla por vos.
+   usando el skill codex-autofix-loop» y completa la plantilla por vos (empezando por la
+   pregunta del paso 0).
 
 > **Variables globales del loop** (única fuente de verdad — cambiá SOLO estos
 > números y se propagan a todo el documento):
@@ -235,8 +257,11 @@ Reglas del pedido a Codex:
 >   recursos locales, pero sí pushes concurrentes a la rama).
 > - `{{MONITOR_POLL_SEC}}` = `30` — segundos entre consultas del `Monitor` que vigila
 >   el PR mientras está abierto (30 s o más por rate limit).
-> - `{{MAX_REVIEW_ROUNDS}}` = `3` — `@codex review` que el loop puede postear antes de
->   cortar por falta de convergencia (ver «Tope de rondas»).
+> - `{{DEFAULT_MAX_REVIEW_ROUNDS}}` = `7` — tope de `@codex review` que se ofrece por
+>   defecto al lanzar el loop.
+> - `{{MAX_REVIEW_ROUNDS}}` = elegido al lanzar (paso 0 de «Cómo relanzarlo»): un entero
+>   positivo o `sin límite` — `@codex review` que el loop puede postear antes de cortar por
+>   falta de convergencia (ver «Tope de rondas»).
 > - `{{MAX_TEST_ONLY_ROUNDS}}` = `3` — rondas consecutivas en las que los fixes solo tocan
 >   tests o evals antes de dejar de pedir reviews y mergear (ver «Tope de rondas de solo
 >   tests»). Aplica aunque se suba o se levante `{{MAX_REVIEW_ROUNDS}}`.

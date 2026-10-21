@@ -19,7 +19,7 @@ For local development, skills symlink into each provider's own skills folder (`~
 
 ## Conventions
 
-- **SKILL.md frontmatter**: `name`, `description` (max ~100 chars, include trigger keywords), `license`, `metadata` (version, author, category, tags, command). The `description` field drives skill activation — make it count.
+- **SKILL.md frontmatter**: `name`, `description` (include trigger keywords), `license`, `metadata` (version, author, category, tags, command). The `description` field drives skill activation — make it count.
 - **Branch naming**: `feature/<plugin-or-skill-name>`
 - **Commit format**: `feat(marketplace): add <name>` or `feat(skills): add <name>`
 - **Reference files are loaded on-demand** — skills declare them but only load when the relevant command executes.
