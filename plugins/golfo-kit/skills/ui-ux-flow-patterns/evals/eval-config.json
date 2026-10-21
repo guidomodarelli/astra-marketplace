@@ -89,7 +89,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(sin|eliminar|quitar|sacar|no (usar|mostrar|hace falta)).{0,40}(modal|di(a|á)logo|confirmaci(o|ó)n).{0,80}archiv|archiv.{0,120}(sin|eliminar|quitar|sacar|no (usar|mostrar|hace falta)).{0,40}(modal|di(a|á)logo|confirmaci(o|ó)n)",
+          "pattern": "(sin|eliminar|quitar|sacar|no (usar|mostrar|hace falta)).{0,40}(modal|di(a|á)logo|confirmaci(o|ó)n).{0,80}archiv|archiv.{0,120}(sin|eliminar|quitar|sacar|no (usar|mostrar|hace falta)).{0,40}(modal|di(a|á)logo|confirmaci(o|ó)n)|archiv.{0,80}(hacer ya|de inmediato|inmediatamente|al instante|sin (modal|di(a|á)logo|confirmaci(o|ó)n))|(hacer ya|de inmediato|inmediatamente).{0,60}(deshacer|undo)",
           "description": "Saca la confirmación de archivar"
         },
         {
