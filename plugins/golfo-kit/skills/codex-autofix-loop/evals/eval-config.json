@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "codex-autofix-loop",
-  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido.",
+  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop pregunta primero (default 7, sin límite o valor propio) salvo que el pedido ya lo indique, y con `sin límite` no corta por rondas.",
   "test_cases": [
     {
       "id": "third-test-only-round-merges",
@@ -299,6 +299,89 @@
             "won't request another review"
           ],
           "description": "No contiene formas negadas del pedido de `@codex review`"
+        }
+      ]
+    },
+    {
+      "id": "launch-asks-review-round-cap-first",
+      "description": "Al relanzar el loop sin indicar tope, lo primero que hace es preguntar el tope de `@codex review` con las opciones default 7, sin límite o personalizado, antes de consultar el PR.",
+      "input": "Usando codex-autofix-loop: relanzá el loop de Codex para el PR #42 de `acme/widgets` (rama `feature/widgets`). No ejecutes nada, describí en orden qué harías primero y qué opciones le darías al usuario.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(AskUserQuestion|pregunt)[^.]{0,120}(tope|rondas|MAX_REVIEW_ROUNDS)|(tope|rondas|MAX_REVIEW_ROUNDS)[^.]{0,120}(AskUserQuestion|pregunt)",
+          "description": "Pregunta al usuario el tope de rondas de review"
+        },
+        {
+          "type": "regex",
+          "pattern": "(primer|antes de)[^.]{0,120}(pregunt|AskUserQuestion|tope)|(pregunt|AskUserQuestion)[^.]{0,120}(primer|antes de)",
+          "description": "Hace la pregunta como primera acción, antes del resto del setup"
+        },
+        {
+          "type": "regex",
+          "pattern": "(default|por defecto|recomendad)[^.]{0,60}7|7[^.]{0,60}(default|por defecto|recomendad)",
+          "description": "Ofrece el default de 7 rondas"
+        },
+        {
+          "type": "regex",
+          "pattern": "sin l(í|i)mite|ilimitad|unlimited",
+          "description": "Ofrece la opción sin límite"
+        },
+        {
+          "type": "regex",
+          "pattern": "personalizad|propio|custom|(otro|cualquier) (valor|n(ú|u)mero)|entero positivo",
+          "description": "Ofrece que el usuario defina su propio tope"
+        }
+      ]
+    },
+    {
+      "id": "launch-with-explicit-unlimited-skips-question",
+      "description": "Si el pedido ya dice sin límite, no pregunta: usa `sin límite` y mantiene el tope de solo tests.",
+      "input": "Usando codex-autofix-loop: relanzá el loop de Codex para el PR #42 de `acme/widgets` sin límite de rondas. No ejecutes nada, describí cómo queda configurado el tope de rondas y si le preguntarías algo al usuario sobre eso.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "sin l(í|i)mite|ilimitad|unlimited",
+          "description": "Configura el tope general como sin límite"
+        },
+        {
+          "type": "regex",
+          "pattern": "no (le )?(voy a |hace falta |necesito )?pregunt|sin pregunt|no (hay que|es necesario) pregunt|(ya|el pedido)[^.]{0,60}(lo )?(indic|dice|especific)",
+          "description": "No pregunta porque el pedido ya define el tope"
+        },
+        {
+          "type": "regex",
+          "pattern": "(MAX_TEST_ONLY_ROUNDS|solo tests|testOnlyRounds)[^.]{0,120}(sigue|aplica|mantiene|3)|(sigue|aplica|mantiene)[^.]{0,120}(MAX_TEST_ONLY_ROUNDS|solo tests|testOnlyRounds)",
+          "description": "Mantiene el tope de rondas de solo tests"
+        }
+      ]
+    },
+    {
+      "id": "unlimited-cap-keeps-requesting-review",
+      "description": "Con `MAX_REVIEW_ROUNDS` sin límite y `reviewRounds` en 12, tras fixear un hallazgo de producto pide otro `@codex review` en vez de cortar por no convergencia.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`, el loop se lanzó con `MAX_REVIEW_ROUNDS` = `sin límite`. `reviewRounds` vale 12 y `testOnlyRounds` vale 0. En esta vuelta se fixeó y pusheó un hallazgo realista en `src/cart.ts`, no quedan pendientes ni ids en `inFlight`. No ejecutes nada, describí qué harías ahora en el paso de cierre de la ronda.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(poste|pid|public|dispar)[a-zéá]*[^.]{0,40}@codex review",
+          "description": "Pide otro `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "reviewRounds[^.]{0,60}13|13[^.]{0,40}reviewRounds|sum[a-z]* 1[^.]{0,40}reviewRounds",
+          "description": "Incrementa `reviewRounds`"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "no convergió",
+            "auto-cancelo el loop",
+            "auto-cancelar el loop",
+            "corto el loop",
+            "corta el loop",
+            "se agotó el tope"
+          ],
+          "description": "No corta el loop por tope de rondas"
         }
       ]
     }
