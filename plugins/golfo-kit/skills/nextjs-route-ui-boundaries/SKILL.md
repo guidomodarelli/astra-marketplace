@@ -1,0 +1,113 @@
+---
+name: nextjs-route-ui-boundaries
+description: 'Next.js App Router: decide loading.tsx con skeleton, error.tsx, layouts compartidos, Suspense, server vs client (sidebar, header, tablas) y las APIs de Next.js que conviene usar. Usar siempre, sin pedido explícito, al crear o modificar código de un proyecto Next.js con App Router (app/, page, layout, componentes que monta una ruta, next.config); no en Pages Router ni en repos sin Next.js.'
+license: MIT
+metadata:
+  version: "1.0.0"
+  author: "Guido Modarelli"
+  category: "frontend"
+  tags: "nextjs, app-router, loading, error-boundary, layout, suspense, skeleton, server-components"
+  command: "/nextjs-route-ui-boundaries"
+---
+
+# Next.js: boundaries de UI por ruta
+
+Esta skill decide **qué archivo especial o boundary corresponde a cada segmento** del árbol `app/` y **qué parte de cada pantalla se renderiza en server**. El objetivo es que cada navegación muestre algo útil al instante (shell + skeleton), que un error quede contenido en la porción más chica posible y que el JavaScript enviado al browser sea solo el de las piezas interactivas.
+
+## Invocación automática en cada cambio de Next.js
+
+Usar esta skill por iniciativa propia cada vez que se crea o modifica código de un proyecto Next.js con App Router, aunque el pedido no hable de rutas ni de loading: un componente nuevo puede ser la razón de que una página entera pase a `"use client"`, un `await` nuevo en un layout puede congelar todas las navegaciones, y es mucho más barato decidir el boundary al escribir el código que descubrirlo después.
+
+Detectar el proyecto: `next` en `package.json` y un directorio `app/` (o `src/app/`). Con solo `pages/`, la skill no aplica.
+
+Elegir el modo según el alcance del cambio:
+
+- **Modo liviano** (cambio puntual: un componente, una página, un fix, estilos o copy dentro de una ruta). No re-auditar todo el árbol. Revisar solo los segmentos que el cambio toca contra este checklist y corregir en el mismo trabajo lo que el cambio introduzca:
+  1. ¿El cambio agrega `"use client"`? Que quede en la hoja interactiva, no en la página, el layout o el contenedor (sección 3).
+  2. ¿Agrega un `await`, `cookies()`, `headers()`, `params` o `searchParams`? Que haya un `loading.tsx` en ese segmento o un `<Suspense>` con skeleton alrededor, y que no viva en un `layout.tsx` sin su propio `<Suspense>` (sección 2).
+  3. ¿Agrega I/O que puede fallar? Que un `error.tsx` por debajo del layout o un `catchError` lo contenga sin tumbar la chrome.
+  4. ¿Agrega un estado de carga? Skeleton con la forma del contenido, no texto ni spinner (sección 4).
+  5. ¿Hay una API de Next.js que resuelva mejor lo que el cambio hace a mano? Por ejemplo `useEffect` + `fetch` para datos iniciales, `<a>` en lugar de `Link`, `<img>` sin tamaño, `router.push` para un formulario de búsqueda, `try/catch` alrededor de `notFound()`. Consultar [nextjs-apis.md](references/nextjs-apis.md).
+  
+  Si nada del checklist aplica, seguir con la tarea sin reportar nada extra. Si algo aplica, sumar una línea por hallazgo al reporte de la tarea.
+- **Modo completo** (pedido explícito sobre rutas, loading, errores, layouts o rendimiento de navegación; ruta o sección nueva; reestructura de `app/`). Seguir los pasos 0 a 5 completos.
+
+No cambiar boundaries de rutas que el cambio no toca: si se detectan problemas fuera del alcance, listarlos como sugerencia al final en vez de corregirlos.
+
+## 0. Verificar la versión antes de escribir código
+
+Las convenciones cambian entre versiones de Next.js (por ejemplo, `error.tsx` recibe `retry` además de `reset` desde 16.x, y con Cache Components un layout que lee datos runtime exige su propio `<Suspense>`). Antes de proponer código:
+
+1. Leer la versión de `next` en `package.json` y si `next.config.*` activa `cacheComponents` o `partialPrefetching`.
+2. Si existe `node_modules/next/dist/docs/`, leer ahí `loading.md`, `error.md`, `layout.md` y, si aplica, `instant-navigation.md` de esa versión. La doc instalada manda sobre lo que recuerdes.
+3. Leer las instrucciones del proyecto (`AGENTS.md`, `CLAUDE.md`, `DESIGN.md`, convenciones de `docs/`): librería de componentes, primitivo de skeleton existente, estilos (CSS Modules, SCSS, Tailwind) y copy (idioma de los textos visibles). Reutilizar lo que ya exista antes de crear algo nuevo.
+
+Ver [version-notes.md](references/version-notes.md) para las diferencias que más afectan estas decisiones y [nextjs-apis.md](references/nextjs-apis.md) para el catálogo de APIs (archivos especiales, prefetch e instant navigation, hooks de navegación, `notFound`/`forbidden`/`catchError`, Cache Components, invalidación, metadata, componentes optimizados y configuración) con el caso en que cada una aporta valor. Proponer una API solo cuando resuelve un problema concreto del código analizado, y avisar si es experimental y requiere un flag.
+
+## 1. Mapear el árbol de rutas
+
+Listar `app/` con sus archivos especiales y armar una tabla por segmento:
+
+```text
+segmento | layout | template | loading | error | not-found | page | ¿qué datos espera? | ¿qué UI comparte con hermanos?
+```
+
+Marcar en cada `page.tsx` y `layout.tsx`: `await` de datos, lectura de `params` / `searchParams` / `cookies()` / `headers()`, `"use client"` en el archivo raíz y componentes cliente grandes.
+
+## 2. Decidir cada archivo especial
+
+Leer [decision-rules.md](references/decision-rules.md) antes de decidir: es la fuente única de los criterios. Para cada segmento del mapa, recorrer en este orden:
+
+1. Jerarquía de render y qué cubre cada boundary: [introducción de decision-rules.md](references/decision-rules.md#reglas-de-decisión-por-archivo-especial).
+2. Chrome compartida: [layout.tsx compartido](references/decision-rules.md#layouttsx-compartido).
+3. Espera de datos: [loading.tsx](references/decision-rules.md#loadingtsx) y [Suspense granular](references/decision-rules.md#suspense-granular).
+4. Fallos: [error.tsx](references/decision-rules.md#errortsx), incluidos `global-error.tsx` y los error boundaries de componente.
+5. Recursos inexistentes o sin permiso: [not-found.tsx, forbidden, unauthorized](references/decision-rules.md#not-foundtsx-forbidden-unauthorized).
+6. Remontaje por navegación: [template.tsx](references/decision-rules.md#templatetsx).
+7. Regiones independientes de una misma URL: [Parallel e intercepting routes](references/decision-rules.md#parallel-e-intercepting-routes).
+
+Registrar cada decisión en la tabla del reporte y reportar los [anti-patrones](references/decision-rules.md#anti-patrones-a-reportar) que aparezcan en los segmentos analizados.
+
+## 3. Decidir qué renderiza el server
+
+Por defecto todo es Server Component y solo baja a cliente **la hoja interactiva**, nunca el contenedor entero. Leer [server-client-split.md](references/server-client-split.md) y, para cada elemento de la pantalla, aplicar el reparto, las preguntas y el catálogo (sidebar, header, tablas, filtros, formularios, gráficos y demás), con sus [patrones de composición](references/server-client-split.md#patrones-de-composición), y registrar cada cambio en la tabla "Server vs cliente" del reporte.
+
+## 4. Skeletons en vez de texto plano
+
+Un `loading.tsx` o un fallback de `<Suspense>` que devuelve texto ("Cargando...") o un spinner centrado se reemplaza por un skeleton con la **forma final** del segmento. Antes de escribirlo, leer las [reglas de skeleton-patterns.md](references/skeleton-patterns.md#reglas) y cumplir cada una en el código entregado (forma, alturas, contenido conocido, accesibilidad, motion con `prefers-reduced-motion`, ubicación y reutilización); usar spinners o texto solo en los [casos que esa referencia admite](references/skeleton-patterns.md#spinners-y-texto-cuándo-sí).
+
+## 5. Aplicar y verificar
+
+1. Presentar primero la tabla de decisiones por segmento (qué se agrega, mueve o elimina y por qué) y después aplicar los cambios en el código.
+2. Respetar las convenciones del proyecto: estructura de componentes, estilos, idioma del copy visible y librería de UI.
+3. Verificar:
+   - `typecheck`, lint y build (un `error.tsx` sin `"use client"` o un layout que lee `searchParams` fallan acá o en runtime).
+   - Navegar entre rutas hermanas en el dev server: el shell y el sidebar quedan fijos y aparece el skeleton del segmento destino, no una pantalla congelada.
+   - Forzar un error en una página (throw temporal o toggle de boundary en React DevTools) y comprobar que el sidebar sigue usable y que `retry` recupera.
+   - Recargar en una ruta con datos lentos: el HTML inicial ya trae el shell server-rendered (ver código fuente o desactivar JS).
+   - Revisar el bundle o las islas `"use client"`: el sidebar no debería aparecer entero como componente cliente.
+4. Actualizar o agregar tests de comportamiento que cubran los estados nuevos (render del skeleton, fallback de error con acción de reintentar, `notFound`), siguiendo la estrategia de testing del proyecto.
+
+## Formato del reporte
+
+```markdown
+## Árbol analizado
+<tabla por segmento del paso 1>
+
+## Decisiones
+| Segmento | Cambio | Motivo |
+
+## Server vs cliente
+| Elemento | Antes | Después | Motivo |
+
+## Verificación
+<comandos y comprobaciones ejecutadas, con resultado>
+```
+
+## Límites con otras skills
+
+- `refactor-ssr-data-fetching`: desde dónde se piden los datos (SSR, BFF o upstream) y qué DTO cruza al browser.
+- `prevent-ssr-hydration-mismatches`: que el HTML de server y el primer render cliente coincidan (por ejemplo, el estado colapsado del sidebar leído de cookie y no de `localStorage`).
+- `async-operation-error-handling` y `critical-validation-feedback-ui`: errores de mutations y validaciones dentro de una pantalla, no de la ruta.
+- `measured-performance-optimization`: medir el impacto (LCP, CLS, bundle) cuando el pedido es de rendimiento.
+- `mobile-first-responsive-layout`: el comportamiento responsive del sidebar y la chrome.
