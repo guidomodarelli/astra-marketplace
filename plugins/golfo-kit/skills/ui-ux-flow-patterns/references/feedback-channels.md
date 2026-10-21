@@ -20,7 +20,7 @@ Ordenados de menos a más interruptivo:
 | **Cambio directo de la UI** | — | La acción se ve en su resultado: el ítem aparece en la lista, el toggle cambia, el contador sube. Es el mejor feedback; muchas veces no hace falta otro. |
 | **Inline junto al control** | Hasta que se resuelve | Estado de un control o campo: pending del botón, "Guardado" al lado de un autosave, error de un campo. |
 | **Badge / indicador** | Mientras dure el estado | Conteos y estados de un objeto ("3 sin leer", chip "Pendiente"). No es interactivo ni reemplaza un mensaje. |
-| **Toast / snackbar** | Se va solo (con pausa al hover/foco) | Confirmación breve de una acción que no está a la vista, con como mucho **una** acción (normalmente "Deshacer" o "Ver"). |
+| **Toast / snackbar** | Se va solo (con pausa al hover/foco) | Confirmación breve de una acción que no está a la vista, o el "Deshacer" de una acción reversible aunque su resultado sí se vea, con como mucho **una** acción (normalmente "Deshacer" o "Ver"). |
 | **Banner / alerta inline de página o sección** | Hasta que se resuelve o se descarta | Condición persistente que afecta a la página: offline, plan vencido, integración desconectada, error que hay que resolver, aviso del sistema. |
 | **Diálogo modal** | Bloquea hasta decidir | Decisión que el usuario **tiene** que tomar ahora: confirmar algo irreversible, resolver un conflicto, sesión vencida. |
 | **Página / región dedicada** | Es el estado | Not found, sin permiso, error total, confirmación final de un proceso largo (pago realizado, solicitud enviada). |
@@ -29,7 +29,7 @@ Ordenados de menos a más interruptivo:
 
 Recorrer en orden y quedarse con la primera respuesta que aplique:
 
-1. **¿El resultado ya se ve en pantalla donde el usuario está mirando?** (el ítem aparece, el valor cambia) → cambio directo de la UI, sin toast. Agregar un toast acá es ruido.
+1. **¿El resultado ya se ve en pantalla donde el usuario está mirando y la acción no necesita "Deshacer"?** (el ítem aparece, el valor cambia) → cambio directo de la UI, sin toast. Agregar un toast acá es ruido. **Excepción:** si es una acción reversible que se hace de inmediato y se ofrece deshacer (archivar, mover, quitar una etiqueta, mandar a la papelera; ver [confirmar o deshacer](#confirmar-o-deshacer)), el cambio directo de la UI va acompañado de un toast con "Deshacer" aunque el resultado esté a la vista: ese toast no confirma, da la salida.
 2. **¿Es sobre un campo o control concreto?** (validación, guardado de un campo, pending) → inline junto al control.
 3. **¿El usuario tiene que decidir antes de seguir y la acción no se puede deshacer?** → diálogo de confirmación ([confirmar o deshacer](#confirmar-o-deshacer)).
 4. **¿Es una condición que sigue vigente y requiere atención o acción?** (error que persiste, offline, falta configurar algo, cuota casi llena) → banner en la página o sección afectada. No toast: un toast que desaparece no sirve para algo que sigue pasando.
@@ -52,7 +52,7 @@ No usar para:
 
 - errores de validación o de un campo (van inline);
 - información crítica que hay que leer o resolver (va en banner o diálogo);
-- confirmar algo que ya es visible en pantalla;
+- confirmar algo que ya es visible en pantalla (salvo para ofrecer "Deshacer" de una acción reversible: ahí el toast es la vía de deshacer, no una confirmación redundante);
 - mensajes largos (más de ~1–2 líneas) o con más de una acción;
 - reemplazar el estado de error de una región que no cargó.
 
