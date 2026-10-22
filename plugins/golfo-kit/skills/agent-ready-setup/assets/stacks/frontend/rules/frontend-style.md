@@ -44,7 +44,7 @@ Coding conventions for this stack. Always consult the documentation of the proje
 - Use `interface` for object shapes; `type` for unions and aliases.
 - Never use `enum` — use `const` objects with `as const` or string union types.
 - Never use parameter properties in classes.
-- Before closing the change, run the project's own typecheck and lint scripts from `package.json` (for example `typecheck`, `lint`, or the `ci` script that bundles them) instead of ad hoc commands such as a bare `tsc --noEmit`; fix every reported error. Run them once at the end of the task, as `verify-changes.md` and `lint-gate.md` define, not after every file.
+- Before closing the change, run the project's own typecheck and lint scripts from `package.json` (for example `typecheck`, `lint`, or the `ci` script that bundles them) instead of ad hoc commands such as a bare `tsc --noEmit`; fix every reported error. When one of those scripts does not exist, report that check as `N/A` instead of substituting a direct binary. Run them once at the end of the task, as `verify-changes.md` and `lint-gate.md` define, not after every file.
 
 ## Function parameters
 

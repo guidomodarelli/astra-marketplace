@@ -205,9 +205,11 @@ Dev types for `bunyan`, with the package manager that owns the lockfile (skip it
 ## Step 5 — Verify
 
 ```bash
-tsc --noEmit
-npm run lint
+<pm> run typecheck   # the project's type-check script
+<pm> run lint
 ```
+
+Use the package manager the lockfile declares. A script that does not exist is reported as `N/A`, per `../../rules/frontend-style.md` › `TypeScript`.
 
 Fix any errors before reporting success.
 

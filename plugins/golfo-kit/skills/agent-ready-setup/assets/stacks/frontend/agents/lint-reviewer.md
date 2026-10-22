@@ -61,7 +61,7 @@ Run the scripts found in Step 1 with the project's package manager, in this orde
 ```
 
 - Prefer the project's scripts over direct binaries (`oxlint`, `biome check`, `eslint`, `tsc --noEmit`): the scripts carry the project's flags, plugins, and tsconfig paths.
-- When the project has no `typecheck` script but has a `tsconfig.json`, run `<pm> exec tsc --noEmit -p tsconfig.json` and say so in the report.
+- When the project has no `typecheck` (or `lint`) script, report that check as `N/A` instead of running the binary directly, per `.agents/rules/frontend-style.md` › `TypeScript`.
 - When only a `ci` script bundles lint and typecheck with slower steps (tests, build), run the lint and typecheck pieces it calls instead of the whole `ci`.
 - If a script cannot run (missing dependencies, environment limits), report the reason and the pending validation instead of guessing the result.
 

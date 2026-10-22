@@ -337,7 +337,9 @@ Cualquier request sin interceptor falla con `MockNotMatchedError` sin llegar a l
 ## Step 6 — Verify
 
 ```bash
-tsc --noEmit
-npm run lint
-npm test
+<pm> run typecheck   # the project's type-check script
+<pm> run lint
+<pm> run test
 ```
+
+Use the package manager the lockfile declares. A script that does not exist is reported as `N/A`, per `../../rules/frontend-style.md` › `TypeScript`.
