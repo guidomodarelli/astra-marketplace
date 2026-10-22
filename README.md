@@ -56,7 +56,7 @@ CLAUDE.md                  # raíz y subdirectorios: proxy exacto + regla
 .agents/skills/            # skills compartidas y descubribles por Codex
 .agents/rules/             # reglas compartidas
 .codex/hooks.json          # configuración de hooks específica Codex
-.codex/.mcp.json           # MCP específico Codex
+.codex/.mcp.json           # MCP específico Codex, solo si el stack publica mcp.json
 ```
 
 Si `CLAUDE.md` ya contiene instrucciones, el setup las promueve a un `AGENTS.md` hermano y deja `CLAUDE.md` como copia exacta de `assets/claude-proxy.md`. Esto también aplica a `.claude/CLAUDE.md` y cualquier subnivel. Si ambos archivos existen y difieren, no sobrescribe ninguno y reporta conflicto para resolución manual. La normalización recursiva parte de la raíz Git y omite paths ignorados no trackeados, incluidos `node_modules/` y worktrees, sin perder archivos trackeados bajo esas rutas; los destinos explícitos `.claude/`, `.agents/` y `.codex/` se siguen preparando aunque estén ignorados. El bootstrap requiere ejecutarse dentro de un worktree Git y actualiza automáticamente `golfo-marketplace` para provider activo antes de proyectar assets.

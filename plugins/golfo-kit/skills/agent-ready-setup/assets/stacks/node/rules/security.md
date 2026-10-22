@@ -1,6 +1,12 @@
 # Security Rules — Node
 
-<!-- Add Node.js security rules here: injection prevention, auth patterns, secrets management, etc. -->
+- Never hardcode secrets, tokens, or credentials; read them from environment variables or the project's secret manager, and never log them.
+- Build SQL only with parameterized queries through the project's driver or query builder; never interpolate user input into a query.
+- Run external commands with `execFile` or `spawn` and an argument array; never pass user input to `exec` or a shell.
+- Never pass untrusted input to `eval`, `new Function`, `vm`, or a dynamic `require`/`import`.
+- Do not merge untrusted objects into existing ones (`Object.assign`, deep merge) without an allowlist of keys; reject `__proto__`, `constructor`, and `prototype`.
+- Return safe error responses and keep stack traces and internal details in server logs.
+- Run `npm audit` (or the package manager's equivalent) when dependencies change and resolve reported vulnerabilities.
 
 ## Payload Validation Boundaries
 

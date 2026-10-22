@@ -12,11 +12,11 @@ metadata:
 
 # Constants Refactor
 
-<!-- Paridad: agent-ready-setup instala una variante de esta skill adaptada a las rules del stack frontend (assets/stacks/frontend/skills/constants-refactor/SKILL.md). Al cambiar el workflow general (modos, métrica, paridad, tipos), actualizar ambas. -->
-
 ## Objetivo
 
 Centralizar en `constants/` toda constante estática con significado de dominio o contrato, aunque exista un solo consumidor actual. La cantidad de usos no decide la ubicación: cada valor debe tener una fuente canónica fuera del módulo consumidor. No confundir constantes con variables calculadas en runtime, estado mutable o resultados de llamadas, y no extraer literales triviales ni vocabulario estándar del lenguaje o plataforma (ver "Mantener fuera de `constants/`").
+
+Las rules del proyecto (`AGENTS.md`, `.agents/rules/` o equivalentes) prevalecen sobre esta skill: aplicar sus convenciones de ubicación de módulos, naming, comentarios, configuración por entorno y secretos.
 
 Aplicar workflow completo cuando usuario pida implementar. Entregar solo análisis cuando usuario pida review o informe sin cambios.
 
@@ -46,6 +46,46 @@ En ambos modos, aplicar al alcance esta regla por tipo de código:
 6. Clasificar cada candidato: `mover a constants/`, `mantener como variable runtime` o `no tocar` (trivial, vocabulario estándar, copy).
 7. Implementar fuentes canónicas, migrar consumers y tests.
 8. Ejecutar validaciones, repetir la métrica y reportar bloqueos reales sin ocultarlos.
+
+## Alcance y exclusiones
+
+- Interpretar `@constants/` como carpeta `constants/` salvo que el repositorio ya defina otro alias explícito.
+- Preferir aliases e imports existentes; no crear un alias nuevo solo para este refactor.
+- Respetar exclusiones explícitas del usuario por dominio, módulo, ruta o PR. Si el usuario excluye un dominio, no modificar servicios, rutas, permisos, guards ni tests de ese dominio, aunque compartan strings con otro flujo.
+- No editar manualmente catálogos generados de traducciones salvo pedido explícito y workflow del repositorio.
+- No hacer commit, push, comentarios de PR ni cambios externos sin autorización explícita.
+
+## Inventario
+
+### Fuentes que revisar
+
+Adaptar al layout del repositorio:
+
+- `constants/`, `config/`, `settings/`;
+- `interfaces/`, `types/` y exports runtime dentro de módulos de tipos;
+- API, backend, frontend, servicios, adapters, middlewares y utilidades;
+- schemas y validadores;
+- hooks, loaders, SSR y clientes backend-for-frontend cuando existan;
+- tests y mocks;
+- comentarios inline y reviews del PR, cuando exista PR.
+
+### Búsquedas mínimas
+
+Adaptar comandos al shell, lenguaje y layout:
+
+```bash
+rg -n "export const|const [A-Z][A-Z0-9_]+|as const|enum " .
+rg -n "['\"](status|reason|error|code|path|timeout|limit)" src api app lib utils tests
+rg -n "timeout|max\(|min\(|regex\(|allowlist" src api app lib utils
+rg -n "from ['\"].*/(interfaces|types|constants)/" src api app lib utils tests
+```
+
+En modo PR:
+
+- determinar base y HEAD desde GitHub/git;
+- leer comentarios inline, threads y estado `resolved/outdated`;
+- separar comentarios abiertos aplicables de comentarios ya resueltos u obsoletos;
+- no tratar boilerplate de bots como hallazgo.
 
 ## Organización física por dominio
 
@@ -97,7 +137,7 @@ Antes de migrar consumers, recorrer destino y todos sus barrels ascendentes. Si 
 - Mantener arrays distintos cuando tengan semánticas distintas aunque compartan atoms (`mixed` no pertenece a una lista de valores individuales).
 - Compartir atom después de comprobar equivalencia de significado, boundary, serialización y consumers. La coincidencia textual aislada no justifica reutilizar un atom existente, pero tampoco justifica mantenerlo en el consumidor. Dos conceptos distintos con el mismo valor (por ejemplo dos severidades por defecto que hoy valen `"warn"`) quedan como constantes separadas.
 - Mantener atoms puros, sin servicios, permisos, imports server-only ni side effects.
-- Preservar orden, identidad y forma observable. No reemplazar referencias canónicas por `Array.from`, spread, `Object.freeze` o composición dinámica cuando eso cambie identidad, mutabilidad o serialización requerida por consumers.
+- Preservar orden, identidad y forma observable al componer arrays desde atoms. No reemplazar referencias canónicas por `Array.from`, spread, `Object.freeze` o composición dinámica cuando eso cambie identidad, mutabilidad, flags o serialización requerida por consumers; si se usan, validarlo explícitamente.
 - Un refactor de constants debe limitarse a extracción, composición y migración de referencias; no agregar condicionales, guards, normalización ni cambios de validación salvo pedido explícito separado.
 - Priorizar composición simple y legible. Mantener regex literales cuando derivarlas dinámicamente agregue helpers, escapes o complejidad sin reducir un drift comprobado; en ese caso cubrir sincronización con tests.
 - Si un patrón canónico ya existe como string, reutilizarlo mediante `new RegExp(CANONICAL_PATTERN)` cuando el consumidor requiera `RegExp`; no duplicar un equivalente literal solo para evitar una advertencia de lint. Si una regla de lint marca esa conversión segura, usar un suppress puntual y documentado, limitado a esa línea.
@@ -129,6 +169,7 @@ Esta es la regla canónica de ubicación: la cantidad de referencias y la visibi
 - **No constantes**: variables calculadas en runtime, estado mutable, resultados de llamadas, respuestas, datos derivados de input, instancias creadas al importar (clientes, segmenters, loggers).
 - **Triviales**: `0`, `1`, `-1`, `true`, `false`, `""` y literales mecánicos cuyo nombre sería más ruidoso que el valor (separadores de path `"/"`, un espacio, un salto de línea usado como join).
 - **Vocabulario estándar del lenguaje, plataforma o estándar**, autoexplicativo y definido fuera del proyecto: resultados de `typeof`, keywords de JSON Schema (`type: "object"`), selectores o hooks del framework (`"Program:exit"`, nombres de lifecycle), métodos HTTP en la definición de una ruta, encodings (`"utf8"`), nombres de eventos del DOM. Si el valor está disponible como constante exportada por una dependencia de runtime, usar esa fuente; si solo existe en una dependencia de desarrollo, no importarla en producción.
+- **Declaraciones locales de montaje**: las que la convención del proyecto exige junto al router o schema que montan (por ejemplo, un subrouter y su schema); los límites y valores de dominio que ese schema usa sí van a `constants/`.
 - **Copy user-facing** (mensajes, labels, descripciones): ver "Separar destinos".
 
 ### Separar destinos
@@ -138,7 +179,8 @@ Esta es la regla canónica de ubicación: la cantidad de referencias y la visibi
 - secretos, credenciales y tokens → variables de entorno o secret manager, nunca hardcodeados en `constants/` ni en `config/` versionado;
 - rutas compartidas entre capas propias → `constants/routes.ts` o equivalente;
 - paths privados de servicios externos → cliente/adapter;
-- copy, labels y mensajes user-facing → i18n/localization cuando el proyecto lo tenga; sus msgids/claves sí van a `constants/`. **Si el proyecto no tiene i18n**, dejar el copy donde lo espera la convención del framework (por ejemplo `meta.messages` de una regla ESLint, textos de un CLI junto a su comando) y mover solo sus identificadores; no crear infraestructura de i18n como efecto del refactor.
+- copy, labels y mensajes user-facing → i18n/localization cuando el proyecto lo tenga; sus msgids/claves sí van a `constants/`. **Si el proyecto no tiene i18n**, dejar el copy donde lo espera la convención del framework (por ejemplo `meta.messages` de una regla ESLint, textos de un CLI junto a su comando) y mover solo sus identificadores; no crear infraestructura de i18n como efecto del refactor. Con i18n basado en `gettext`, el msgid es el propio texto fuente y queda en el catálogo, no en `constants/`;
+- estados internos de un parser sin significado de dominio → módulo del parser; si una regex o estado forma parte de un contrato, va a `constants/`.
 
 ## Diseño seguro
 
@@ -156,7 +198,7 @@ schema.string().regex(ACCOUNT_KIND_PATTERN)
 
 No reemplazar automáticamente por un validador distinto (por ejemplo `enum` en vez de `regex`): puede cambiar sanitización, coerción, clasificación y forma de errores observables.
 
-Para límites compartidos, usar misma constante en schema y validación manual. Mantener separados límites con objetivos distintos.
+Para límites compartidos, usar misma constante en schema y validación manual. Mantener separados límites con objetivos distintos, por ejemplo el de un lookup frente al de un payload malformado que solo se registra en logs.
 
 ### Seguridad y autorización
 
