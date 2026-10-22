@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
   "skill": "test-best-practices",
-  "description": "Evalúa convenciones de tests React: usar el wrapper de test-utils del proyecto con providers en vez de mockear i18n, no mockear componentes de plataforma, preferir toStrictEqual sobre comparaciones parciales y parametrizar variantes por locale con describe.each.",
+  "description": "Evalúa convenciones de tests con Vitest y Testing Library: wrapper de test-utils con providers en vez de mockear i18n, sin mocks de servicios internos, design system ni paquetes de plataforma (solo puertos inyectados y nock para HTTP), toStrictEqual sobre comparaciones parciales, describe.each por locale, ubicación según AGENTS.md sin tests dentro de las rutas de App Router, coverage solo con umbral configurado y contratos de feedback de error reporting.",
   "test_cases": [
     {
       "id": "component-test-with-wrapper-no-platform-mocks",
-      "description": "Escribe el test de un componente importando render desde el wrapper de test-utils, sin mockear el design system y pasando el locale por las opciones del wrapper.",
-      "input": "Usando test-best-practices: tengo que testear `src/components/ProductCard.tsx`, que usa `Card` y `Button` del design system interno `@acme/ui` y textos traducidos con i18n. El proyecto tiene `@/tests/utils`, que reexporta Testing Library y configura i18n, store y router. Un borrador actual hace `jest.mock('@acme/ui')` y `jest.mock('react-i18next')`. No ejecutes ni edites nada: describí cómo escribirías el test y qué cambiarías del borrador.",
+      "description": "Escribe el test de un componente con Vitest importando render desde el wrapper de test-utils, sin mockear el design system ni el servicio interno y pasando el locale por las opciones del wrapper.",
+      "input": "Usando test-best-practices: tengo que testear `src/components/ProductCard.tsx`, que usa `Card` y `Button` del design system interno `@acme/ui`, textos traducidos con i18n y lee el producto a través del puerto `ProductRepository` que el provider del proyecto inyecta. El proyecto usa Vitest y tiene `@/tests/utils`, que reexporta Testing Library y configura i18n, store, router y los puertos. Un borrador actual hace `jest.mock('@acme/ui')`, `jest.mock('react-i18next')` y `jest.spyOn(productService, 'getProduct')`. No ejecutes ni edites nada: describí cómo escribirías el test y qué cambiarías del borrador.",
       "assertions": [
         {
           "type": "contains",
@@ -25,8 +25,33 @@
         },
         {
           "type": "contains_any",
-          "values": ["getByRole", "screen.", "toBeInTheDocument", "toHaveAttribute"],
+          "values": [
+            "getByRole",
+            "screen.",
+            "toBeInTheDocument",
+            "toHaveAttribute"
+          ],
           "description": "Afirma salida observable con queries de Testing Library"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "vitest",
+            "vi.fn",
+            "vi.",
+            "Vitest"
+          ],
+          "description": "Usa Vitest en lugar de las APIs de Jest del borrador"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|don't|do not|evit|avoid|quit|remov|elimin|sac).{0,80}(spyOn|productService|servicio interno|internal service)|(spyOn|productService).{0,120}(quit|remov|elimin|sac|reemplaz|replace|no |nunca|never)",
+          "description": "Elimina el spyOn sobre el servicio interno"
+        },
+        {
+          "type": "regex",
+          "pattern": "(puerto|port|ProductRepository|in-memory|en memoria|inyect|inject)",
+          "description": "Controla los datos con una implementación del puerto inyectado"
         }
       ]
     },
@@ -71,6 +96,69 @@
           "type": "regex",
           "pattern": "(sin|no|without|avoid|evit).{0,60}(concaten|transform|interpol)|(literal|valor esperado|expected (value|text)|texto esperado).{0,80}(caso|case|array|tabla|table|extra)",
           "description": "Extrae los literales esperados por caso sin concatenarlos ni transformarlos"
+        }
+      ]
+    },
+    {
+      "id": "placement-coverage-and-execution",
+      "description": "Ubica los tests según AGENTS.md o colocados como *.test.tsx, nunca dentro de las rutas de App Router, exige coverage solo si hay umbral configurado y ejecuta los tests antes de cerrar.",
+      "input": "Usando test-best-practices: en un proyecto Next.js con App Router (`app/`), Vitest y sin convención de ubicación de tests declarada en AGENTS.md, voy a agregar `components/price-tag/index.tsx` y la página `app/deals/page.tsx`. Un compañero quiere poner los tests en `__tests__/` con sufijo `.spec.tsx`, uno de ellos dentro de `app/deals/`, y exigir 80% de coverage aunque `vitest.config.ts` no define umbrales. No ejecutes ni edites nada: decime dónde irían los tests, qué hacés con el coverage y qué tenés que hacer antes de dar el cambio por terminado.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "index.test.tsx",
+            "price-tag.test.tsx",
+            ".test.tsx"
+          ],
+          "description": "Coloca el test del componente como *.test.tsx junto al archivo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|fuera|outside|evit|avoid).{0,100}(app/|rutas|routes)|(app/|rutas|routes).{0,120}(no |nunca|never|fuera|outside|árbol|tree|espejo|mirror)",
+          "description": "No ubica tests dentro del directorio de rutas de App Router"
+        },
+        {
+          "type": "regex",
+          "pattern": "(umbral|threshold|configur).{0,120}(coverage|cobertura)|(coverage|cobertura).{0,120}(umbral|threshold|configur|no (se )?exig|no (hay|existe))",
+          "description": "Exige coverage solo cuando el proyecto configura un umbral"
+        },
+        {
+          "type": "regex",
+          "pattern": "(ejecut|corr|run).{0,60}(test|suite|vitest)",
+          "description": "Ejecuta los tests relevantes antes de cerrar el cambio"
+        }
+      ]
+    },
+    {
+      "id": "error-reporting-feedback-contract",
+      "description": "Cubre el contrato completo del componente de error reporting: render solo ante fallas con contexto, fallback seguro, limpieza de errores viejos al reintentar o reabrir y ausencia de datos sensibles.",
+      "input": "Usando test-best-practices: un modal `ConnectAccountModal` hace una request al confirmar y, si falla, muestra `ErrorReportFeedback` con `errorMessage` y `errorContext` que vienen de la respuesta. Tiene botón de reintentar y se puede cerrar y reabrir. Hoy el único test verifica el texto del error. No ejecutes ni edites nada: listá qué casos agregarías con Vitest y Testing Library y qué afirmarías en cada uno.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(loading|cargando|vac(i|í)o|empty|éxito|exito|success|validaci).{0,160}(no (se )?(render|muestr)|not render|ausen|absent|queryBy)",
+          "description": "Verifica que el componente de error no aparece en loading, vacío, validación o éxito"
+        },
+        {
+          "type": "regex",
+          "pattern": "(stale|viej|anterior|limpi|clear|reset).{0,120}(errorMessage|errorContext|error)",
+          "description": "Verifica que reintentar o reabrir limpia el error anterior"
+        },
+        {
+          "type": "regex",
+          "pattern": "(fallback|sin contexto|missing (error )?context|no fabric|never fabricat)",
+          "description": "Cubre el fallback seguro cuando falta el contexto de error"
+        },
+        {
+          "type": "regex",
+          "pattern": "(token|secret|cookie|header|PII|payload).{0,160}(no |nunca|never|ausen|absent|not )|(no |nunca|never|ausen|absent|sin).{0,100}(token|secret|cookie|header|PII|payload)",
+          "description": "Afirma la ausencia de datos sensibles o payloads crudos en el detalle"
+        },
+        {
+          "type": "regex",
+          "pattern": "(duplic).{0,80}(mutaci|mutation|request|env(i|í)o|submit)|(reintent|retry).{0,120}(segur|safe|una sola|once|duplic)",
+          "description": "Verifica que el reintento es seguro y no duplica mutaciones"
         }
       ]
     }

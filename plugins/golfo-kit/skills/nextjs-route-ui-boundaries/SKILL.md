@@ -108,6 +108,6 @@ Un `loading.tsx` o un fallback de `<Suspense>` que devuelve texto ("Cargando..."
 
 - `refactor-ssr-data-fetching`: desde dónde se piden los datos (SSR, BFF o upstream) y qué DTO cruza al browser.
 - `prevent-ssr-hydration-mismatches`: que el HTML de server y el primer render cliente coincidan (por ejemplo, el estado colapsado del sidebar leído de cookie y no de `localStorage`).
-- `async-operation-error-handling` y `critical-validation-feedback-ui`: errores de mutations y validaciones dentro de una pantalla, no de la ruta.
+- `async-operation-error-handling` y `ui-ux-flow-patterns`: errores de mutations y validaciones dentro de una pantalla, no de la ruta.
 - `measured-performance-optimization`: medir el impacto (LCP, CLS, bundle) cuando el pedido es de rendimiento.
 - `mobile-first-responsive-layout`: el comportamiento responsive del sidebar y la chrome.

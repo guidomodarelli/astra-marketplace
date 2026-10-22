@@ -289,8 +289,7 @@ Use the project's runtime-verification tooling or browser automation for browser
 
 ## Scope boundaries
 
-- General fetch architecture: use `react-data-fetching-best-practices`.
-- Async effect cancellation: use `react-useeffect-abortcontroller`.
+- General fetch architecture and async effect cancellation: use `react-data-fetching-best-practices`.
 - Render performance: use `react-render-performance-patterns`.
 - User-facing translations: follow the project's i18n conventions.
 - Route input schemas: apply the project's input-validation conventions alongside this skill.

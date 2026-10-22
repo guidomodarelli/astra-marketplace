@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "ui-ux-flow-patterns",
-  "description": "Evalúa decisiones de UI/UX por estado y por flujo: vacíos diferenciados (primera vez vs filtro), carga inicial vs recarga, error por región con reintento, canal de feedback correcto (inline, banner, toast, diálogo), confirmar vs deshacer en acciones destructivas, pending y doble envío en acciones, uploads por archivo y scope negativo en código sin interfaz.",
+  "description": "Evalúa decisiones de UI/UX por estado y por flujo: vacíos diferenciados (primera vez vs filtro), carga inicial vs recarga, error por región con reintento, canal de feedback correcto (inline, banner, toast, diálogo), confirmar vs deshacer en acciones destructivas, pending y doble envío en acciones, uploads por archivo y scope negativo en código sin interfaz, validación previa a la acción con feedback junto al campo y limpieza de errores viejos al cambiar de recurso o reintentar.",
   "test_cases": [
     {
       "id": "empty-list-first-use-vs-filtered",
@@ -244,6 +244,60 @@
           "type": "not_contains_any",
           "values": ["skeleton", "empty state", "Matriz de estados", "toast", "snackbar"],
           "description": "No aplica patrones de UI a un script sin interfaz"
+        }
+      ]
+    },
+    {
+      "id": "stale-error-cleared-on-selection-change",
+      "description": "Limpia el error y el contexto de error previos al cambiar de recurso o reintentar, y reserva el feedback de reporte a soporte para errores reales.",
+      "input": "Usando ui-ux-flow-patterns: en una pantalla de depósitos, el usuario elige el depósito A, la carga falla y aparece un snackbar de error con botón 'Reportar a soporte'. Después elige el depósito B y, mientras carga y aun cuando ya cargó bien, el error de A sigue visible. Además, una búsqueda sin resultados también muestra ese snackbar de reporte. No ejecutes ni edites nada: explicá qué cambiarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(limpi|clear|reset|borr)[^.]{0,80}(error|contexto)",
+          "description": "Limpia el error previo antes del nuevo request"
+        },
+        {
+          "type": "contains_any",
+          "values": ["antes", "before"],
+          "description": "Limpia antes de que empiece la nueva carga"
+        },
+        {
+          "type": "regex",
+          "pattern": "(vac[ií]o|sin resultados|empty)[^.]{0,120}(no|nunca|never)|(no|nunca|never)[^.]{0,120}(vac[ií]o|sin resultados|empty)",
+          "description": "No usa el feedback de reporte para un estado vacío esperado"
+        },
+        {
+          "type": "contains_any",
+          "values": ["test", "prueba"],
+          "description": "Cubre la limpieza del error con tests"
+        }
+      ]
+    },
+    {
+      "id": "pre-action-search-validation",
+      "description": "Valida el término antes de buscar, bloquea la acción y muestra el error junto al campo, limpiándolo al corregirlo.",
+      "input": "Usando ui-ux-flow-patterns: un buscador de envíos dispara el request aunque el campo esté vacío o el código tenga menos de 6 caracteres; el backend responde 400 y solo se ve un toast genérico 'Error'. No ejecutes ni edites nada: explicá cómo debería validarse y qué feedback debería ver el usuario.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(antes|before)[^.]{0,60}(request|buscar|búsqueda|busqueda|enviar|search)",
+          "description": "Valida antes de disparar la búsqueda"
+        },
+        {
+          "type": "contains_any",
+          "values": ["inline", "junto al campo", "debajo del campo", "next to the field"],
+          "description": "Muestra el error junto al campo"
+        },
+        {
+          "type": "contains_any",
+          "values": ["bloque", "no dispar", "no envi", "evita el request", "prevent"],
+          "description": "Bloquea la acción cuando la validación falla"
+        },
+        {
+          "type": "regex",
+          "pattern": "(limpi|clear|desaparec|quit)[^.]{0,80}(corrig|fix|válido|valido)|(corrig|fix)[^.]{0,80}(limpi|clear|desaparec|quit)",
+          "description": "Limpia el error cuando el usuario corrige el valor"
         }
       ]
     }

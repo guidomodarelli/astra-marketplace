@@ -15,7 +15,7 @@
 - Headers HTTP: `Cache-Control: public, max-age=31536000, immutable` para assets con hash; `max-age` corto + `stale-while-revalidate` o `ETag` para datos que cambian; `Cache-Control: private, max-age=<corto>` para respuestas personalizadas que pueden quedar solo en la cache del navegador del usuario (`private` impide caches compartidas, pero el navegador igual puede guardarlas); `Cache-Control: no-store` para credenciales, tokens o datos sensibles que no deben persistir en ninguna cache, incluida la del navegador (RFC 9111 §5.2.2.5 y §5.2.2.7).
 - Cache en servidor (memoria, Redis, CDN) para lecturas caras y repetidas, con invalidación explícita. Una cache sin estrategia de invalidación es un bug de datos viejos pendiente.
 - Reducir payload: paginación, proyección de campos, compresión (`br`/`gzip`).
-- Cancelar requests obsoletos (ver `react-useeffect-abortcontroller`).
+- Cancelar requests obsoletos (ver `react-data-fetching-best-practices`).
 
 ## Métricas antes/después
 

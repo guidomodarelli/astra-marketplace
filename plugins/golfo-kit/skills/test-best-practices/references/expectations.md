@@ -1,6 +1,6 @@
 ## Assertions
 
-Use `@testing-library/jest-dom` for UI assertions.
+Use the Testing Library DOM matchers registered for Vitest (`@testing-library/jest-dom/vitest` in the setup file) for UI assertions.
 
 ### Rules
 

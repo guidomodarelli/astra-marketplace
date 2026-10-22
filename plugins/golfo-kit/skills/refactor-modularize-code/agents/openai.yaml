@@ -1,4 +1,4 @@
 interface:
   display_name: "Refactor Modularity"
-  short_description: "Modularize code, raise cohesion, remove duplication"
-  default_prompt: "Use $refactor-modularize-code to refactor this code for better module boundaries, stronger cohesion, and less duplication."
+  short_description: "Modularize and decouple code, including JS/TS and React"
+  default_prompt: "Use $refactor-modularize-code to refactor this code for better module boundaries, stronger cohesion, and less duplication, extracting helpers, constants, types, components, and hooks where they apply."
