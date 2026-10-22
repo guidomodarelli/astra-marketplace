@@ -5,7 +5,7 @@
 - Run external commands with `execFile` or `spawn` and an argument array; never pass user input to `exec` or a shell.
 - Never pass untrusted input to `eval`, `new Function`, `vm`, or a dynamic `require`/`import`.
 - Do not merge untrusted objects into existing ones (`Object.assign`, deep merge) without an allowlist of keys; reject `__proto__`, `constructor`, and `prototype`.
-- Return safe error responses and keep stack traces and internal details in server logs.
+- Return safe error messages to clients. On the server, log the failure as `error-handling.md` › `Diagnosable failures` defines: the cause chain as error type names and closed codes plus opaque identifiers, never stacks, messages, SQL, or provider payloads.
 - Run `npm audit` (or the package manager's equivalent) when dependencies change and resolve reported vulnerabilities.
 
 ## Payload Validation Boundaries
