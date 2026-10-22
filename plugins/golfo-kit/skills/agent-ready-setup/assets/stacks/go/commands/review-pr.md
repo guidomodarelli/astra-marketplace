@@ -5,4 +5,11 @@ description: Ejecuta una review completa del PR actual de Go orquestando los age
 
 # Review PR — Go
 
-<!-- Add PR review workflow for Go projects. -->
+Follow `.agents/skills/pr-review-workflow/SKILL.md` with this roster.
+
+| Agent | File | Trigger condition |
+|-------|------|-------------------|
+| Security scanner | `.agents/agents/security-scanner.md` | Always |
+| Performance analyzer | `.agents/agents/perf-analyzer.md` | Always |
+
+Extra checks: compare the diff against `.agents/rules/coding-style.md` and `.agents/rules/testing.md`.

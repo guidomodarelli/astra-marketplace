@@ -20,3 +20,11 @@ Do not add these tests. When one is part of the code your task already changes, 
 - Tests that assert on SQL text, query chunks, or how many statements a mocked executor received. Assert the mapped result, the returned status, or the calls to external providers; to verify what the SQL does, run it against a real database.
 - Tests of scripts or thin wrappers that assert the argument lists, command lines, file paths, or names they build for an external CLI or SDK. Test their own logic (parsing, decisions, redaction, error handling) or the effects of running them.
 - Tests whose only purpose is to verify that tooling is configured or active (linter rules and plugins, formatter, type checker, build, hooks). Run the tool itself instead.
+
+## Exception: tooling tests the project requires
+
+When the project's `AGENTS.md` explicitly requires a tooling or repository-convention test (for example a test that walks the routes directory to enforce where tests live, or one that checks the linter configuration loads a project rule), that test is allowed even if it falls under the bullets above about reading committed files, framework or build configuration, script arguments, or tooling configuration:
+
+- Write, keep, and update only the tooling tests the `AGENTS.md` names or describes; do not extend the exception to similar tests it does not ask for.
+- Keep them in the location the `AGENTS.md` declares for them, and make each one fail with a message that says which convention was broken.
+- If the `AGENTS.md` stops requiring a tooling test, the general rule applies again: delete it when your task touches it, or report it otherwise.

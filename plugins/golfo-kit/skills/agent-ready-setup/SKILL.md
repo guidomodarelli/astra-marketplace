@@ -35,8 +35,9 @@ operación. El bootstrap distribuye assets según responsabilidad:
   provider-specific. Donde el sistema no permite symlinks sin privilegios (Windows
   sin Modo de desarrollador ni shell elevada), las vistas son hard links al mismo
   archivo y nunca copias; ver `references/sync-and-upgrade.md`.
-- `.codex/`: bridge provider-specific para MCP (`.mcp.json`) y hooks Codex
-  (`hooks.json`, junto a configuración de proyecto).
+- `.codex/`: bridge provider-specific para hooks Codex (`hooks.json`, junto a
+  configuración de proyecto) y para MCP (`.mcp.json`) cuando el stack publica un
+  `mcp.json`; hoy ningún stack lo publica.
 - `.github/pull_request_template.md`: template estático común para descripción,
   tipo de cambio, pruebas manuales y secciones opcionales de API y revisión.
   Bootstrap y SessionStart lo sincronizan como asset gestionado desde
@@ -68,7 +69,7 @@ Bootstrap tiene un solo modo, sin flags de confirmación: sincroniza siempre los
 assets gestionados con los templates sin preguntar y normaliza instrucciones.
 
 Los assets publicados por agent-ready-setup (rules, skills, agents, commands,
-hooks, `mcp.json` y sus vistas en `.claude/`) se sobrescriben siempre, aunque se
+hooks y sus vistas en `.claude/`) se sobrescriben siempre, aunque se
 hayan editado: para agregar o cambiar comportamiento, el proyecto crea una rule
 propia bajo `.agents/rules/` o una skill nueva. Un symlink en un path gestionado
 se reemplaza sin seguirlo. Solo quedan como conflicto los directorios en un path
@@ -279,9 +280,11 @@ copiados durante bootstrap. No modifica `~/.codex/config.toml`,
 
 Mostrar output del script sin alterarlo. En respuestas documentales, enumerar además del resumen cada asset del template detectado con su path relativo, copiado tal cual de este catálogo (el árbol de `assets/` manda si difiere). Cada uno se proyecta en `.agents/<path>`, con vista en `.claude/<path>` salvo los hooks:
 
-- **Todos los stacks** (`assets/common/`): `rules/browser-before-user-questions.md`, `rules/database.md`, `rules/error-handling.md`, `rules/established-libraries.md`, `rules/language-consistency.md`, `rules/lint-gate.md`, `rules/root-cause-bug-fixes.md`, `rules/testing-scope.md`, `rules/user-actions-first.md`, `rules/verify-changes.md`, `skills/agent-browser/`, `hooks/sync-marketplace.sh`, `hooks/check-harness-consistency.sh` y `settings.json`.
-- **Go, Java y Node:** `rules/coding-style.md`, `rules/security.md`, `rules/testing.md`, `agents/perf-analyzer.md`, `agents/security-scanner.md`, `commands/review-pr.md`, `hooks/pre-tool-use.md` y `mcp.json`.
-- **Frontend:** `rules/api-configuration.md`, `rules/api-validation-middleware.md`, `rules/cross-engine.md`, `rules/frontend-style.md`, `rules/hexagonal-architecture.md`, `rules/lodash.md`, `rules/no-unnecessary-mocks.md`, `rules/security.md`, `rules/server-first-data-flow.md`, `rules/testing.md`, `rules/upstream-contracts.md`, `rules/user-facing-feedback.md`, `agents/a11y-reviewer.md`, `agents/lint-reviewer.md`, `agents/perf-analyzer.md`, `agents/security-scanner.md`, `agents/test-reviewer.md`, `commands/review-pr.md`, `hooks/pre-tool-use.md`, `skills/api-endpoint/`, `skills/component-creation/`, `skills/constants-refactor/`, `skills/karpathy-guidelines/`, `skills/logger/`, `skills/react-act-test-fixes/`, `skills/service/` y `mcp.json`.
+- **Todos los stacks** (`assets/common/`): `rules/browser-before-user-questions.md`, `rules/database.md`, `rules/environment-readiness.md`, `rules/error-handling.md`, `rules/established-libraries.md`, `rules/language-consistency.md`, `rules/lint-gate.md`, `rules/root-cause-bug-fixes.md`, `rules/testing-scope.md`, `rules/user-actions-first.md`, `rules/verify-changes.md`, `skills/agent-browser/`, `skills/pr-review-workflow/`, `hooks/sync-marketplace.sh`, `hooks/check-harness-consistency.sh` y `settings.json`.
+- **Go, Java y Node:** `rules/coding-style.md`, `rules/security.md`, `rules/testing.md`, `agents/perf-analyzer.md`, `agents/security-scanner.md` y `commands/review-pr.md`.
+- **Frontend:** `rules/api-configuration.md`, `rules/api-validation-middleware.md`, `rules/cross-engine.md`, `rules/frontend-style.md`, `rules/hexagonal-architecture.md`, `rules/lodash.md`, `rules/no-unnecessary-mocks.md`, `rules/security.md`, `rules/server-first-data-flow.md`, `rules/testing.md`, `rules/upstream-contracts.md`, `rules/user-facing-feedback.md`, `agents/a11y-reviewer.md`, `agents/lint-reviewer.md`, `agents/perf-analyzer.md`, `agents/security-scanner.md`, `agents/test-reviewer.md`, `commands/review-pr.md`, `skills/api-endpoint/`, `skills/component-creation/`, `skills/karpathy-guidelines/`, `skills/logger/`, `skills/react-act-test-fixes/` y `skills/service/`.
+
+Las skills que ya publica el plugin golfo-kit no se duplican en el catálogo de un stack: por ejemplo, el refactor de constantes se usa desde la skill `constants-refactor` del plugin y no se proyecta en `.agents/skills/`. Ningún stack publica hooks propios ni `mcp.json`: los únicos hooks proyectados son los comunes.
 
 Luego agregar únicamente acciones aplicables, usando estas etiquetas:
 

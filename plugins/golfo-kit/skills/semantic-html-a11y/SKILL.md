@@ -83,4 +83,4 @@ Use the most semantic native element for each interaction, and add roles, `aria-
 
 ## Out of scope
 
-Component structure, modularization, constants, and duplication belong to `refactor-modularize-code`, `constants-refactor`, and `simplify`.
+Component structure, modularization, constants, and duplication belong to `refactor-modularize-code`, `constants-refactor`, and `simplify-code`.

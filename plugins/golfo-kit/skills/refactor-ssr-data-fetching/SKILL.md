@@ -105,7 +105,7 @@ Upstream client debe concentrar host, scope, cookies, request-derived headers, t
 
 Client service debe usar baseURL relativa. No importar server service desde componente React ni reconstruir headers internos en cliente.
 
-Para async `useEffect`, cancelación y races, aplicar `react-useeffect-abortcontroller`. Para entry point único, deduplicación y estados loading/error, aplicar `react-data-fetching-best-practices`.
+Para entry point único, deduplicación, estados loading/error y cancelación de races en async `useEffect`, aplicar `react-data-fetching-best-practices`.
 
 ## Excepción browser → upstream directo
 
@@ -159,9 +159,8 @@ Si datos SSR hidratan React, aplicar `prevent-ssr-hydration-mismatches`. Para ev
 
 ## Scope boundaries
 
-- `react-data-fetching-best-practices`: entry point, deduplicación, mapping a props y feedback loading/error.
+- `react-data-fetching-best-practices`: entry point, deduplicación, mapping a props, feedback loading/error y cancelación de races en efectos async.
 - `prevent-ssr-hydration-mismatches`: igualdad entre HTML SSR y primer render cliente.
-- `react-useeffect-abortcontroller`: cancelación y races en efectos async.
 - Skills o convenciones propias del framework del proyecto: mecánica concreta de service → API route → browser hook, API de schema validation, formato de logging estructurado y validación runtime.
 - `review-security`: auditoría AppSec exhaustiva.
 

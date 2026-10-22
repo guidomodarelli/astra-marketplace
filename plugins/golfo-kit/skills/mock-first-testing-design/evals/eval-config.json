@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "mock-first-testing-design",
-  "description": "Evalúa la decisión entre aislar dependencias con dobles de test o refactorizar producción: rechazar ramas y exports solo para tests, aceptar inyección de dependencias cuando mejora el diseño real y evitar tests que inspeccionan texto fuente o SQL.",
+  "description": "Evalúa cómo aislar dependencias sin contaminar producción: preferir integración real, limitar los dobles a puertos de dominio inyectados y fixtures HTTP con nock, no mockear servicios internos con vi.mock o vi.spyOn, rechazar ramas y exports solo para tests, aceptar inyección de dependencias cuando mejora el diseño real y evitar tests que inspeccionan texto fuente o SQL.",
   "test_cases": [
     {
       "id": "reject-test-mode-branch-use-time-double",
@@ -15,7 +15,17 @@
         },
         {
           "type": "contains_any",
-          "values": ["useFakeTimers", "setSystemTime", "fake timer", "timers falsos", "mock", "stub", "fake", "doble", "double"],
+          "values": [
+            "useFakeTimers",
+            "setSystemTime",
+            "fake timer",
+            "timers falsos",
+            "mock",
+            "stub",
+            "fake",
+            "doble",
+            "double"
+          ],
           "description": "Resuelve el no determinismo del tiempo con un doble de test"
         },
         {
@@ -27,12 +37,18 @@
     },
     {
       "id": "explicit-dependency-injection-accepted",
-      "description": "Acepta inyectar un cliente HTTP oculto cuando hace explícita la dependencia y mejora el diseño real, y mockea ese borde en el test.",
+      "description": "Acepta inyectar el gateway de SMS oculto como puerto cuando hace explícita la dependencia y mejora el diseño real, y en el test pasa una implementación de ese puerto.",
       "input": "Usando mock-first-testing-design: `src/notifications/NotificationService.ts` crea internamente `new SmsGatewayClient(process.env.SMS_API_KEY)` en el constructor, mezcla el armado del mensaje con el envío y otros módulos ya necesitan enviar SMS con otro gateway. Necesito testear que se envía el mensaje correcto al usuario. No ejecutes ni edites nada: describí si refactorizarías producción, cómo, y qué doble de test usarías.",
       "assertions": [
         {
           "type": "contains_any",
-          "values": ["inyecci", "inyect", "inject", "dependency injection", "constructor"],
+          "values": [
+            "inyecci",
+            "inyect",
+            "inject",
+            "dependency injection",
+            "constructor"
+          ],
           "description": "Propone inyectar la dependencia de forma explícita"
         },
         {
@@ -42,8 +58,21 @@
         },
         {
           "type": "contains_any",
-          "values": ["mock", "stub", "spy", "fake", "doble", "double", "jest.fn", "vi.fn"],
-          "description": "Aísla el gateway externo con un doble en el borde"
+          "values": [
+            "mock",
+            "stub",
+            "spy",
+            "fake",
+            "doble",
+            "double",
+            "vi.fn",
+            "puerto",
+            "port",
+            "in-memory",
+            "en memoria",
+            "nock"
+          ],
+          "description": "Aísla el gateway externo con una implementación del puerto inyectado o con nock en el borde HTTP"
         }
       ]
     },
@@ -66,6 +95,39 @@
           "type": "regex",
           "pattern": "(resultado|result|datos devueltos|returned data|output|salida|observable|contrato p(ú|u)blico|public contract|comportamiento|behavior|behaviour)",
           "description": "Propone validar resultados observables o el contrato público"
+        }
+      ]
+    },
+    {
+      "id": "reject-mocking-internal-service-module",
+      "description": "Rechaza vi.mock y vi.spyOn sobre un servicio interno del proyecto y propone integración real, un puerto inyectado o nock para el HTTP saliente, sin introducir APIs de Jest.",
+      "input": "Usando mock-first-testing-design: el test de `src/checkout/placeOrder.ts` (Vitest) hace `vi.mock('@/services/pricing')` para fijar el precio y `vi.spyOn(inventoryService, 'reserve')` para verificar que se reserva stock. `pricing` calcula en memoria con reglas del proyecto; `inventoryService.reserve` llama por HTTP a la API de inventario. Otro compañero propone migrar esos mocks a `jest.mock`. No ejecutes ni edites nada: describí qué cambiarías en el test y por qué.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|rechaz|evit|descart|never|reject|avoid|don't|do not|quit|remov|elimin).{0,100}(vi\\.mock|vi\\.spyOn|mock(ear)? (del |el |un )?(servicio|módulo|modulo)|internal (service|module)|servicio interno|módulo interno|modulo interno)",
+          "description": "Rechaza mockear servicios o módulos internos con vi.mock o vi.spyOn"
+        },
+        {
+          "type": "regex",
+          "pattern": "(pricing).{0,160}(real|de verdad|sin mock|without mock)|(real|integraci).{0,120}(pricing)",
+          "description": "Ejecuta el cálculo de precios real en lugar de mockearlo"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "nock",
+            "puerto",
+            "port",
+            "inyect",
+            "inject"
+          ],
+          "description": "Aísla el inventario con nock en el HTTP o con un puerto inyectado"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|rechaz|evit|never|reject|avoid|don't|do not).{0,80}(jest)|(jest).{0,120}(no |rechaz|evit|never|reject|avoid|vitest)",
+          "description": "Rechaza introducir APIs de Jest y mantiene Vitest"
         }
       ]
     }

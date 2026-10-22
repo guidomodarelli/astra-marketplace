@@ -7,9 +7,10 @@ Baseline security rules for SSR React applications. These rules are always activ
 ## Secrets & PII
 
 - Never hardcode secrets, tokens, or API keys — read them at runtime from the project's secrets manager.
-- Never log PII (emails, personal identifiers such as user or buyer IDs, addresses) or credentials — use the project's logger and truncate or obfuscate sensitive values if logging is needed.
+- Never log PII (emails, phone numbers, names, addresses, document numbers), raw request or response payloads, or credentials (secrets, tokens, cookies, authorization headers). Use the project's logger.
+- Opaque, stable identifiers are allowed in logs and are expected for debugging: `userId`, `requestId`, `traceId`, and resource IDs. They must be internal identifiers, never a PII value used as an identifier (for example, an email as a user key).
 - Never receive PII or tokens via query parameters — use request body.
-- Never expose sensitive data in React state, Redux, or Context — keep it server-side only.
+- Never expose sensitive data in React state or Context, nor in a client store if the project uses one — keep it server-side only.
 
 ## Input Validation
 
@@ -82,7 +83,7 @@ Treat the middleend/BFF as an error-origin boundary: preserve statuses received 
 - Keep upstream status reporting truthful in every diagnostic artifact (error tracking details, structured logs, metrics): report only the real HTTP status returned by the upstream dependency, and report `unknown` when the dependency returned no status. A BFF-synthesized `503`/`504` chosen as the public response status is never the upstream status and must not be labeled as one; when the BFF owns a status mapping, keep it separate from the reported upstream status so diagnostics never invent upstream facts.
 - When a shared helper extracts an HTTP status from a caught error to report it as the upstream status, never let it read that status from the BFF's own typed/domain error classes — a malformed-payload error, a domain validation error, or a rule/eligibility classification carries a `status` the BFF assigned for its own public contract, not a fact the dependency reported. Give any error that legitimately wraps a real dependency failure its own explicit `upstreamStatus` field, populated only from that failure, and have the shared helper trust that field (an `instanceof` check on the BFF's own error hierarchy, or equivalent) instead of falling back to `status`/`response.status` for those classes; reserve that fallback for raw, unclassified transport rejections. Test both origins: a raw upstream failure and a BFF-owned typed-error failure must never produce the same reported upstream status.
 - Never expose stack traces or internal error details to users — return generic messages.
-- Never log sensitive data in error handlers.
+- Never log sensitive data in error handlers; log the error type, its stable code, and the opaque identifiers of the operation instead (see `error-handling.md`).
 
 ## Authorization
 

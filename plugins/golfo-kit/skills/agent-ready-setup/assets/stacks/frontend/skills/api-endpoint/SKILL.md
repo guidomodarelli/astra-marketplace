@@ -1,15 +1,17 @@
 ---
 name: api-endpoint
-description: "Crea un endpoint de API SSR: un server hook (getServerSideProps) o un endpoint REST en la carpeta /api con express.Router(). Usar al agregar un nuevo endpoint, server hook o API route."
+description: "Crea un endpoint de API SSR: un server hook (getServerSideProps) o un endpoint REST en la carpeta /api con express.Router(). Usar al agregar un nuevo endpoint, server hook o API route en proyectos con BFF Express o Pages Router; en Next.js App Router no aplica (usar route handlers)."
 metadata:
   tags: "context-optimized-v1.20.1"
 ---
 
 # API Endpoint Creation — SSR
 
-> **Prerequisite**: run `/logger` first to generate `utils/logger.ts` — the logging helpers used in the examples below depend on it.
+> **Applicability**: applies only when the project serves its API through Express (a BFF with `express.Router`) or the Pages Router (`getServerSideProps`). In Next.js App Router projects, use route handlers (`app/**/route.ts`) and validate at that boundary instead; do not apply this skill there, and do not add `express` to an App Router project.
 >
-> Keep subrouters focused on routing, validation, and orchestration. Put reusable helpers in `utils/` and reusable/domain constants in `constants/`; do not add them inside `api/<resource>/`, `api/services/`, or `services/`. See `../../rules/frontend-style.md`, section `Module placement`.
+> **Prerequisite**: run `/logger` first, or reuse the project's existing logger. The examples import `logError` from `utils/logger`; when `/logger` placed it elsewhere (for example `src/modules/shared/infrastructure/observability/logger.ts` in a project with modules), import it from that path.
+>
+> Keep subrouters focused on routing, validation, and orchestration. Put reusable helpers in `utils/` and reusable/domain constants in `constants/`; do not add them inside `api/<resource>/`, `api/services/`, or `services/`. See `../../rules/frontend-style.md`, section `Module placement`. When the project organizes code in `src/modules/<feature>/{domain,application,infrastructure}` (see `../../rules/hexagonal-architecture.md`), the handler calls an application use case wired in the module's composition root, not a flat service, and shared helpers live under `src/modules/shared/`.
 >
 > For the distinction between middleend request validation and backend/upstream response payloads, follow `../../rules/security.md`, section `Input Validation`.
 >
@@ -28,7 +30,7 @@ The project's SSR framework exposes two ways to handle server-side logic:
 
 ---
 
-## Preflight — Detect or install the validation library and Express
+## Preflight — Detect the validation library and Express
 
 The schemas of both options import the project's input validation library, the validation middleware factory of Option B depends on it too, and the REST router imports `express`; those packages must be declared before the files are created, otherwise `tsc --noEmit` fails with a missing module. They run in production code, so they count as available only when they are declared in `dependencies`: a deploy that runs `npm ci --omit=dev` (or the equivalent of the project's package manager) does not install `devDependencies`.
 
@@ -39,11 +41,15 @@ node -e "const p = require('./package.json'); const runtimeDeps = p.dependencies
 
 Resolve each line independently:
 
-- `validation-library`: if it prints `zod`, use the examples of this skill and the factory of `../../rules/api-validation-middleware.md` as they are. If it prints `yup`, `joi` or `valibot`, keep that library: write the schemas with its API and, when Option B needs the factory, adapt only its parse call and issue mapping (for example, `schema.validate(value, { abortEarly: false })` with `error.details` in `joi`, `schema.validateSync(value, { abortEarly: false })` inside `try` with `ValidationError.inner` in `yup`, or `v.safeParse(schema, value)` with `issues` in `valibot`) while preserving the `400` error contract of that rule (issue `path` and `code` only, never input values). If the library cannot express a requirement or that contract, warn the user with the gap and stop instead of adding a second validation library. Only when it prints `NONE`, install `zod`.
-- `express`: Option A does not import it; ignore this line when you only create a server hook. For Option B, if it prints `NONE` but the project's SSR framework re-exports the router (look for existing `Router` imports under `api/`), import it from there; otherwise install `express`. In TypeScript projects, also install `@types/express` as a dev dependency when it is not declared.
+- `validation-library`: if it prints `zod`, use the examples of this skill and the factory of `../../rules/api-validation-middleware.md` as they are. If it prints `yup`, `joi` or `valibot`, keep that library: write the schemas with its API and, when Option B needs the factory, adapt only its parse call and issue mapping (for example, `schema.validate(value, { abortEarly: false })` with `error.details` in `joi`, `schema.validateSync(value, { abortEarly: false })` inside `try` with `ValidationError.inner` in `yup`, or `v.safeParse(schema, value)` with `issues` in `valibot`) while preserving the `400` error contract of that rule (issue `path` and `code` only, never input values). If the library cannot express a requirement or that contract, warn the user with the gap and stop instead of adding a second validation library. Only when it prints `NONE`, ask the user before installing `zod` (see "Ask before installing" below).
+- `express`: Option A does not import it; ignore this line when you only create a server hook. For Option B, if it prints `NONE` but the project's SSR framework re-exports the router (look for existing `Router` imports under `api/`), import it from there. Otherwise the project has no Express BFF: confirm with the user that it wants one (an App Router project uses route handlers instead, see Applicability) and ask before installing `express`, together with `@types/express` as a dev dependency in TypeScript projects when it is not declared.
 - `<library> dev-only` (either line): the project already chose that library but declares it only in `devDependencies`. Use it as if it were printed alone, and move it to `dependencies` with the "Move to runtime" command of the table below before creating any file. Run the detector again and continue only when it prints the library without `dev-only`.
 
-Install only the missing packages with the package manager that owns the project's lockfile:
+### Ask before installing
+
+Never install a package silently, per `../../rules/established-libraries.md`. Before running any install command, tell the user which packages are missing, what each one is for (schemas and the validation factory for `zod`, the REST router for `express`), and which alternative the project already has (for example, another validation library or a router re-exported by the framework), then wait for confirmation. If the user declines, reuse the existing alternative or stop and report what is missing; do not create files that import an undeclared package. Moving an already declared library from `devDependencies` to `dependencies` is not a new install: do it and mention it in the report.
+
+After the user confirms, install only the missing packages with the package manager that owns the project's lockfile:
 
 | Lockfile | Runtime install | Dev install | Move to runtime (`dev-only`) |
 |---|---|---|---|
@@ -116,7 +122,10 @@ export async function getServerSideProps(req) {
     const product = await getProduct(productId);
     return { props: { product } };
   } catch (error) {
-    logError(`[PRODUCT-GET-SERVER-SIDE-PROPS] - error: ${error instanceof Error ? error.message : String(error)}`, { productId });
+    logError('[PRODUCT-GET-SERVER-SIDE-PROPS] - error: product could not be loaded', {
+      productId,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
     return { props: { error: true } };
   }
 }
@@ -124,7 +133,7 @@ export async function getServerSideProps(req) {
 
 Rules:
 - Never inline business logic or outbound HTTP calls — delegate to a service (skill `/service`), which uses the project's HTTP client.
-- Log with `logError`/`logWarning` from `utils/logger` (skill `/logger`) — never `console.log`.
+- Log with `logError`/`logWarning` from the project's shared logger (skill `/logger`) — never `console.log`. Log a fixed description, the error type and stable code, and opaque identifiers (`productId`, `requestId`); never the error message, stack, raw payloads, or PII (see `../../rules/error-handling.md`).
 - Never forward `scope` as a query parameter; see `../../rules/api-configuration.md`.
 
 ---
@@ -170,7 +179,10 @@ router.get('/product/:id', getProductValidationMiddleware, async (req, res) => {
     const product = await getProduct(req.params.id);
     res.json(product);
   } catch (error) {
-    logError(`[PRODUCT-GET] - error: ${error instanceof Error ? error.message : String(error)}`, { productId: req.params.id });
+    logError('[PRODUCT-GET] - error: product could not be loaded', {
+      productId: req.params.id,
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
     const publicError = mapKnownErrorToHttpResponse(error);
     return res.status(publicError.statusCode).json({ error: publicError.message });
   }
@@ -183,7 +195,9 @@ router.post('/product', createProductValidationMiddleware, async (req, res) => {
     const product = await createProduct({ name, price });
     res.status(201).json(product);
   } catch (error) {
-    logError(`[PRODUCT-CREATE] - error: ${error instanceof Error ? error.message : String(error)}`);
+    logError('[PRODUCT-CREATE] - error: product could not be created', {
+      errorType: error instanceof Error ? error.name : typeof error,
+    });
     const publicError = mapKnownErrorToHttpResponse(error);
     return res.status(publicError.statusCode).json({ error: publicError.message });
   }
@@ -241,12 +255,15 @@ Rules:
 - Never inline business logic — delegate to a service.
 - Never disable CSRF protection without a formal security review.
 - Everything else (allowlists, PII in logs, error details, status mapping) follows `../../rules/security.md`.
+- Never install a package without the user's confirmation (see "Ask before installing").
 
 ---
 
 ## Verify
 
 ```bash
-tsc --noEmit
-npm run lint
+<pm> run typecheck   # the project's type-check script
+<pm> run lint
 ```
+
+Use the package manager the lockfile declares. A script that does not exist is reported as `N/A`, per `../../rules/frontend-style.md` › `TypeScript`.

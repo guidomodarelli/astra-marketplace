@@ -25,4 +25,4 @@ Pick the mode from the request. If it asks for both, run coverage first and gene
 - **Coverage**: inventory routes, modules, and key units, map them to existing tests, mark gaps, and order the plan by impact with the test type for each gap.
 - In both modes, plan only observable behavior and public contracts, and reuse the project's factories, helpers, and testing conventions.
 
-This skill plans tests. Writing them follows `test-conventions`, and the decision about mocks follows `mock-first-testing-design`.
+This skill plans tests. Writing them follows `test-best-practices`, and the decision about mocks follows `mock-first-testing-design`.

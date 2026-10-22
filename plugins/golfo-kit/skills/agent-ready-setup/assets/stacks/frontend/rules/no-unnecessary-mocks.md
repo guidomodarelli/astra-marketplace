@@ -1,6 +1,6 @@
 # Mocking Strategy — Frontend Tests vs Service Tests
 
-Tests are split into two contexts with different mocking strategies. Apply the rules for the context you are in.
+Tests run with **Vitest**. They are split into two contexts with different isolation strategies; apply the rules for the context you are in. In both, the project's own code runs for real: never `vi.mock` or `vi.spyOn` the project's internal services, components, hooks, or modules, and never mock the component libraries or platform packages listed in `testing.md`. The only doubles allowed are test implementations of domain ports passed by injection, and `nock` for outbound HTTP.
 
 ---
 
@@ -8,32 +8,42 @@ Tests are split into two contexts with different mocking strategies. Apply the r
 
 Tests for React components, pages, and UI logic.
 
-**Strategy: mock internal services; use the default test providers of the project; never mock the component libraries or platform packages listed in `testing.md`.**
+**Strategy: render the real component tree with the project's default test providers; control its data through props or through an injected port, never by mocking the service module.**
 
-### Mock the services the component depends on
+### Give the component its data through its real contract
 
-Components call services to fetch data. Those services must be mocked so the test controls what the component receives:
+Presentational components receive data as props: pass test data directly. When a component reads data through a port (a repository or gateway exposed by the project's provider, a hook factory, or a prop), inject an in-memory implementation of that port:
 
-```js
-// app/ui-components/user-card/__tests__/user-card.spec.jsx
+```tsx
+// components/user-card/index.test.tsx
 import { render, screen } from '@testing-library/react';
-import { TestProviders } from '../../../../tests/utils/test-providers';
+import { describe, expect, it } from 'vitest';
 
-import { UserCard } from '../index';
-import * as userService from '../../../../src/services/user';
+import { TestProviders } from '@/tests/utils/test-providers';
+import type { UserRepository } from '@/src/modules/users/domain/repositories/user-repository';
 
-jest.spyOn(userService, 'getUser').mockResolvedValue({ id: 1, name: 'Ada' });
+import { UserCard } from './index';
 
-test('shows user name', async () => {
-  render(
-    <TestProviders>
-      <UserCard userId="1" />
-    </TestProviders>,
-  );
+const createInMemoryUserRepository = (users: Array<{ id: string; name: string }>): UserRepository => ({
+  findById: async (userId) => users.find((user) => user.id === userId) ?? null,
+});
 
-  expect(await screen.findByText('Ada')).toBeInTheDocument();
+describe('UserCard', () => {
+  it('shows the user name', async () => {
+    const userRepository = createInMemoryUserRepository([{ id: '1', name: 'Ada' }]);
+
+    render(
+      <TestProviders userRepository={userRepository}>
+        <UserCard userId="1" />
+      </TestProviders>,
+    );
+
+    expect(await screen.findByText('Ada')).toBeInTheDocument();
+  });
 });
 ```
+
+Adapt the port and provider names to the project's real API. When the component has no injection point and reaches the service through a module import, do not mock the module: test the service at its HTTP boundary (Context 2) and cover the component through the closest real composition (a route-level test or a test of the server component that passes props). Propose an injection point only when it improves the real design (see the `mock-first-testing-design` skill).
 
 ---
 
@@ -45,7 +55,7 @@ Tests for service functions that call external APIs through the project's HTTP c
 
 ### How it works
 
-The fixture tool intercepts Node's `http.request`/`https.request` at the transport level. By default (and always in CI) it runs in `lockdown` mode: it only replays committed JSON fixtures and any request without a fixture fails without reaching the network — no network needed, no mocking required. Recording a fixture is an explicit opt-in action against test data, never a side effect of a first local run.
+The fixture tool intercepts outbound HTTP at the transport level (`nock` patches Node's `http.request`/`https.request`, and `fetch` from `nock` 14). By default (and always in CI) it runs in `lockdown` mode: it only replays committed JSON fixtures and any request without a fixture fails without reaching the network — no network needed, no mocking required. Recording a fixture is an explicit opt-in action against test data, never a side effect of a first local run.
 
 This means service tests exercise the real service code (URL building, response parsing, error handling) against realistic API responses.
 
@@ -54,10 +64,12 @@ This means service tests exercise the real service code (URL building, response 
 Load fixtures inside the test file. No global config or server-side wiring needed:
 
 ```js
-// services/__tests__/user.spec.js
-import path from 'node:path';
+// services/user.test.js
+// @vitest-environment node
+import { fileURLToPath } from 'node:url';
 import nock from 'nock';
-import { getUser } from '../user';
+import { afterEach, expect, test } from 'vitest';
+import { getUser } from './user';
 
 const RECORD_FIXTURES_ENV_VAR = 'NOCK_BACK_RECORD';
 const REDACTED_VALUE = '[REDACTED]';
@@ -66,8 +78,12 @@ const URL_ENCODED_PAYLOAD_PATTERN = /^[^=&\s]+=[^&\s]*(?:&[^=&\s]+=[^&\s]*)*$/;
 
 const isRecordingFixtures = process.env[RECORD_FIXTURES_ENV_VAR] === 'true' && !process.env.CI;
 
-nock.back.fixtures = path.join(__dirname, 'fixtures');
+nock.back.fixtures = fileURLToPath(new URL('./fixtures', import.meta.url));
 nock.back.setMode(isRecordingFixtures ? 'record' : 'lockdown');
+
+afterEach(() => {
+  nock.cleanAll();
+});
 
 const redactSensitiveFields = (value) => {
   if (Array.isArray(value)) return value.map(redactSensitiveFields);
@@ -132,29 +148,33 @@ test('returns user data', async () => {
     afterRecord: sanitizeRecordedDefinitions,
   });
 
-  const user = await getUser('1');
-  nockDone();
+  try {
+    const user = await getUser('1');
 
-  expect(user.id).toBe(1);
-  expect(user.name).toBeDefined();
+    expect(user).toStrictEqual({ id: 1, name: 'Ada' });
+  } finally {
+    nockDone();
+  }
 });
 ```
 
+Run these tests in Vitest's `node` environment (the `// @vitest-environment node` comment or the project's Vitest config): `nock` intercepts Node's `http`/`https` modules, and native `fetch` only from `nock` 14 onward. If the project's HTTP client is `undici` (or `fetch` with an older `nock`), use `undici`'s `MockAgent` with `disableNetConnect()` and committed fixtures instead.
+
 To record or refresh a fixture, run the test explicitly with `NOCK_BACK_RECORD=true`, outside CI and against an environment or account that only holds test data — never real user data. `afterRecord` drops `rawHeaders` and `reqheaders` (cookies, `authorization`, `set-cookie`, correlation ids) and redacts identifiers and PII from the request body, the response and the query params of `path` (Nock records the route there, query string included) before the fixture is persisted. Nock keeps as a string every body or response it cannot parse as JSON: `sanitizeRecordedPayload` redacts those strings when they are JSON or `application/x-www-form-urlencoded`, and for any other non-empty text (plain text, XML, binary payloads) it throws an error that aborts the recording and names the method, origin and redacted path; in that case write the fixture by hand from test data or add a sanitizer for that content type. Adjust `SENSITIVE_FIELD_NAMES` to the upstream contract. Path segments (for example `/users/{id}`) are not redacted: when they carry identifiers, record only against test data. Review the generated JSON before committing it, and commit it only when it contains no secrets, tokens, cookies or personal data, so CI runs without network access.
 
-### When service mocks are acceptable
+### Side effects and transport failures
 
-Only mock a service dependency when:
+Never mock an internal service module. Instead:
 
-- The dependency is **another internal service** (not an HTTP call) with side effects that would break test isolation (e.g., a service that writes to a queue or triggers a notification).
-- The test needs to assert behavior under a **specific error condition** that cannot be represented as a fixture file (for example, a transport failure without an HTTP response). HTTP error statuses such as 500 or 404 are always covered with a fixture file.
+- When the unit depends on **another internal capability with side effects** (writing to a queue, sending a notification), that capability is a domain port: inject a test implementation of the port that records the calls, and assert on what it recorded.
+- When the test needs a **transport failure without an HTTP response** (connection reset, timeout), reproduce it with `nock` (`.replyWithError(...)` or `.delay(...)` with the client's timeout). HTTP error statuses such as 500 or 404 are always covered with a fixture file.
 
 ### Creating error scenario fixtures manually
 
 Instead of mocking, create the fixture JSON for the error case:
 
 ```json
-// services/__tests__/fixtures/get-user-not-found.json
+// services/fixtures/get-user-not-found.json
 [
   {
     "scope": "https://api.example.com:443",
@@ -171,13 +191,14 @@ Instead of mocking, create the fixture JSON for the error case:
 
 ## Quick Reference
 
-| Test type | Mock services? | Mock framework contexts? | Mock HTTP? |
-|-----------|----------------|----------------------|------------|
-| Component / UI | Yes — `jest.spyOn` on services | No | Never directly |
-| Service | No | No | Never — use HTTP record/replay fixtures |
+| Test type | Mock internal services or modules? | Mock framework contexts or design system? | Isolate outbound HTTP? | Doubles allowed |
+|-----------|------------------------------------|-------------------------------------------|------------------------|-----------------|
+| Component / UI | Never | Never — use the project's test providers | Never call the network; data comes from props or injected ports | In-memory implementations of injected domain ports |
+| Service / adapter | Never | Never | `nock` record/replay fixtures (`nock.back`) in the `node` environment | Injected domain ports for non-HTTP side effects |
 
 ---
 
 ## References
 
-- `nock` — HTTP interceptor with record/replay fixtures (`nock.back`) for service tests, or the equivalent tool used by the project
+- `nock` — HTTP interceptor with record/replay fixtures (`nock.back`) for service tests, run with Vitest in the `node` environment, or the equivalent tool used by the project (for example `undici`'s `MockAgent`)
+- `vitest` — test runner and the only source of test APIs (`vi.fn`, `vi.useFakeTimers`); `vi.mock` and `vi.spyOn` are not used on the project's own modules

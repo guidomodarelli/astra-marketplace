@@ -1,6 +1,6 @@
 ---
 name: ui-ux-flow-patterns
-description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer y qué feedback recibe el usuario. Usar siempre, sin pedido explícito, al crear o modificar pantallas, listas, tablas, formularios, búsquedas, uploads, wizards o acciones de UI en cualquier stack; no en código sin interfaz.'
+description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa a la acción con error junto al campo, limpieza de errores viejos (stale errors) al cambiar de recurso o reintentar, cuándo usar el feedback de reporte a soporte y qué feedback recibe el usuario. Usar siempre, sin pedido explícito, al crear o modificar pantallas, listas, tablas, formularios, búsquedas, uploads, wizards o acciones de UI en cualquier stack; no en código sin interfaz.'
 license: MIT
 metadata:
   version: "1.0.0"
@@ -22,7 +22,8 @@ Usar esta skill por iniciativa propia cada vez que se crea o modifica código qu
   1. Si el cambio **trae datos**: ¿tiene estado de carga con la forma del contenido, estado vacío y estado de error con reintento? ([state-matrix.md](references/state-matrix.md))
   2. Si el cambio **ejecuta una acción**: ¿el control muestra pending, evita el doble envío y el resultado llega por el canal correcto? ([feedback-channels.md](references/feedback-channels.md#tabla-de-decisión))
   3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)?
-  4. ¿El feedback nuevo es accesible (live region, foco, no solo color)? ([accesibilidad](references/feedback-channels.md#accesibilidad-del-feedback))
+  4. Si el cambio **valida input o muestra errores**: ¿la acción se bloquea antes del request, el error queda junto al campo y el error viejo se limpia al cambiar de recurso o reintentar? ([validation-feedback.md](references/validation-feedback.md))
+  5. ¿El feedback nuevo es accesible (live region, foco, no solo color)? ([accesibilidad](references/feedback-channels.md#accesibilidad-del-feedback))
 
   Aplicar lo que salga del checklist directamente en el código. No producir la matriz de estados ni las tablas del [formato del reporte](#formato-del-reporte), que son del modo completo: un cambio puntual se entrega con el formato que pidió el usuario. Si nada aplica, seguir sin reportar nada extra; si algo aplica, sumar una línea por hallazgo al cierre de la tarea.
 - **Modo completo** (pantalla o flujo nuevo, rediseño, pedido explícito sobre UX, estados o feedback). Seguir los pasos 0 a 5.
@@ -43,7 +44,7 @@ Para cada región que trae datos o ejecuta acciones, completar la matriz con los
 
 ## 3. Elegir el canal de feedback de cada evento
 
-Para cada evento (acción completada, fallo, validación, cambio de estado en segundo plano, aviso persistente) elegir el canal con la [tabla de decisión](references/feedback-channels.md#tabla-de-decisión): inline junto al control, mensaje de formulario, banner, toast, diálogo, badge, página completa o el propio cambio de la UI. La pregunta guía es **dónde está mirando el usuario y cuánto necesita actuar**: lo que requiere acción no se va solo, y lo que solo confirma no interrumpe. Decidir también confirmar o deshacer para cada acción destructiva.
+Para cada evento (acción completada, fallo, validación, cambio de estado en segundo plano, aviso persistente) elegir el canal con la [tabla de decisión](references/feedback-channels.md#tabla-de-decisión): inline junto al control, mensaje de formulario, banner, toast, diálogo, badge, página completa o el propio cambio de la UI. La pregunta guía es **dónde está mirando el usuario y cuánto necesita actuar**: lo que requiere acción no se va solo, y lo que solo confirma no interrumpe. Decidir también confirmar o deshacer para cada acción destructiva. Para validación previa, errores viejos y feedback de reporte a soporte, aplicar [validation-feedback.md](references/validation-feedback.md).
 
 ## 4. Escribir el copy de cada estado
 
@@ -76,7 +77,6 @@ Solo en modo completo:
 ## Límites con otras skills
 
 - `nextjs-route-ui-boundaries`: en Next.js, **dónde** van `loading.tsx`, `error.tsx` y los `<Suspense>`; esta skill decide **qué muestran**.
-- `critical-validation-feedback-ui`: detalle de validación de campos y limpieza de errores viejos.
 - `optimistic-action-mutations`: implementación de toggles y acciones optimistas con rollback.
 - `async-operation-error-handling`: errores de jobs, batches, polling y éxito parcial a través de las capas.
 - `semantic-html-a11y`: semántica, roles y foco de los controles.

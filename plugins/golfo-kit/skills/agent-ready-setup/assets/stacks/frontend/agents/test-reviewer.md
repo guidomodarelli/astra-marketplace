@@ -11,7 +11,7 @@ Use `.agents/rules/testing.md` and `.agents/rules/no-unnecessary-mocks.md` as th
 
 ## When to activate
 
-Activate when the diff includes frontend production files (`*.tsx`, `*.ts`, `*.jsx`, or `*.js`) or files matching `*.spec.tsx?`, `*.test.tsx?`, or any file under `__tests__/`. Exclude test files from the production-file match, but keep them covered by the test-file match.
+Activate when the diff includes frontend production files (`*.tsx`, `*.ts`, `*.jsx`, or `*.js`) or test files (`*.test.ts(x)`, `*.spec.ts(x)`, or files under the tests tree the project's `AGENTS.md` declares). Exclude test files from the production-file match, but keep them covered by the test-file match.
 
 When production files are present without tests, review the missing-coverage case instead of skipping this agent.
 
@@ -21,6 +21,7 @@ When production files are present without tests, review the missing-coverage cas
 
 ### Coverage
 - [ ] Every new or modified public function/component has at least one test
+- [ ] The coverage threshold is met when the project configures one (do not demand a fixed percentage otherwise)
 - [ ] Happy path covered
 - [ ] Error cases covered (API failure, missing required fields, boundary values)
 - [ ] User interactions covered (clicks, form submissions, keyboard events) where applicable
@@ -32,13 +33,15 @@ When production files are present without tests, review the missing-coverage cas
 - [ ] No `act()` warnings suppressed without fixing the underlying cause
 
 ### Mocking
-- [ ] External dependencies mocked at the project boundary: internal services with `jest.spyOn` in component tests, and upstream HTTP through the project's HTTP fixture interceptor in service tests
+- [ ] Tests use Vitest APIs (`vi.*`); any Jest API (`jest.fn`, `jest.mock`, `jest.spyOn`) is flagged
+- [ ] No `vi.mock` / `vi.spyOn` on the project's internal services, components, hooks, or modules
 - [ ] Component libraries and platform packages listed in `.agents/rules/testing.md` › `Mocking` (including the project's HTTP client) are never mocked
-- [ ] `jest.mock()` / `vi.mock()` placed after imports
-- [ ] Mocks reset between tests (`beforeEach` / `afterEach`)
-- [ ] No real HTTP calls in unit tests
+- [ ] Doubles are limited to test implementations of domain ports passed by injection (constructor, factory, prop, or provider)
+- [ ] Outbound HTTP isolated with `nock` record/replay fixtures in the `node` environment; no real HTTP calls
+- [ ] Shared state restored between tests (`afterEach` with `vi.restoreAllMocks()`, `nock.cleanAll()`, `vi.useRealTimers()`)
 
 ### Structure
+- [ ] Test files follow the location the project's `AGENTS.md` declares (colocated `*.test.ts(x)` by default) and never sit inside the App Router routes directory
 - [ ] Test descriptions start with a verb and describe behavior: `"renders the error message when the API fails"`
 - [ ] AAA pattern visible: Arrange → Act → Assert
 - [ ] No logic inside tests (conditionals, loops) — extract to helpers if needed

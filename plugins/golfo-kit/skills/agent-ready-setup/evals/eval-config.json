@@ -45,8 +45,8 @@
         },
         {
           "type": "contains",
-          "value": "pre-tool-use",
-          "description": "Reporta hook pre-tool creado"
+          "value": "sync-marketplace",
+          "description": "Reporta hook de sincronización compartido"
         },
         {
           "type": "contains",
@@ -296,7 +296,7 @@
     {
       "id": "go-bootstrap-creates-assets",
       "description": "Detecta Go y reporta assets específicos creados.",
-      "input": "Explicá cómo agent-ready-setup detecta Go para un microservicio y qué archivos principales crea bajo .claude/, incluyendo mcp.json y reglas. No ejecutes Bash ni escribas archivos; respondé desde la plantilla bundled.",
+      "input": "Explicá cómo agent-ready-setup detecta Go para un microservicio y qué archivos principales crea bajo .claude/, incluyendo agents, commands y reglas. No ejecutes Bash ni escribas archivos; respondé desde la plantilla bundled.",
       "assertions": [
         {
           "type": "contains_any",
@@ -319,9 +319,9 @@
           "description": "Reporta regla de seguridad creada"
         },
         {
-          "type": "contains",
-          "value": "mcp.json",
-          "description": "Reporta configuración MCP creada"
+          "type": "contains_any",
+          "values": ["security-scanner", "review-pr"],
+          "description": "Reporta agents o commands del stack Go"
         }
       ]
     },
@@ -486,8 +486,8 @@
       ]
     },
     {
-      "id": "frontend-api-endpoint-installs-or-detects-validation-library",
-      "description": "Detecta la librería de validación y express ya declaradas en dependencies o instala zod con el package manager del lockfile antes de crear schemas, el factory y el router.",
+      "id": "frontend-api-endpoint-asks-before-installing-validation-library",
+      "description": "Detecta la librería de validación y express ya declaradas; si falta una, pregunta antes de instalar zod con el package manager del lockfile, y reutiliza la que ya existe.",
       "input": "Voy a ejecutar `/api-endpoint` de agent-ready-setup para crear un endpoint REST en un proyecto frontend con `pnpm-lock.yaml` cuyo `package.json` declara `express` en `dependencies` pero no declara ninguna librería de validación. Explicá qué debe hacer la skill antes de escribir el schema, `utils/validation` y el router, qué comando corre, qué cambia si `package.json` ya declara `joi` y qué hace si `zod` está solo en `devDependencies`. No ejecutes Bash ni escribas archivos; respondé desde la plantilla frontend bundled.",
       "assertions": [
         {
@@ -496,9 +496,21 @@
           "description": "Revisa las dependencias declaradas en package.json"
         },
         {
+          "type": "contains_any",
+          "values": [
+            "pregunt",
+            "confirm",
+            "ask",
+            "aprobación",
+            "autoriz"
+          ],
+          "description": "Pregunta antes de instalar una librería nueva",
+          "critical": false
+        },
+        {
           "type": "contains",
           "value": "pnpm add zod",
-          "description": "Instala zod con el package manager del lockfile"
+          "description": "Propone instalar zod con el package manager del lockfile, después de confirmarlo"
         },
         {
           "type": "contains",
@@ -507,12 +519,21 @@
         },
         {
           "type": "contains_any",
-          "values": ["dev-only", "--save-prod", "dependencies"],
+          "values": [
+            "dev-only",
+            "--save-prod",
+            "dependencies"
+          ],
           "description": "Mueve a runtime la librería declarada solo en devDependencies"
         },
         {
           "type": "contains_any",
-          "values": ["tsc --noEmit", "módulo inexistente", "missing module", "no compila"],
+          "values": [
+            "tsc --noEmit",
+            "módulo inexistente",
+            "missing module",
+            "no compila"
+          ],
           "description": "Explica que sin la dependencia falla la verificación de tipos"
         }
       ]
@@ -1145,34 +1166,37 @@
       ]
     },
     {
-      "id": "frontend-style-prefers-object-is-over-strict-equality",
-      "description": "Prefiere Object.is frente a los operadores === y !==, conservándolos cuando la semántica lo requiere.",
-      "input": "Leé la regla frontend de agent-ready-setup sobre los operadores de igualdad estricta. Explicá cuándo preferir `Object.is` frente a `===` o `!==` y por qué `NaN`, `+0` y `-0` requieren considerar la semántica elegida. No ejecutes Bash ni escribas archivos.",
+      "id": "frontend-style-keeps-strict-equality",
+      "description": "No impone Object.is: usa === y !== por defecto y reserva Object.is para cuando la semántica de NaN o del cero con signo lo requiere.",
+      "input": "Leé la regla frontend de agent-ready-setup sobre estilo. ¿Exige reemplazar `===` y `!==` por `Object.is`? Explicá qué usar por defecto y cuándo tendría sentido `Object.is`. No ejecutes Bash ni escribas archivos.",
       "assertions": [
         {
-          "type": "contains",
-          "value": "Object.is",
-          "description": "Recomienda Object.is para la igualdad de primitivos"
-        },
-        {
           "type": "contains_any",
-          "values": ["===", "!==", "igualdad estricta", "strict equality"],
-          "description": "Contrasta la preferencia con igualdad estricta"
-        },
-        {
-          "type": "contains",
-          "value": "NaN",
-          "description": "Explica una diferencia relevante de semántica"
+          "values": [
+            "===",
+            "igualdad estricta",
+            "strict equality"
+          ],
+          "description": "Mantiene la igualdad estricta como opción por defecto",
+          "critical": false
         },
         {
           "type": "regex",
-          "pattern": "nan[^.]{0,60}(desigual|distint|nunca igual|no (es|sea|debe ser) igual|!==|unequal)",
-          "description": "Conserva la semántica cuando NaN debe permanecer desigual"
+          "pattern": "(no|not|ni)[^.]{0,60}(exig|impon|obligatori|require|mandat)",
+          "description": "Aclara que la regla no impone Object.is",
+          "critical": false
         },
         {
           "type": "contains_any",
-          "values": ["+0", "-0", "cero negativo", "signed zero"],
-          "description": "Explica la diferencia de ceros con signo"
+          "values": [
+            "NaN",
+            "-0",
+            "+0",
+            "cero con signo",
+            "signed zero"
+          ],
+          "description": "Reserva Object.is para la semántica de NaN o del cero con signo",
+          "critical": false
         }
       ]
     },
@@ -1214,24 +1238,24 @@
       ]
     },
     {
-      "id": "frontend-style-uses-lodash-only-where-it-adds-value",
-      "description": "Exige lodash por método en los casos que reducen código y prohíbe wrappers de funciones nativas.",
-      "input": "Leé la regla frontend de agent-ready-setup sobre lodash. En un componente con lodash instalado alguien escribió un debounce manual con `setTimeout`, un deep equal recursivo propio, un loop con `slice` que arma lotes de 50 ids para enviarlos al backend, un `debounce` creado directamente en el cuerpo del componente, `[...new Set(ids)]` para deduplicar, chequeos `typeof name === 'string'` y `Array.isArray(items)`, `_.each(items, render)` y `_.get(user, 'profile.name')`, importando `import _ from 'lodash'`. Explicá qué cambiarías en cada caso y cómo deben quedar los imports. No ejecutes Bash ni escribas archivos.",
+      "id": "frontend-style-uses-lodash-es-only-where-it-adds-value",
+      "description": "Exige lodash-es con imports nombrados en los casos que reducen código y prohíbe wrappers de funciones nativas.",
+      "input": "Leé la regla frontend de agent-ready-setup sobre lodash. En un componente con lodash-es instalado alguien escribió un debounce manual con `setTimeout`, un deep equal recursivo propio, un loop con `slice` que arma lotes de 50 ids para enviarlos al backend, un `debounce` creado directamente en el cuerpo del componente, `[...new Set(ids)]` para deduplicar, chequeos `typeof name === 'string'` y `Array.isArray(items)`, `_.each(items, render)` y `_.get(user, 'profile.name')`, importando `import _ from 'lodash'`. Explicá qué cambiarías en cada caso y cómo deben quedar los imports. No ejecutes Bash ni escribas archivos.",
       "assertions": [
         {
           "type": "contains",
-          "value": "lodash/debounce",
-          "description": "Reemplaza el debounce manual por lodash/debounce"
+          "value": "debounce",
+          "description": "Reemplaza el debounce manual por debounce de lodash-es"
         },
         {
           "type": "contains",
-          "value": "lodash/isEqual",
-          "description": "Reemplaza el deep equal propio por lodash/isEqual"
+          "value": "isEqual",
+          "description": "Reemplaza el deep equal propio por isEqual de lodash-es"
         },
         {
           "type": "contains",
-          "value": "lodash/chunk",
-          "description": "Reemplaza el loop de lotes manual por lodash/chunk"
+          "value": "chunk",
+          "description": "Reemplaza el loop de lotes manual por chunk de lodash-es"
         },
         {
           "type": "contains_any",
@@ -1245,18 +1269,18 @@
         },
         {
           "type": "contains",
-          "value": "lodash/uniq",
-          "description": "Reemplaza el Set manual por lodash/uniq"
+          "value": "uniq",
+          "description": "Reemplaza el Set manual por uniq de lodash-es"
         },
         {
           "type": "contains",
-          "value": "isString",
-          "description": "Reemplaza typeof por lodash/isString"
+          "value": "typeof",
+          "description": "Mantiene typeof nativo en lugar de isString"
         },
         {
           "type": "contains",
-          "value": "lodash/isArray",
-          "description": "Reemplaza Array.isArray por lodash/isArray"
+          "value": "Array.isArray",
+          "description": "Mantiene Array.isArray nativo en lugar de isArray"
         },
         {
           "type": "contains_any",
@@ -1270,52 +1294,58 @@
         },
         {
           "type": "contains_any",
-          "values": ["un método por", "por método", "one method per", "bundle"],
-          "description": "Exige imports por método y explica el costo en el bundle"
+          "values": ["lodash-es", "import nombrado", "imports nombrados", "named import", "tree-shak"],
+          "description": "Exige imports nombrados de lodash-es y explica que hacen tree-shaking"
         }
       ]
     },
     {
-      "id": "frontend-style-resolves-lodash-without-extraneous-dependencies",
-      "description": "Resuelve lodash provisto por el framework SSR sin declarar la dependencia ni silenciar import/no-extraneous-dependencies.",
-      "input": "Leé la regla frontend de agent-ready-setup sobre lodash. En una app con framework SSR, `lodash` no está en `dependencies` del `package.json`, pero aparece en el `package.json` del framework SSR dentro de `node_modules/`. Necesito `lodash/debounce` y `lodash/chunk`, y ESLint marca `import/no-extraneous-dependencies`. ¿Qué hacés para que el lint pase? No ejecutes Bash ni escribas archivos.",
+      "id": "frontend-style-installs-lodash-es-when-undeclared",
+      "description": "lodash-es es obligatorio en el stack: si no está declarado lo instala con el package manager del lockfile (la única instalación preaprobada) y no silencia el linter.",
+      "input": "Leé la regla frontend de agent-ready-setup sobre lodash. En una app con `pnpm-lock.yaml`, `lodash-es` no está en `dependencies` del `package.json`, aunque aparece dentro de `node_modules/` porque lo trae el framework. Necesito `debounce` y `chunk`, y el linter marca la dependencia como no declarada. ¿Qué hacés? No ejecutes Bash ni escribas archivos.",
       "assertions": [
         {
           "type": "contains",
-          "value": "import/core-modules",
-          "description": "Registra los subpaths en import/core-modules"
+          "value": "pnpm add lodash-es",
+          "description": "Instala lodash-es con el package manager del lockfile",
+          "critical": false
         },
         {
           "type": "contains_any",
-          "values": ["lodash/debounce", "lodash/chunk"],
-          "description": "Registra cada subpath importado"
-        },
-        {
-          "type": "regex",
-          "pattern": "(^|[^[:alpha:]])(no|nunca|never|not|sin)[^[:alpha:]][^.]{0,30}(agreg|declar|instal|add|incorpor)",
-          "description": "No declara lodash en package.json"
+          "values": [
+            "import { debounce",
+            "import { chunk",
+            "from 'lodash-es'"
+          ],
+          "description": "Usa imports nombrados de lodash-es",
+          "critical": false
         },
         {
           "type": "not_contains_any",
-          "values": ["npm install lodash", "npm i lodash", "// eslint-disable-next-line import/no-extraneous-dependencies"],
-          "description": "No instala lodash ni silencia la regla"
+          "values": [
+            "eslint-disable",
+            "oxlint-disable",
+            "import/core-modules"
+          ],
+          "description": "No silencia el linter ni registra subpaths en un allowlist",
+          "critical": false
         }
       ]
     },
     {
-      "id": "frontend-style-replaces-existing-utils-with-lodash",
-      "description": "Reemplaza utils propios que duplican lodash llamando al método directamente y conservando la semántica.",
-      "input": "Leé la regla frontend de agent-ready-setup sobre lodash. El proyecto tiene lodash declarado y un `utils/is-record.ts` con `export const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);`, usado en 12 archivos y con su propio test. También hay un `utils/is-nullish.ts`. ¿Qué hacés con cada util? No ejecutes Bash ni escribas archivos.",
+      "id": "frontend-style-replaces-existing-utils-with-lodash-es",
+      "description": "Reemplaza utils propios que duplican lodash-es llamando al método directamente y conservando la semántica.",
+      "input": "Leé la regla frontend de agent-ready-setup sobre lodash. El proyecto tiene lodash-es declarado y un `utils/is-record.ts` con `export const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);`, usado en 12 archivos y con su propio test. También hay un `utils/unique.ts` que deduplica con `[...new Set(values)]` y un `utils/is-nullish.ts` con `value == null`. ¿Qué hacés con cada util? No ejecutes Bash ni escribas archivos.",
       "assertions": [
         {
           "type": "contains",
           "value": "isPlainObject",
-          "description": "Propone lodash/isPlainObject para isRecord"
+          "description": "Propone isPlainObject de lodash-es para isRecord"
         },
         {
           "type": "contains_any",
           "values": ["directamente", "directo", "sin wrapper", "directly", "en cada llamada"],
-          "description": "Llama a lodash directamente sin wrapper que delegue"
+          "description": "Llama a lodash-es directamente sin wrapper que delegue"
         },
         {
           "type": "contains_any",
@@ -1324,8 +1354,13 @@
         },
         {
           "type": "contains",
-          "value": "isNil",
-          "description": "Reemplaza is-nullish por lodash/isNil"
+          "value": "uniq",
+          "description": "Reemplaza unique por uniq de lodash-es"
+        },
+        {
+          "type": "contains_any",
+          "values": ["== null", "nativo", "native"],
+          "description": "Resuelve is-nullish con el chequeo nativo, no con isNil"
         },
         {
           "type": "contains_any",
@@ -1367,24 +1402,24 @@
       ]
     },
     {
-      "id": "frontend-catalog-exposes-constants-refactor",
-      "description": "Expone skill de refactor de constantes dentro del catálogo frontend.",
-      "input": "Explicá qué skills frontend agrega agent-ready-setup para refactorizar constantes estáticas y dónde queda disponible el workflow. No ejecutes Bash ni escribas archivos; respondé desde la plantilla frontend bundled.",
+      "id": "frontend-constants-refactor-from-plugin",
+      "description": "Indica que el refactor de constantes se usa desde el plugin golfo-kit y no se proyecta como skill del stack frontend.",
+      "input": "Explicá si agent-ready-setup proyecta una skill para refactorizar constantes estáticas en el stack frontend y dónde queda disponible ese workflow. No ejecutes Bash ni escribas archivos; respondé desde la plantilla frontend bundled.",
       "assertions": [
         {
           "type": "contains",
           "value": "constants-refactor",
-          "description": "Identifica el skill agregado al catálogo"
-        },
-        {
-          "type": "contains",
-          "value": "constants/",
-          "description": "Indica destino canónico de constantes"
+          "description": "Identifica la skill de refactor de constantes"
         },
         {
           "type": "contains_any",
-          "values": ["frontend/skills", ".agents/skills", "skills/"],
-          "description": "Ubica el workflow dentro de skills proyectadas"
+          "values": ["golfo-kit", "plugin"],
+          "description": "Ubica la skill en el plugin golfo-kit"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [".agents/skills/constants-refactor", "frontend/skills/constants-refactor"],
+          "description": "No la presenta como skill proyectada por el stack"
         }
       ]
     },
@@ -1591,30 +1626,53 @@
         },
         {
           "type": "contains_any",
-          "values": ["Message", "message", "Snackbar común", "Snackbar regular", "regular `Snackbar`", "snackbar regular"],
-          "description": "Usa Message/Snackbar común para estados esperados como lista vacía"
+          "values": [
+            "Message",
+            "message",
+            "Snackbar común",
+            "Snackbar regular",
+            "regular `Snackbar`",
+            "snackbar regular",
+            "toast",
+            "Toast",
+            "notificación",
+            "mensaje inline",
+            "inline"
+          ],
+          "description": "Usa el mensaje, toast o notificación común del proyecto para estados esperados como lista vacía"
         },
         {
           "type": "contains_any",
-          "values": ["fabricar", "inventar", "fabricate", "no armar"],
+          "values": [
+            "fabricar",
+            "inventar",
+            "fabricate",
+            "no armar"
+          ],
           "description": "Prohíbe fabricar un contexto de error tracking"
         },
         {
           "type": "contains_any",
-          "values": ["limpiar", "stale", "recurso anterior"],
+          "values": [
+            "limpiar",
+            "stale",
+            "recurso anterior"
+          ],
           "description": "Limpia el error del recurso anterior"
         },
         {
           "type": "contains_any",
-          "values": ["fallback"],
+          "values": [
+            "fallback"
+          ],
           "description": "Cubre fallback sin contexto en tests"
         }
       ]
     },
     {
       "id": "frontend-style-i18n-tokens-image-provider",
-      "description": "Exige i18n.gettext, tokens del design system con Sass Modules, el componente de imágenes del proyecto y su logger.",
-      "input": "Leé las reglas frontend de agent-ready-setup. Un componente nuevo tiene el texto del botón hardcodeado, un color #3483fa en el CSS, un <img> con URL absoluta del CDN y un console.error en el catch. Explicá qué reglas incumple y cómo corregir cada punto. No ejecutes Bash ni escribas archivos.",
+      "description": "Exige i18n.gettext cuando el proyecto ya usa esa librería de i18n, tokens del design system con la solución de estilos del proyecto, el componente de imágenes del proyecto y su logger.",
+      "input": "Leé las reglas frontend de agent-ready-setup. En un proyecto que ya traduce su copy con `i18n.gettext`, un componente nuevo tiene el texto del botón hardcodeado, un color #3483fa en el CSS, un <img> con URL absoluta del CDN y un console.error en el catch. Explicá qué reglas incumple y cómo corregir cada punto. No ejecutes Bash ni escribas archivos.",
       "assertions": [
         {
           "type": "contains",
@@ -1623,17 +1681,29 @@
         },
         {
           "type": "contains_any",
-          "values": ["token", "tokens"],
+          "values": [
+            "token",
+            "tokens"
+          ],
           "description": "Reemplaza el color hardcodeado por tokens del design system"
         },
         {
           "type": "contains_any",
-          "values": ["componente de imágenes", "image component", "provider de imágenes", "image provider"],
+          "values": [
+            "componente de imágenes",
+            "image component",
+            "provider de imágenes",
+            "image provider"
+          ],
           "description": "Usa el componente o provider de imágenes del proyecto en lugar de URL absoluta"
         },
         {
           "type": "contains_any",
-          "values": ["logger del proyecto", "project's logger", "logger"],
+          "values": [
+            "logger del proyecto",
+            "project's logger",
+            "logger"
+          ],
           "description": "Reemplaza console.* por el logger del proyecto"
         }
       ]
@@ -1662,6 +1732,43 @@
           "type": "contains_any",
           "values": ["librería de validación", "libreria de validación", "validation library", "zod"],
           "description": "Usa la librería de validación de input del proyecto"
+        }
+      ]
+    },
+    {
+      "id": "common-testing-scope-allows-tooling-tests-required-by-agents-md",
+      "description": "Exceptúa de testing-scope los tests de tooling que el AGENTS.md del proyecto exige, sin extender la excepción a otros.",
+      "input": "Leé la rule común testing-scope de agent-ready-setup. El AGENTS.md de mi proyecto exige `src/tests/tooling/app-route-test-placement.test.ts`, que recorre `app/` para impedir tests dentro de las rutas. Además alguien agregó otro test que solo verifica que oxlint carga sus plugins, y el AGENTS.md no lo pide. ¿Qué hacés con cada uno? No ejecutes Bash ni escribas archivos.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "AGENTS.md",
+          "description": "Basa la excepción en lo que exige el AGENTS.md",
+          "critical": false
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "app-route-test-placement",
+            "se mantiene",
+            "se conserva",
+            "keep",
+            "mantener"
+          ],
+          "description": "Conserva el test de tooling que el AGENTS.md exige",
+          "critical": false
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "eliminar",
+            "borrar",
+            "reportar",
+            "delete",
+            "report"
+          ],
+          "description": "No extiende la excepción al test de oxlint que el AGENTS.md no pide",
+          "critical": false
         }
       ]
     }

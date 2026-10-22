@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "refactor-modularize-code",
-  "description": "Evalúa refactors de modularidad y cohesión: fases acordadas con métricas y orden de extracción, deduplicación sin helpers genéricos con flags, y separación de una cola React con estado local y coordinación de foco explícita.",
+  "description": "Evalúa refactors de modularidad, cohesión y desacople: fases acordadas con métricas de archivo principal y feature y orden de extracción, deduplicación sin helpers genéricos con flags, separación de componentes React con estado local y coordinación padre-hijo por props explícitas, y movimiento de tipos públicos con reexport y validación.",
   "test_cases": [
     {
       "id": "large-module-phased-extraction-order",
@@ -81,6 +81,92 @@
           "type": "regex",
           "pattern": "(total|feature).*(líneas|lineas|lines)|(líneas|lineas|lines).*(total|feature)",
           "description": "Reporta métricas del archivo principal y del total del feature"
+        }
+      ]
+    },
+    {
+      "id": "large-component-phased-plan",
+      "description": "Ante un componente de 900 líneas, mide archivo principal y feature, acuerda fases antes de editar y valida typecheck, lint y tests por fase.",
+      "input": "Usando refactor-modularize-code: tengo `src/features/operator-queue/OperatorQueue.tsx`, un componente React TypeScript de 900 líneas. En el mismo archivo conviven: tipos `QueueItem` y `OperatorQueueProps`, constantes (`PAGE_SIZE = 20`, `SCAN_DEBOUNCE_MS = 300`), helpers de formateo, el estado y los efectos del scanner de códigos, la búsqueda con filtro, la paginación, un modal de confirmación y todo el render. La carpeta del feature tiene además `OperatorQueue.test.tsx` (250 líneas) y `api.ts` (80 líneas). Refactorizalo conservando el comportamiento y sin hacer un refactor gigante. No ejecutes ni edites nada: describí paso a paso el plan que seguirías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["fase", "phase", "etapa"],
+          "description": "Divide el refactor en fases"
+        },
+        {
+          "type": "contains_any",
+          "values": ["acord", "confirm", "aprob", "agree", "antes de editar", "antes de extraer"],
+          "description": "Acuerda las fases con el usuario antes de extraer"
+        },
+        {
+          "type": "regex",
+          "pattern": "(total|feature).*(líneas|lineas|lines)|(líneas|lineas|lines).*(total|feature)",
+          "description": "Mide líneas del archivo principal y del total del feature"
+        },
+        {
+          "type": "contains_any",
+          "values": ["typecheck", "tsc", "type-check", "chequeo de tipos"],
+          "description": "Valida typecheck después de cada fase"
+        },
+        {
+          "type": "contains_any",
+          "values": ["lint"],
+          "description": "Valida lint después de cada fase"
+        }
+      ]
+    },
+    {
+      "id": "search-child-explicit-coordination-props",
+      "description": "Al extraer la búsqueda a un hijo, el estado queda en el hijo y foco y reset se coordinan con props explícitas sin cambiar comportamiento.",
+      "input": "Usando refactor-modularize-code, quiero extraer la búsqueda de esta lista a un componente hijo `OperatorSearch`. El padre debe seguir deshabilitando el scanner mientras el foco está en la búsqueda y debe limpiar la búsqueda al agregar un operador. Código actual:\n\n```tsx\nexport function OperatorList({ operators, onAddOperator }: OperatorListProps) {\n  const [searchTerm, setSearchTerm] = useState('');\n  const [isSearchFocused, setIsSearchFocused] = useState(false);\n  useScanner({ enabled: !isSearchFocused, onScan: onAddOperator });\n  const visibleOperators = operators.filter((operator) =>\n    operator.name.toLowerCase().includes(searchTerm.toLowerCase()),\n  );\n  const handleAdd = (operator: Operator) => {\n    onAddOperator(operator);\n    setSearchTerm('');\n  };\n  return (\n    <section>\n      <input\n        value={searchTerm}\n        onChange={(event) => setSearchTerm(event.target.value)}\n        onFocus={() => setIsSearchFocused(true)}\n        onBlur={() => setIsSearchFocused(false)}\n      />\n      {visibleOperators.map((operator) => (\n        <OperatorRow key={operator.id} operator={operator} onAdd={handleAdd} />\n      ))}\n    </section>\n  );\n}\n```\n\nNo ejecutes ni edites archivos: describí el plan de extracción y cómo quedaría el contrato entre padre e hijo.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["onSearchFocusChange", "onFocusChange", "onSearchFocus", "callback"],
+          "description": "Coordina el foco con un callback explícito hacia el padre"
+        },
+        {
+          "type": "contains_any",
+          "values": ["searchResetKey", "resetKey", "reset"],
+          "description": "Coordina la limpieza de búsqueda con una prop explícita de reset"
+        },
+        {
+          "type": "regex",
+          "pattern": "(hijo|child|OperatorSearch).*(estado|state)|(estado|state).*(hijo|child|OperatorSearch)",
+          "description": "Ubica el estado de búsqueda en el componente hijo"
+        },
+        {
+          "type": "contains_any",
+          "values": ["comportamiento", "behavior", "behaviour", "timing", "observable"],
+          "description": "Declara que preserva el comportamiento observable y el timing"
+        }
+      ]
+    },
+    {
+      "id": "move-public-type-with-reexport",
+      "description": "Mueve un type público y un helper a una frontera neutral, reexporta desde el módulo original y valida compilación y tests.",
+      "input": "Usando refactor-modularize-code: `src/features/orders/OrdersTable.tsx` (700 líneas) exporta `export type OrderRow = { id: string; total: number; currency: string }` y `export function formatOrderTotal(row: OrderRow): string`. Otros archivos los importan así: `src/features/orders/OrdersSummary.tsx` hace `import { formatOrderTotal } from './OrdersTable'` y `src/features/invoices/InvoiceList.tsx` hace `import type { OrderRow } from '../orders/OrdersTable'`. Quiero mover el type y el helper fuera de ese archivo grande sin romper los imports existentes. No ejecutes ni edites nada: describí el plan y los archivos resultantes.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["reexport", "re-export", "export type {", "export {", "reexporta"],
+          "description": "Reexporta los símbolos públicos desde el módulo original"
+        },
+        {
+          "type": "contains_any",
+          "values": ["types/", "types.ts", "neutral", "helpers/", "utils/"],
+          "description": "Mueve type y helper a un módulo neutral por responsabilidad"
+        },
+        {
+          "type": "contains_any",
+          "values": ["typecheck", "tsc", "type-check", "compil"],
+          "description": "Valida compilación o typecheck"
+        },
+        {
+          "type": "contains_any",
+          "values": ["test", "prueba"],
+          "description": "Valida con tests de comportamiento"
         }
       ]
     }

@@ -5,4 +5,11 @@ description: Ejecuta una review completa del PR actual de Java orquestando los a
 
 # Review PR — Java
 
-<!-- Add PR review workflow for Java/Spring Boot projects. -->
+Follow `.agents/skills/pr-review-workflow/SKILL.md` with this roster.
+
+| Agent | File | Trigger condition |
+|-------|------|-------------------|
+| Security scanner | `.agents/agents/security-scanner.md` | Always |
+| Performance analyzer | `.agents/agents/perf-analyzer.md` | Always |
+
+Extra checks: compare the diff against `.agents/rules/coding-style.md` and `.agents/rules/testing.md`.

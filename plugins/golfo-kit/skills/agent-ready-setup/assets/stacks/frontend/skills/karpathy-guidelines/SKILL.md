@@ -38,7 +38,7 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 
 **Touch only what you must. Clean up only your own mess.**
 
-Project rules under `../../rules/` take precedence when they require a broader change, such as replacing a util with lodash at every call site.
+Project rules under `../../rules/` take precedence when they require a broader change, such as replacing a util with `lodash-es` at every call site.
 
 When editing existing code:
 

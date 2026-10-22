@@ -431,20 +431,17 @@ EOF
   [ -f .agents/commands/review-pr.md ]
   [ -f .agents/skills/security-scanner/SKILL.md ]
   [ -f .agents/skills/review-pr/SKILL.md ]
-  assert_claude_view .claude/mcp.json
-  [ -f .codex/.mcp.json ]
+  [ ! -e .claude/mcp.json ]
+  [ ! -e .codex/.mcp.json ]
   [ ! -e .claude/hooks ]
   [ ! -L .claude/hooks ]
   [ -f .agents/hooks/sync-marketplace.sh ]
   [ -f .agents/hooks/check-harness-consistency.sh ]
-  [ -f .agents/hooks/pre-tool-use.md ]
+  [ ! -e .agents/hooks/pre-tool-use.md ]
   [ -f .codex/hooks.json ]
   cmp -s .agents/hooks/sync-marketplace.sh "$skill_dir/assets/common/hooks/sync-marketplace.sh"
   cmp -s .codex/hooks.json "$skill_dir/assets/codex/hooks.json"
   cmp -s .agents/hooks/check-harness-consistency.sh "$skill_dir/assets/common/hooks/check-harness-consistency.sh"
-  for hook_file in pre-tool-use.md; do
-    cmp -s ".agents/hooks/$hook_file" "$skill_dir/assets/stacks/frontend/hooks/$hook_file"
-  done
   [ ! -f .claude/CLAUDE.md ]
   [ ! -d .codex/agents ]
   for rule_file in api-configuration.md frontend-style.md language-consistency.md lint-gate.md lodash.md no-unnecessary-mocks.md security.md testing.md user-facing-feedback.md; do
@@ -453,8 +450,6 @@ EOF
   grep -Fxq '## Centralización recursiva de instrucciones' AGENTS.md
   printf '\n# Canonical shared asset\n' >> .agents/rules/security.md
   grep -Fq '# Canonical shared asset' .claude/rules/security.md
-  jq -n --slurpfile claude .claude/mcp.json --slurpfile codex .codex/.mcp.json \
-    '$claude[0].mcpServers == $codex[0].mcpServers' >/dev/null
   jq -e '.hooks.SessionStart[0].matcher == "startup|clear|resume"' .codex/hooks.json >/dev/null
   jq -e '.permissions.allow | index("Bash(.agents/hooks/sync-marketplace.sh --provider claude)")' .claude/settings.json >/dev/null
   jq -e '.permissions.allow | index("Bash(.agents/hooks/check-harness-consistency.sh)")' .claude/settings.json >/dev/null
@@ -699,7 +694,7 @@ EOF
   run_bootstrap frontend
 
   [ "$status" -eq 0 ]
-  for skill_name in api-endpoint component-creation constants-refactor karpathy-guidelines logger service; do
+  for skill_name in api-endpoint component-creation karpathy-guidelines logger service; do
     skill_path=".agents/skills/$skill_name/SKILL.md"
     [ -f "$skill_path" ]
     [ "$(sed -n '1p' "$skill_path")" = '---' ]
@@ -870,18 +865,18 @@ exit 0
 EOF
   run_bootstrap frontend
   [ "$status" -eq 0 ]
-  template="$skill_dir/assets/stacks/frontend/skills/constants-refactor/SKILL.md"
+  template="$skill_dir/assets/stacks/frontend/skills/karpathy-guidelines/SKILL.md"
   {
-    printf '%s\n' '---' 'name: constants-refactor' \
-      'description: Provider-neutral reusable workflow for constants-refactor.' '---' ''
+    printf '%s\n' '---' 'name: karpathy-guidelines' \
+      'description: Provider-neutral reusable workflow for karpathy-guidelines.' '---' ''
     sed '1,/^---$/d' "$template"
-  } > .agents/skills/constants-refactor/SKILL.md
+  } > .agents/skills/karpathy-guidelines/SKILL.md
 
   run_marketplace_sync "$source_dir/assets/common/hooks/sync-marketplace.sh" "$source_dir"
 
   [ "$status" -eq 0 ]
-  cmp -s .agents/skills/constants-refactor/SKILL.md "$template"
-  [[ "$output" == *"↻ .agents/skills/constants-refactor/SKILL.md"* ]]
+  cmp -s .agents/skills/karpathy-guidelines/SKILL.md "$template"
+  [[ "$output" == *"↻ .agents/skills/karpathy-guidelines/SKILL.md"* ]]
 }
 
 @test "backend stacks project common rules, hooks, and settings for every provider" {
@@ -908,9 +903,6 @@ EOF
     cmp -s .agents/hooks/sync-marketplace.sh "$skill_dir/assets/common/hooks/sync-marketplace.sh"
     cmp -s .codex/hooks.json "$skill_dir/assets/codex/hooks.json"
     cmp -s .agents/hooks/check-harness-consistency.sh "$skill_dir/assets/common/hooks/check-harness-consistency.sh"
-  for hook_file in pre-tool-use.md; do
-      cmp -s ".agents/hooks/$hook_file" "$skill_dir/assets/stacks/$stack/hooks/$hook_file"
-    done
     jq -e '.hooks.SessionStart[0].hooks[0].command == "bash .agents/hooks/sync-marketplace.sh --provider claude"' .claude/settings.json >/dev/null
     jq -e '.hooks.PostToolUse[0].hooks[0].command == "bash .agents/hooks/check-harness-consistency.sh"' .claude/settings.json >/dev/null
     jq -e '.hooks.SessionStart[0].hooks[0].command == "bash .agents/hooks/sync-marketplace.sh --provider codex"' .codex/hooks.json >/dev/null
@@ -923,14 +915,12 @@ EOF
 
   agents_hash_before="$(shasum AGENTS.md | cut -d ' ' -f 1)"
   claude_hash_before="$(shasum CLAUDE.md | cut -d ' ' -f 1)"
-  codex_mcp_hash_before="$(shasum .codex/.mcp.json | cut -d ' ' -f 1)"
 
   run_bootstrap node
 
   [ "$status" -eq 0 ]
   [ "$(shasum AGENTS.md | cut -d ' ' -f 1)" = "$agents_hash_before" ]
   [ "$(shasum CLAUDE.md | cut -d ' ' -f 1)" = "$claude_hash_before" ]
-  [ "$(shasum .codex/.mcp.json | cut -d ' ' -f 1)" = "$codex_mcp_hash_before" ]
   [[ "$output" == *"Already existed (skipped):"* ]]
 }
 

@@ -83,7 +83,7 @@ Reglas:
 | Error total de la región | Reemplaza **solo la región** que falló, con la chrome intacta | Qué falló en lenguaje del usuario, botón "Reintentar"; si persiste, camino alternativo (soporte, código de referencia) |
 | Error parcial | El bloque que falló muestra su propio error; lo demás queda usable | Igual que el total, acotado al bloque |
 | Error de acción (mutación) | Cerca del control que la disparó, o toast con acción si el usuario ya se fue de ahí | Qué no se hizo, que **lo ingresado no se perdió**, cómo reintentar |
-| Validación | Inline en el campo + resumen en el formulario al enviar | Ver la skill `critical-validation-feedback-ui` y [feedback-channels.md](feedback-channels.md#formularios) |
+| Validación | Inline en el campo + resumen en el formulario al enviar | Ver [validation-feedback.md](validation-feedback.md) y [feedback-channels.md](feedback-channels.md#formularios) |
 | Recurso inexistente / sin permiso | Página o región dedicada (not found, forbidden) | Qué pasó y a dónde ir |
 | Sesión vencida | Diálogo o redirección que **preserva** el trabajo en curso | Reingresar y volver al mismo lugar |
 

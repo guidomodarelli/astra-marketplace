@@ -19,7 +19,7 @@ Run against a diff or a specific file. Focus on measurable impact — avoid flag
 
 ### Bundle size
 - [ ] New dependency added? Check its size impact; dependencies already bundled by the project's SSR framework must not be installed separately (`.agents/rules/frontend-style.md` › `Imports`).
-- [ ] Large package imported entirely when only a subset is used? Use per-method or dynamic imports; for lodash follow `.agents/rules/lodash.md` › `Usage`.
+- [ ] Large package imported entirely when only a subset is used? Use per-method or dynamic imports; for `lodash-es` follow `.agents/rules/lodash.md` › `Usage`.
 
 ### React rendering
 - [ ] Components re-rendering unnecessarily? Look for unstable object/array references created inline in JSX.
@@ -30,7 +30,7 @@ Run against a diff or a specific file. Focus on measurable impact — avoid flag
 
 ### Array & object operations
 - [ ] `.filter().map()` chained on large arrays in a measured hot path — prefer a single pass.
-- [ ] Unnecessary object spread, or `.map()` / `[...iterable].map()` instead of `Array.from(source, callback)` — see `.agents/rules/frontend-style.md` › `Performance`.
+- [ ] Unnecessary object spread or cloning when no mutation is needed — see `.agents/rules/frontend-style.md` › `Performance`.
 
 ### Network
 - [ ] New API calls that could be batched or cached?
