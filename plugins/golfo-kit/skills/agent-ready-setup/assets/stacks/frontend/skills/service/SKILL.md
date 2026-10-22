@@ -1,17 +1,44 @@
 ---
 name: service
-description: Create a service layer for external API calls in an SSR app. Use when adding a new service, API client, or data-fetching layer.
+description: Create the adapter that encapsulates external API calls in an SSR app — an infrastructure adapter behind a domain port in projects with src/modules, or a flat service elsewhere. Use when adding a new service, API client, or data-fetching layer.
 metadata:
   tags: "context-optimized-v1.20.1"
 ---
 
 # Service Creation — Frontend (SSR)
 
-Guide for creating a service — the layer that encapsulates all external API calls and business logic. Server hooks and components delegate to services; they never call APIs directly.
+Guide for creating a service — the code that encapsulates the external API calls of one upstream. Server hooks, route handlers, and components never call external APIs directly.
 
 ---
 
 ## Step 1 — Decide where the service lives
+
+Check the project's structure first; the layout decides what a "service" is.
+
+### Projects with `src/modules/<feature>/{domain,application,infrastructure}`
+
+Follow `../../rules/hexagonal-architecture.md`: there is no flat `services/` layer. The service is an **infrastructure adapter behind a domain port**:
+
+```
+src/modules/<feature>/
+├── domain/
+│   └── repositories/
+│       └── <resource>-gateway.ts            ← port (interface) the use cases depend on
+├── application/
+│   └── use-cases/                           ← use cases receive the port, never the adapter
+└── infrastructure/
+    └── <provider>/
+        ├── http-<resource>-gateway.ts       ← adapter: HTTP client calls + upstream request builders
+        ├── dto/                             ← upstream request/response DTOs
+        └── mapper.ts                        ← DTO → domain entity mapping
+```
+
+- The use case imports only the port. The module's composition root (for example `setup.ts`) builds the adapter and injects it.
+- Business rules stay in `domain`/`application`; the adapter only translates between the port and the upstream.
+- Place tests where the project already keeps them (for example a mirrored `tests/` tree); do not invent a new location.
+- Steps 2 to 6 apply to the adapter file instead of `src/services/<domain>/index.ts`.
+
+### Projects without modules
 
 ```
 src/services/<domain>/
@@ -24,7 +51,7 @@ Group by domain (`user`, `shipping`, `payment`) — not by technical type (`api`
 
 ---
 
-## Step 2 — Detect or install the service dependencies
+## Step 2 — Detect the service dependencies
 
 The service imports an HTTP client and a config module, and its test imports an HTTP mocking library, so those packages must be declared before the files are created; otherwise `tsc --noEmit` fails with a missing module. The HTTP client and the config module are imported from production code, so they count as available only when they are declared in `dependencies`: a deploy that runs `npm ci --omit=dev` (or the equivalent of the project's package manager) does not install `devDependencies`. Only the HTTP mocking library may come from either section.
 
@@ -35,12 +62,16 @@ node -e "const p = require('./package.json'); const runtimeDeps = p.dependencies
 
 Resolve each line independently:
 
-- `http-client`: if it prints a library, use it in Steps 3 and 4 and adapt the import and the instance creation to that library (for example, `ky.create({ prefixUrl, timeout })` or `got.extend({ prefixUrl, timeout })`). If it prints `NONE` but the project already wraps native `fetch` in its own client module (look under `src/`, `utils/` and `services/` for a shared function that calls `fetch`), import that wrapper instead; if that wrapper imports `fetch` or `request` from `undici`, treat the client as `undici`. Only when neither exists, install `axios`.
-- `config-module`: if it prints `config` or `convict`, read the base URL through that module. If it prints `dotenv`, or `NONE` but the project has its own config module (for example, `src/config/index.ts`), import that module instead of `config`. Only when neither exists, install `config` and `@types/config`, and add the `services.<domain>.baseUrl` key to the existing files under `config/` (create `config/default.js` only if the directory has no environment files).
+- `http-client`: if it prints a library, use it in Steps 3 and 4 and adapt the import and the instance creation to that library (for example, `ky.create({ prefixUrl, timeout })` or `got.extend({ prefixUrl, timeout })`). If it prints `NONE` but the project already wraps native `fetch` in its own client module (look under `src/`, `utils/` and `services/` for a shared function that calls `fetch`), import that wrapper instead; if that wrapper imports `fetch` or `request` from `undici`, treat the client as `undici`. Only when neither exists, propose `axios` and ask before installing it (see "Ask before installing" below).
+- `config-module`: if it prints `config` or `convict`, read the base URL through that module. If it prints `dotenv`, or `NONE` but the project has its own config module (for example, `src/config/index.ts`), import that module instead of `config`. In a Next.js App Router project, read the base URL through the project's server-side environment module instead of adding `config`. Only when no config mechanism exists, propose `config` and `@types/config` and ask before installing them; after confirmation, add the `services.<domain>.baseUrl` key to the existing files under `config/` (create `config/default.js` only if the directory has no environment files).
 - `<library> dev-only` (either runtime line): the project already chose that library but declares it only in `devDependencies`. Use it as if it were printed alone, and move it to `dependencies` with the "Move to runtime" command of the table below before creating the service. Run the detector again and continue only when it prints the library without `dev-only`.
-- `http-mock`: when the HTTP client is `undici`, ignore this line and do not install `nock`: Nock 14 does not intercept requests made with `undici.request` or `undici.fetch` (https://github.com/nock/nock/issues/2183; Nock 15 does, but it ships as ESM only), so with Nock 14 `lockdown` would neither replay the fixture nor block the network. Write the Step 5 scenarios with undici's `MockAgent` instead (see Step 5, "HTTP client `undici`"). For any other client, if it prints `msw`, write the Step 5 scenarios with the project's `msw` server and handlers instead of `nock.back`, keeping the same lockdown and sanitization guarantees. If it prints `NONE`, install `nock` as a dev dependency.
+- `http-mock`: when the HTTP client is `undici`, ignore this line and do not install `nock`: Nock 14 does not intercept requests made with `undici.request` or `undici.fetch` (https://github.com/nock/nock/issues/2183; Nock 15 does, but it ships as ESM only), so with Nock 14 `lockdown` would neither replay the fixture nor block the network. Write the Step 5 scenarios with undici's `MockAgent` instead (see Step 5, "HTTP client `undici`"). For any other client, if it prints `msw`, write the Step 5 scenarios with the project's `msw` server and handlers instead of `nock.back`, keeping the same lockdown and sanitization guarantees. If it prints `NONE`, propose `nock` as a dev dependency and ask before installing it.
 
-`axios` and `nock` ship their own type definitions; `config` needs `@types/config`. Install only the missing packages with the package manager that owns the project's lockfile, keeping `nock` and `@types/config` as dev dependencies:
+### Ask before installing
+
+Never install a package silently, per `../../rules/established-libraries.md`. Before running any install command, tell the user which packages are missing, what each one is for (HTTP client, config module, HTTP mocking for tests), and which alternative the project already has (for example a `fetch` wrapper, an environment module, or `msw`), then wait for confirmation. If the user declines, reuse the existing alternative or stop and report what is missing; do not create the service or its test with imports of undeclared packages. Moving an already declared library from `devDependencies` to `dependencies` is not a new install: do it and mention it in the report.
+
+`axios` and `nock` ship their own type definitions; `config` needs `@types/config`. After the user confirms, install only the missing packages with the package manager that owns the project's lockfile, keeping `nock` and `@types/config` as dev dependencies:
 
 | Lockfile | Runtime install | Dev install | Move to runtime (`dev-only`) |
 |---|---|---|---|
@@ -77,6 +108,33 @@ Rules:
 
 ## Step 4 — Implement the service functions
 
+The example below is the flat layout. In a project with modules, the same calls live in the adapter that implements the domain port, and the adapter maps upstream DTOs to domain entities before returning them:
+
+```ts
+// src/modules/resource/domain/repositories/resource-gateway.ts
+export interface ResourceGateway {
+  getResource(resourceId: ResourceId): Promise<Resource>;
+  createResource(command: CreateResourceCommand): Promise<Resource>;
+}
+
+// src/modules/resource/infrastructure/<provider>/http-resource-gateway.ts
+export const createHttpResourceGateway = (client: AxiosInstance): ResourceGateway => ({
+  async getResource(resourceId) {
+    const response = await client.get<ResourceResponseDto>(`/resources/${resourceId}`);
+    return mapResourceResponseDtoToResource(response.data);
+  },
+  async createResource(command) {
+    const response = await client.post<ResourceResponseDto>(
+      '/resources',
+      buildCreateResourceUpstreamRequest(command),
+    );
+    return mapResourceResponseDtoToResource(response.data);
+  },
+});
+```
+
+Flat layout:
+
 ```ts
 // Continue in the same index.ts file and reuse the client declared in Step 3.
 
@@ -108,10 +166,10 @@ export async function createResource(input: CreateResourceInput): Promise<Resour
 Rules:
 - Services do not validate inputs — that is the responsibility of the server hook or handler.
 - Build every upstream request body with a named builder per operation (`build<Operation>UpstreamRequest`); never send the handler input as-is. See `../../rules/upstream-contracts.md`.
-- Services let errors propagate — no try/catch here unless translating error types.
-- Never expose internal error details — catch at the handler level.
-- Never log inside a service — logging happens in the handler via `logError`/`logWarning` from `utils/logger.ts` (see skill `/logger`).
-- Keep reusable helpers and domain/configuration constants out of service modules; place them in `utils/` and `constants/` respectively. See `../../rules/frontend-style.md`, section `Module placement`.
+- Services let errors propagate — no try/catch here unless translating error types. In a project with modules, wrap provider failures in the feature's typed error with the original error as `cause` (see `../../rules/error-handling.md`, section `Diagnosable failures`).
+- Never expose internal error details — catch at the boundary that owns the response (handler, route handler, or server hook).
+- Never log inside a service or adapter — logging happens at that boundary via `logError`/`logWarning` from the project's shared logger (see skill `/logger`).
+- Keep reusable helpers and domain/configuration constants out of service modules; place them in `utils/` and `constants/` respectively (in a project with modules, in the owning module or `src/modules/shared/`). See `../../rules/frontend-style.md`, section `Module placement`.
 - Parallelize independent calls with `Promise.all()`.
 
 ---

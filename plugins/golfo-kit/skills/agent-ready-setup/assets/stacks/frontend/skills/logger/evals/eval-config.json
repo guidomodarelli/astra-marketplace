@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "logger",
-  "description": "Evalúa la detección, instalación y adaptación por librería del logger compartido utils/logger.ts.",
+  "description": "Evalúa la reutilización, ubicación (utils/ o infraestructura compartida), confirmación previa a instalar y adaptación por librería del logger compartido.",
   "test_cases": [
     {
       "id": "logger-reuses-runtime-library",
@@ -28,9 +28,9 @@
       ]
     },
     {
-      "id": "logger-installs-pino-by-lockfile",
-      "description": "Sin logger declarado instala pino con el package manager del lockfile antes de crear el archivo.",
-      "input": "Voy a ejecutar `/logger` en un proyecto frontend con `pnpm-lock.yaml` cuyo `package.json` no declara ninguna librería de logging. Explicá qué debe hacer la skill antes de crear `utils/logger.ts`, qué comando corre y qué pasa si la instalación falla. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
+      "id": "logger-asks-before-installing-pino",
+      "description": "Sin logger declarado propone pino y pide confirmación antes de instalarlo con el package manager del lockfile.",
+      "input": "Voy a ejecutar `/logger` en un proyecto frontend con `pnpm-lock.yaml` cuyo `package.json` no declara ninguna librería de logging. Explicá qué debe hacer la skill antes de crear `utils/logger.ts`, si instala algo sin preguntar, qué comando corre tras la confirmación y qué pasa si el usuario rechaza la instalación o si la instalación falla. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
       "assertions": [
         {
           "type": "contains",
@@ -38,9 +38,21 @@
           "description": "Revisa las dependencias declaradas"
         },
         {
+          "type": "contains_any",
+          "values": [
+            "pregunt",
+            "confirm",
+            "consult",
+            "ask",
+            "autoriz",
+            "aprob"
+          ],
+          "description": "Pide confirmación antes de instalar pino"
+        },
+        {
           "type": "contains",
           "value": "pnpm add pino",
-          "description": "Instala pino con el package manager del lockfile"
+          "description": "Tras la confirmación instala pino con el package manager del lockfile"
         },
         {
           "type": "contains_any",
@@ -72,6 +84,77 @@
             "no crea"
           ],
           "description": "Se detiene si la instalación falla"
+        }
+      ]
+    },
+    {
+      "id": "logger-shared-infrastructure-in-hexagonal-project",
+      "description": "En un proyecto con src/modules ubica el logger como infraestructura compartida y no crea utils/logger.ts.",
+      "input": "Voy a ejecutar `/logger` en un proyecto Next.js que organiza el código en `src/modules/<feature>/{domain,application,infrastructure}` y declara `pino` en `dependencies`, sin logger compartido todavía. Explicá en qué ruta crea la skill el logger, cómo importa el `name` de `package.json` desde ahí y si crea `utils/logger.ts`. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "src/modules/shared/infrastructure/observability",
+          "description": "Ubica el logger como infraestructura compartida"
+        },
+        {
+          "type": "contains",
+          "value": "package.json",
+          "description": "Importa el nombre del proyecto desde package.json"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|not)[^.]{0,40}utils/logger\\.ts",
+          "description": "No crea utils/logger.ts en un proyecto con módulos"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "pnpm add pino",
+            "npm install pino",
+            "yarn add pino"
+          ],
+          "description": "No instala pino cuando ya está declarado"
+        }
+      ]
+    },
+    {
+      "id": "logger-reuses-existing-logger",
+      "description": "Si el proyecto ya tiene un logger compartido lo reutiliza y no crea otro.",
+      "input": "Voy a ejecutar `/logger` en un proyecto con `pino` en `dependencies` que ya tiene `src/lib/observability/app-logger.ts`, un módulo que importa `pino` y exporta `logServerError`. Explicá qué detecta la skill, si crea un archivo nuevo y qué deben llamar las demás skills. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "app-logger",
+          "description": "Detecta el logger existente"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "reutiliza",
+            "reutilizar",
+            "reuse",
+            "reused",
+            "reusa"
+          ],
+          "description": "Reutiliza el logger existente"
+        },
+        {
+          "type": "contains",
+          "value": "logServerError",
+          "description": "Indica los helpers existentes que deben usar las demás skills"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "no crea",
+            "no crear",
+            "nothing created",
+            "ningún archivo",
+            "sin crear",
+            "no se crea"
+          ],
+          "description": "No crea un segundo logger"
         }
       ]
     },
@@ -249,6 +332,50 @@
             "causa conocida"
           ],
           "description": "Conserva el mapping de causas conocidas a 4xx"
+        }
+      ]
+    },
+    {
+      "id": "logger-tags-allow-opaque-ids-not-pii",
+      "description": "Los tags admiten identificadores opacos y nunca PII, payloads crudos ni mensajes de error.",
+      "input": "Con el logger que crea `/logger`, ¿puedo pasar en los tags de `logError` el `userId`, el `requestId`, el email del usuario, el body del request y `error.message`? Explicá qué está permitido y qué no según la skill. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "userId",
+          "description": "Permite identificadores opacos como userId"
+        },
+        {
+          "type": "contains",
+          "value": "requestId",
+          "description": "Permite identificadores de correlación"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "PII",
+            "email",
+            "correo"
+          ],
+          "description": "Prohíbe PII como el email"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "payload",
+            "body"
+          ],
+          "description": "Prohíbe payloads crudos"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "error.message",
+            "mensaje del error",
+            "mensaje de error",
+            "message"
+          ],
+          "description": "No loguea el mensaje del error"
         }
       ]
     }

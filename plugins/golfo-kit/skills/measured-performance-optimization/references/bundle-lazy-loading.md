@@ -12,7 +12,7 @@ El objetivo es que la ruta inicial descargue y ejecute solo lo que necesita para
 
 - Code splitting por ruta (el router del framework suele hacerlo; verificar que no se rompa por un import compartido).
 - Lazy loading de componentes que no están en el primer viewport o que aparecen tras una interacción: `React.lazy` + `Suspense`, `next/dynamic`, `import()` dinámico al abrir un modal, tab o editor.
-- Importar solo lo necesario (`import debounce from 'lodash/debounce'`, íconos individuales) y reemplazar dependencias pesadas por alternativas livianas o APIs nativas (`Intl`, `fetch`, `structuredClone`).
+- Importar solo lo necesario (imports nombrados de paquetes ESM como `import { debounce } from 'lodash-es'`, íconos individuales) y reemplazar dependencias pesadas por alternativas livianas o APIs nativas (`Intl`, `fetch`, `structuredClone`).
 - Prefetch del chunk diferido en hover o idle cuando el usuario probablemente lo vaya a necesitar, para no mover la espera a la interacción.
 - Revisar que el lazy loading no empeore LCP: el contenido del primer viewport no se carga diferido.
 

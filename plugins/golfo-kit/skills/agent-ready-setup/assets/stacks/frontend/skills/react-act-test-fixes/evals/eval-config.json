@@ -31,7 +31,7 @@
     {
       "id": "async-debounce",
       "description": "PT: debounce con Promise y timers modernos",
-      "input": "Teste React com Jest 29.7 e fake timers modernos: debounce de 300 ms aguarda fetch e atualiza estado. act(() => jest.advanceTimersByTime(300)) gera warning. Mostre correção com user-event v14, avanço assíncrono e restauração de timers. Não execute comandos.",
+      "input": "Teste React com Vitest e fake timers: debounce de 300 ms aguarda fetch e atualiza estado. act(() => vi.advanceTimersByTime(300)) gera warning. Mostre correção com user-event v14, avanço assíncrono e restauração de timers. Não execute comandos.",
       "assertions": [
         {
           "type": "contains",
@@ -45,12 +45,12 @@
         },
         {
           "type": "contains",
-          "value": "await jest.advanceTimersByTimeAsync",
+          "value": "await vi.advanceTimersByTimeAsync",
           "description": "Drena trabajo async"
         },
         {
           "type": "contains",
-          "value": "jest.useRealTimers",
+          "value": "vi.useRealTimers",
           "description": "Restaura timers"
         }
       ]
@@ -117,7 +117,7 @@
       "assertions": [
         {
           "type": "contains",
-          "value": "jest.useFakeTimers",
+          "value": "vi.useFakeTimers",
           "description": "Controla montaje"
         },
         {
@@ -140,7 +140,7 @@
         },
         {
           "type": "contains",
-          "value": "jest.useRealTimers",
+          "value": "vi.useRealTimers",
           "description": "Usa timers reales para axe"
         },
         {
@@ -178,6 +178,7 @@
           "type": "not_contains_any",
           "values": [
             "jest.mock('@acme/design-system",
+            "vi.mock('@acme/design-system",
             "console.error =",
             "pkill -x yes"
           ],

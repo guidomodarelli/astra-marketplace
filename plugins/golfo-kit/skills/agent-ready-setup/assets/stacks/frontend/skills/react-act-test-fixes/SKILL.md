@@ -6,7 +6,7 @@ metadata:
   version: "1.0.0"
   author: "Golfo"
   category: "testing"
-  tags: "react, jest, testing-library, act, async, context-optimized-v1.20.1"
+  tags: "react, vitest, testing-library, act, async, context-optimized-v1.20.1"
   command: "/react-act-test-fixes"
 ---
 
@@ -16,7 +16,7 @@ Localizar Promise, evento o timer que dispara `setState` y sincronizar el test c
 
 ## Diagnóstico
 
-1. Leer runner, scripts y versiones instaladas de React, RTL, user-event y Jest. Conservar helpers y providers reales del proyecto. Si usa otro runner, adaptar sus APIs sin asumir Jest.
+1. Leer runner, scripts y versiones instaladas de React, RTL, user-event y Vitest. Conservar helpers y providers reales del proyecto. Usar las APIs de Vitest (`vi.*`); nunca introducir Jest.
 2. Reproducir spec afectado y suite completa con el script real, incluyendo coverage si lo usa. Usar logs nuevos por ejecución: el warning puede aparecer únicamente en suite completa.
 3. Correlacionar warning con test activo, renders y mensajes anteriores/posteriores. El owner stack puede señalar otro test; `Timeout.task` de jsdom indica un timer real. Seguir la actualización hasta su Promise/evento/timer antes de editar.
 
@@ -24,13 +24,13 @@ Localizar Promise, evento o timer que dispara `setState` y sincronizar el test c
 
 - Interacción async, dropdown o popover: `const user = userEvent.setup(); await user.click(...)` / `await user.type(...)`; reemplazar `fireEvent` cuando no espera efectos async. Esperar estado final con `await screen.findBy*` o `await waitFor(() => expect(...))` antes de terminar. No envolver indiscriminadamente helpers RTL en `act`: ya integran ese mecanismo.
 - Callbacks manuales de `ResizeObserver`, `IntersectionObserver` o listeners que actualizan React: dispararlos dentro de `act(() => { ... })`; usar `await act(async () => { ... })` si disparan trabajo async, esperando su Promise.
-- Debounce con fake timers y handler que espera fetch: el avance sincrónico deja resolver la Promise fuera de `act`. Con timers modernos y Jest >=29.5:
+- Debounce con fake timers y handler que espera fetch: el avance sincrónico deja resolver la Promise fuera de `act`. Con fake timers de Vitest:
 
   ```ts
-  const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   await user.type(screen.getByRole('textbox'), 'query');
   await act(async () => {
-    await jest.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
   });
   ```
 
@@ -40,13 +40,13 @@ Localizar Promise, evento o timer que dispara `setState` y sincronizar el test c
 - Timer interno al montar, sin resultado observable que esperar, durante operación larga como `axe`: drenar timers de montaje dentro de `act` y restaurar reales antes de ejecutar `axe`. Caso típico: hooks de accesibilidad de spinners del design system que agendan un timer al montar; confirmar esa causa en la versión instalada.
 
   ```ts
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   let container: HTMLElement;
   try {
     ({ container } = setup({ loading: true }));
-    act(() => { jest.runOnlyPendingTimers(); });
+    act(() => { vi.runOnlyPendingTimers(); });
   } finally {
-    jest.useRealTimers();
+    vi.useRealTimers();
   }
   await expect(axe(container)).resolves.toHaveNoViolations();
   ```
@@ -61,4 +61,4 @@ Localizar Promise, evento o timer que dispara `setState` y sincronizar el test c
 - Exigir tests verdes, cero `not wrapped in act` y cero `Exceeded timeout` en logs nuevos. Reportar causa, cambio, comandos y resultado; declarar cualquier validación pendiente y su motivo.
 
 Origen: nota memory MCP «Patrón canónico para eliminar warnings act() en tests React (cualquier repo)», consultada al crear esta skill. No requiere memory MCP para ejecutarse.
-Referencias de APIs: [React act](https://react.dev/reference/react/act), [user-event advanceTimers](https://testing-library.com/docs/user-event/options/#advancetimers), [Jest timers async](https://jestjs.io/docs/jest-object#jestadvancetimersbytimeasyncmstorun).
+Referencias de APIs: [React act](https://react.dev/reference/react/act), [user-event advanceTimers](https://testing-library.com/docs/user-event/options/#advancetimers), [Vitest fake timers](https://vitest.dev/api/vi.html#vi-advancetimersbytimeasync).

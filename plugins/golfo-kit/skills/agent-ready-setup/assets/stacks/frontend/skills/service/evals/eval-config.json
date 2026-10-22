@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
   "skill": "service",
-  "description": "Evalúa dependencias, cliente HTTP y tests sin red del service layer SSR.",
+  "description": "Evalúa ubicación (adapter hexagonal o service plano), dependencias con confirmación previa, cliente HTTP y tests sin red del service layer SSR.",
   "test_cases": [
     {
-      "id": "service-installs-or-detects-dependencies",
-      "description": "Detecta cliente HTTP, módulo de config y librería de mocks HTTP ya declarados o los instala con el package manager del lockfile antes de crear el service y su test.",
-      "input": "Voy a ejecutar `/service` en un proyecto SSR con `yarn.lock` cuyo `package.json` no declara cliente HTTP, módulo de configuración ni librería de mocks HTTP. Explicá qué debe hacer la skill antes de crear el service y su test, qué comandos corre y qué cambia si `package.json` ya declara `ky` y `msw`. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
+      "id": "service-asks-before-installing-or-detects-dependencies",
+      "description": "Detecta cliente HTTP, módulo de config y librería de mocks HTTP ya declarados; si faltan, pide confirmación antes de instalarlos con el package manager del lockfile.",
+      "input": "Voy a ejecutar `/service` en un proyecto SSR con `yarn.lock` cuyo `package.json` no declara cliente HTTP, módulo de configuración ni librería de mocks HTTP. Explicá qué debe hacer la skill antes de crear el service y su test, si instala algo sin preguntar, qué comandos corre tras la confirmación y qué cambia si `package.json` ya declara `ky` y `msw`. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
       "assertions": [
         {
           "type": "contains",
@@ -14,9 +14,21 @@
           "description": "Revisa las dependencias declaradas en package.json"
         },
         {
+          "type": "contains_any",
+          "values": [
+            "pregunt",
+            "confirm",
+            "consult",
+            "ask",
+            "autoriz",
+            "aprob"
+          ],
+          "description": "Pide confirmación al usuario antes de instalar paquetes nuevos"
+        },
+        {
           "type": "contains",
           "value": "yarn add axios config",
-          "description": "Instala axios y config con el package manager del lockfile"
+          "description": "Tras la confirmación instala axios y config con el package manager del lockfile"
         },
         {
           "type": "contains",
@@ -184,6 +196,47 @@
             "Error"
           ],
           "description": "Aborta la grabación ante texto plano en lugar de persistirlo"
+        }
+      ]
+    },
+    {
+      "id": "service-hexagonal-adapter-behind-port",
+      "description": "En un proyecto con src/modules el service es un adapter de infraestructura detrás de un puerto de dominio, no una capa plana services/.",
+      "input": "Voy a ejecutar `/service` en un proyecto Next.js App Router que organiza el código en `src/modules/<feature>/{domain,application,infrastructure}` con un composition root `setup.ts` por módulo. Necesito consumir la API externa de envíos. Explicá dónde crea la skill cada archivo, qué importa el use case y dónde se loguean los errores. No ejecutes Bash ni escribas archivos; respondé desde la skill bundled.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "infrastructure",
+          "description": "Ubica el adapter en la capa de infraestructura"
+        },
+        {
+          "type": "contains",
+          "value": "domain",
+          "description": "Declara el puerto en la capa de dominio"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "puerto",
+            "port",
+            "interface",
+            "interfaz"
+          ],
+          "description": "El use case depende de un puerto, no del adapter"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "setup.ts",
+            "composition root",
+            "composición"
+          ],
+          "description": "El composition root inyecta el adapter"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|not|sin)[^.]{0,60}services/",
+          "description": "No impone una capa plana services/ en un proyecto hexagonal"
         }
       ]
     }
