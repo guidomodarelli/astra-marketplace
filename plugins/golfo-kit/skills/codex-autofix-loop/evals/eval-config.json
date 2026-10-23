@@ -433,12 +433,12 @@
     },
     {
       "id": "codex-runs-single-round-without-waiting",
-      "description": "En Codex CLI, sin herramienta de espera supervisada, corre una sola ronda, no se queda esperando y termina indicando cómo relanzar.",
-      "input": "Usando codex-autofix-loop: estoy en Codex CLI. Mi sesión tiene `exec_command`, `write_stdin`, `apply_patch`, `spawn_agent` y `wait_agent`; no hay `Monitor`, cron ni procesos en background que avisen al terminar. Ya fixeé y pusheé el único hallazgo nuevo del PR #42 de `acme/widgets` y posteé `@codex review` (reviewRounds pasó de 0 a 1). No ejecutes nada: describí cómo sigue y cómo termina esta invocación.",
+      "description": "En Codex CLI, cuando el usuario pide una sola ronda sin ocupar la sesión, corre una ronda (modo D), no se queda esperando y termina indicando cómo relanzar.",
+      "input": "Usando codex-autofix-loop: estoy en Codex CLI. Mi sesión tiene `exec_command`, `write_stdin`, `apply_patch`, `spawn_agent` y `wait_agent`; no hay `Monitor`, cron ni procesos en background que avisen al terminar. Te pedí explícitamente una sola ronda, sin dejar la sesión ocupada esperando. Ya fixeé y pusheé el único hallazgo nuevo del PR #42 de `acme/widgets` y posteé `@codex review` (reviewRounds pasó de 0 a 1). No ejecutes nada: describí cómo sigue y cómo termina esta invocación.",
       "assertions": [
         {
           "type": "regex",
-          "pattern": "una (sola )?(ronda|vuelta)|single.round|modo c",
+          "pattern": "una (sola )?(ronda|vuelta)|single.round|modo d",
           "description": "Identifica el modo de una ronda por invocación"
         },
         {
@@ -466,7 +466,7 @@
     {
       "id": "codex-single-round-keeps-merge-gates",
       "description": "En modo de una ronda, con review limpia del head pero CI pendiente, no mergea ni espera: deja el merge para la próxima invocación.",
-      "input": "Usando codex-autofix-loop en Codex CLI (modo de una ronda por invocación, sin Monitor ni cron). PR #42 de `acme/widgets`: el resumen de Codex marca `code_review.status` = `completed` sin hallazgos para el head actual, no hay pendientes ni `inFlight`, y `gh pr checks` devuelve exit 8 (checks pendientes). No ejecutes nada: ¿mergeás ahora, esperás a que terminen los checks o qué hacés?",
+      "input": "Usando codex-autofix-loop en Codex CLI (modo D, una ronda por invocación, porque pedí no ocupar la sesión; sin Monitor ni cron). PR #42 de `acme/widgets`: el resumen de Codex marca `code_review.status` = `completed` sin hallazgos para el head actual, no hay pendientes ni `inFlight`, y `gh pr checks` devuelve exit 8 (checks pendientes). No ejecutes nada: ¿mergeás ahora, esperás a que terminen los checks o qué hacés?",
       "assertions": [
         {
           "type": "regex",
@@ -508,6 +508,55 @@
           "type": "regex",
           "pattern": "modo a|original|monitor \\+ cron",
           "description": "Identifica el modo original"
+        }
+      ]
+    },
+    {
+      "id": "codex-in-turn-foreground-watcher",
+      "description": "En Codex CLI, sin Monitor ni procesos en background con aviso, usa el modo C: corre wait-for-pr-event.sh en foreground dentro del turno con exec_command/write_stdin, itera según el código de salida y repite hasta MAX_INTURN_CYCLES, sin crons ni procesos que sobrevivan al turno.",
+      "input": "Usando codex-autofix-loop: estoy en Codex CLI. Mi sesión tiene `exec_command` (con `yield_time_ms`), `write_stdin`, `apply_patch`, `spawn_agent` y `wait_agent`; no hay `Monitor`, cron ni procesos en background que avisen al terminar. Relanzá el loop para el PR #42 de `acme/widgets`; acabo de postear `@codex review`. No ejecutes nada: describí cómo esperás la respuesta de Codex, qué hacés con cada código de salida y cuándo termina el turno.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "wait-for-pr-event.sh",
+          "description": "Usa el script de espera acotada"
+        },
+        {
+          "type": "regex",
+          "pattern": "foreground|primer plano|dentro del turno",
+          "description": "Espera en foreground dentro del turno"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "write_stdin",
+            "yield_time_ms"
+          ],
+          "description": "Sigue leyendo el proceso con exec_command/write_stdin"
+        },
+        {
+          "type": "regex",
+          "pattern": "MAX_INTURN_CYCLES|36|tope de ciclos",
+          "description": "Acota los ciclos dentro del turno"
+        },
+        {
+          "type": "regex",
+          "pattern": "(`?3`?|timeout).{0,160}(TTL|respaldo|iteraci)",
+          "description": "Trata el timeout como respaldo que evalúa TTLs"
+        },
+        {
+          "type": "regex",
+          "pattern": "(`?5`?|PR_NOT_OPEN).{0,120}(cancel|termin)",
+          "description": "Auto-cancela cuando el PR deja de estar abierto"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "armo un cron",
+            "CronCreate(",
+            "background=true"
+          ],
+          "description": "No arma crons ni procesos en background"
         }
       ]
     }

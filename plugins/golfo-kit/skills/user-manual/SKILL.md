@@ -12,7 +12,7 @@ description: >
 metadata:
   tags: "context-optimized-v1.20.1"
   author: "Guido Modarelli"
-  version: "2.4.0"
+  version: "2.5.0"
 ---
 
 # User Manual Generator
@@ -35,6 +35,13 @@ Helpers live in `scripts/` (see "Helpers" at the end). Use them instead of rewri
 ## Agent compatibility
 
 Every question in this skill (device, languages, repo location, glossary terms) uses the question tool that is actually present in the session, per [`agent-capabilities.md`](../../references/agent-capabilities.md): `AskUserQuestion` in Claude Code, `clarify` in Hermes (up to 4 `choices` per question), `request_user_input` only when Codex is in Plan mode. With none of them, or when `clarify` returns `undelivered`, `timed_out` or `cancelled`, ask the same question in chat with numbered options and **stop** until the user answers; never pick a default device, language or repo on their behalf. Report the fallback under `Limitaciones del agente` in the final message.
+
+The real-app captures ([references/real-app-mockups.md](references/real-app-mockups.md)) need a browser where you can **evaluate JavaScript in the app's page**; they clone DOM and CSS, so they do not depend on pixel screenshots. Each agent's browsers, how to recognise them and which ones are the user's own are listed only in row «Navegador real del usuario y capturas» of `agent-capabilities.md`. Pick from that row by what the screen needs:
+
+- **The screen needs the user's session** (an internal app with sign-in): use a browser that row accepts as the user's own and that can evaluate page scripts.
+- **A local dev server or test credentials the project provides**: any browser of that row that evaluates page scripts is enough, headless and app-embedded ones included, because nothing is published as an image.
+
+Evaluate the snippet in the tab you opened or claimed, and close only the tabs you opened. A tool that only drives the desktop (`computer_use`) cannot evaluate page scripts, so it does not replace this tool. If no browser can evaluate scripts in the app, or the one available keeps failing to start, fall back to hand-drawn mockups as described in Step 4 and report it under `Limitaciones del agente`.
 
 ## Step 0 — Ask the device and the languages
 
@@ -490,7 +497,7 @@ with the one-line definition you would write. Then:
   `scripts/embed-app-frames.mjs`.
 - In shared environments (production, sandbox, staging) navigate read-only and never confirm.
 
-**Fallback: hand-drawn mockups** (`mockup-body`) only when the app cannot be reached, a gate blocks
+**Fallback: hand-drawn mockups** (`mockup-body`) only when the app cannot be reached, no browser can evaluate scripts in it (see "Agent compatibility"), a gate blocks
 it, or its stylesheets are cross-origin and blocked; say so in the report.
 
 Use real label strings and example data, never real people or IDs. The `mockup-url` shows only the

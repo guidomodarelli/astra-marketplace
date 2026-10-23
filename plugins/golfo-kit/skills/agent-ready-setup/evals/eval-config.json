@@ -1880,6 +1880,33 @@
           "critical": false
         }
       ]
+    },
+    {
+      "id": "hermes-install-asks-provider-when-both-clis",
+      "description": "Ejecutada desde la instalación de Hermes con claude y codex en PATH, resolve-provider.sh falla pidiendo elegir: pregunta al usuario con clarify cuál CLI hará el upgrade y la revisión, relanza con AGENT_READY_SETUP_ACTIVE_PROVIDER y reporta que no hay configuración para Hermes.",
+      "input": "Usando agent-ready-setup: estás en Hermes y la skill está instalada en `$HERMES_HOME/plugins/golfo-kit/skills/agent-ready-setup`. `command -v claude` y `command -v codex` encuentran ambos CLIs. Al correr `resolve-provider.sh --skill-dir \"$SKILL_DIR\"` termina con: `ERROR: skill directory ... belongs to Hermes and both claude and codex are in PATH; ask the user which one runs the marketplace upgrade and the review, then set AGENT_READY_SETUP_ACTIVE_PROVIDER=claude|codex`. No ejecutes nada: describí qué hacés ahora y qué reportás al final.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "clarify",
+          "description": "Pregunta al usuario con clarify"
+        },
+        {
+          "type": "contains",
+          "value": "AGENT_READY_SETUP_ACTIVE_PROVIDER",
+          "description": "Relanza con el provider elegido por el usuario"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|never|sin)[^.]{0,40}(adivin|elij[oa] (yo|por)|guess|asum)",
+          "description": "No elige el provider por su cuenta"
+        },
+        {
+          "type": "contains",
+          "value": "Limitaciones del agente",
+          "description": "Reporta que no se generó configuración para Hermes"
+        }
+      ]
     }
   ]
 }

@@ -7,18 +7,38 @@
 
 ## A. Resumen ejecutivo
 
-- **Fecha de auditoría:** 2026-10-23 (generado 2026-10-23T17:25:10Z).
+- **Fecha de auditoría:** 2026-10-23 (generado 2026-10-23T18:30:00Z).
 - **Total de skills analizadas:** 43.
-- **Funcionalidades deshabilitadas:** 12.
-- **Adaptaciones implementadas:** 22; verificadas: 5.
+- **Funcionalidades deshabilitadas:** 0.
+- **Adaptaciones implementadas:** 36; verificadas: 14.
 - **Problemas críticos pendientes:** ninguno.
+- **Funcionalidades que dejaron de estar deshabilitadas en esta revisión:** 12 (respecto de `44b45fe (golfo-kit 0.10.0, PR #22, schema 1.0.0)`).
+
+### Cambios de esta revisión
+
+Revisión de alternativas equivalentes: se relevó el inventario real de capacidades de Codex (plugins habilitados en config.toml y su caché), Hermes (sesión real + doc) y Claude Code, y se re-evaluaron las funcionalidades de las 43 skills buscando mecanismos que logren el mismo resultado. Las 12 funcionalidades deshabilitadas en la revisión anterior tienen ahora una alternativa implementada; 9 se verificaron con corridas reales en el agente y 3 quedan implementadas sin verificar. Además se detectaron dependencias implícitas de navegador en measured-performance-optimization, prevent-ssr-hydration-mismatches y ui-ux-flow-patterns. También pasaron a resolución alternative, sin cambiar de estado, las capturas reales de user-manual en Codex y Hermes y los avisos de codex-autofix-loop en Codex y Hermes. Las alternativas previas de cada funcionalidad adaptada de la revisión 1.0.0 se migraron al campo alternatives_investigated.
+
+| Skill | Agente | Funcionalidad | Antes | Ahora | Resolución | Motivo |
+|---|---|---|---|---|---|---|
+| `widget-ui-proposals` | `codex` | `render-widget` | `disabled` | `adapted` | `alternative` | El plugin visualize de Codex logra el mismo visual interactivo con otro mecanismo. |
+| `widget-ui-proposals` | `codex` | `apply-proposal` | `disabled` | `unverified` | `alternative` | sendFollowUpMessage equivale a sendPrompt; el clic no se observó (solo en la app). |
+| `widget-ui-proposals` | `hermes` | `render-widget` | `disabled` | `adapted` | `alternative` | Preview estático HTML → PNG con Chrome headless, verificado en Hermes. |
+| `widget-ui-proposals` | `hermes` | `apply-proposal` | `disabled` | `adapted` | `alternative` | Elección con clarify u opciones numeradas, verificado en Hermes. |
+| `pr-description-template` | `codex` | `ui-screenshots` | `disabled` | `adapted` | `alternative` | El plugin Chrome de Codex controla el Chrome real del usuario (verificado). |
+| `pr-description-template` | `hermes` | `ui-screenshots` | `disabled` | `unverified` | `alternative` | computer_use o browser_exec con perfil real; implementado, no verificado. |
+| `review-fix-loop` | `codex` | `isolated-filter` | `disabled` | `adapted` | `alternative` | Proceso externo claude -p de solo lectura, verificado desde Codex. |
+| `review-fix-loop` | `hermes` | `isolated-filter` | `disabled` | `adapted` | `alternative` | Proceso externo claude -p de solo lectura, verificado desde Hermes. |
+| `codex-autofix-loop` | `codex` | `pr-event-watch` | `disabled` | `adapted` | `alternative` | Watcher en foreground dentro del turno (modo C), verificado en Codex. |
+| `codex-autofix-loop` | `codex` | `backup-schedule` | `disabled` | `adapted` | `alternative` | El timeout del watcher cumple el rol del cron de respaldo (exit 3 observado). |
+| `codex-autofix-loop` | `codex` | `auto-relaunch` | `disabled` | `unverified` | `alternative` | El ciclo siguiente del watcher detecta la respuesta de Codex; no observado con una respuesta real. |
+| `agent-ready-setup` | `hermes` | `provider-autodetect` | `disabled` | `adapted` | `alternative` | resolve-provider.sh reconoce instalaciones de Hermes (verificado en Hermes). |
 
 ### Agentes evaluados
 
 | Agente | Versión | Comando | Señales de detección |
 |---|---|---|---|
 | Claude Code (`claude_code`) | 2.1.309 | `claude --version` | CLAUDECODE=1; CLAUDE_CODE_ENTRYPOINT; CLAUDE_CODE_SESSION_ID; herramientas Skill/ToolSearch |
-| Codex CLI (`codex`) | codex-cli 0.162.1 | `codex --version` | CODEX_SESSION_ID; CODEX_THREAD_ID; CODEX_VERSION; CODEX_CI=1 en codex exec; herramientas exec_command/apply_patch |
+| Codex CLI (`codex`) | codex-cli 0.162.1 | `codex --version` | CODEX_SESSION_ID; CODEX_THREAD_ID; CODEX_VERSION; CODEX_CI=1 en codex exec; herramientas exec_command/apply_patch; plugins habilitados en $CODEX_HOME/config.toml (visualize, chrome, browser, computer-use, codex-app-tools) |
 | Hermes Agent (`hermes`) | v0.22.4 (2026.9.24) | `hermes --version` | HERMES_AGENT=true; AI_AGENT=hermes-agent; HERMES_SESSION_ID; HERMES_HOME; herramientas terminal/clarify/delegate_task |
 
 ### Skills por estado y agente
@@ -26,9 +46,9 @@
 | Estado | `claude_code` | `codex` | `hermes` |
 |---|---|---|---|
 | `compatible` | 4 | 0 | 0 |
-| `adapted` | 0 | 0 | 0 |
+| `adapted` | 0 | 1 | 1 |
 | `partial` | 0 | 0 | 0 |
-| `incompatible` | 0 | 1 | 1 |
+| `incompatible` | 0 | 0 | 0 |
 | `unverified` | 39 | 42 | 42 |
 
 ### Regla de derivación del estado
@@ -44,6 +64,9 @@ El estado de una skill en un agente se deriva de sus funcionalidades, en este or
 Las funcionalidades opcionales `unverified` no cambian el estado global, pero se listan como pendientes de verificar.
 Una funcionalidad solo puede estar `enabled` o `adapted` si la respalda al menos una prueba `eval` o `real_run` ejecutada **en ese agente** con resultado `passed`; las pruebas `simulated_eval` (otro agente simulando este), `bats` (scripts) y `static` (inspección) no alcanzan.
 Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilidades con ID `INC-<skill>--<agente>--<funcionalidad>`.
+
+La **resolución** de cada funcionalidad dice cómo se entrega en ese agente, independientemente de cuánto se verificó: `native` (la misma funcionalidad que el original), `alternative` (un mecanismo equivalente con otra implementación) o `disabled` (sin solución directa ni alternativa viable).
+Una funcionalidad `disabled` lista las alternativas investigadas y ninguna es viable; una `alternative` lista al menos una alternativa viable.
 
 ## B. Matriz global
 
@@ -91,7 +114,7 @@ Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilid
 | `typed-errors-refactor` | `unverified` | `unverified` | `unverified` |
 | `ui-ux-flow-patterns` | `unverified` | `unverified` | `unverified` |
 | `user-manual` | `unverified` | `unverified` | `unverified` |
-| `widget-ui-proposals` | `unverified` | `incompatible` | `incompatible` |
+| `widget-ui-proposals` | `unverified` | `adapted` | `adapted` |
 
 ## C. Análisis por skill
 
@@ -99,7 +122,7 @@ Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilid
 
 **Identificación**
 
-- Nombre: Agent Ready Setup; versión: 1.4.0; SKILL.md: `plugins/golfo-kit/skills/agent-ready-setup/SKILL.md`.
+- Nombre: Agent Ready Setup; versión: 1.5.0; SKILL.md: `plugins/golfo-kit/skills/agent-ready-setup/SKILL.md`.
 - Propósito: Prepara la configuración multi-provider (Claude Code y Codex) de un repo: .claude/, .agents/, .codex/, AGENTS.md y hooks.
 - Funcionalidades principales: detección de stack; bootstrap de assets; bloque gestionado de AGENTS.md; hooks y sync.
 - Agentes soportados declarados: no declara.
@@ -108,7 +131,7 @@ Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilid
 
 | Dependencia | Tipo | Obligatoria | Agentes que la tienen |
 |---|---|---|---|
-| Rutas de instalación (~/.claude, $CODEX_HOME, CLAUDE_PLUGIN_ROOT) | path | sí | `claude_code`; `codex` |
+| Rutas de instalación (~/.claude, $CODEX_HOME, CLAUDE_PLUGIN_ROOT, $HERMES_HOME) | path | sí | `claude_code`; `codex`; `hermes` |
 | `bash`, `git`, `node`, `python` en PATH | command | sí | `claude_code`; `codex`; `hermes` |
 | CLI `claude` (revisión de hooks) | command | no | `claude_code`; `codex`; `hermes` |
 
@@ -121,10 +144,10 @@ Provider de destino soportado. No ejecutada en esta auditoría (las suites bats 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `bootstrap-config` | sí | `unverified` | bootstrap.sh genera la configuración de Claude Code y Codex. | — | No ejecutada en Claude Code en esta auditoría. | Suites bats (prueba agent-ready-bats).; prueba `agent-ready-bats` |
-| `provider-autodetect` | no | `unverified` | resolve-provider.sh por ruta. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `bootstrap-config` | sí | `unverified` | `native` | bootstrap.sh genera la configuración de Claude Code y Codex. | — | No ejecutada en Claude Code en esta auditoría. | Suites bats (prueba agent-ready-bats).; prueba `agent-ready-bats` |
+| `provider-autodetect` | no | `unverified` | `native` | resolve-provider.sh por ruta. | — | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### agent-ready-setup / `codex`: `unverified`
 
@@ -133,27 +156,32 @@ Provider de destino soportado. No ejecutada en esta auditoría.
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `bootstrap-config` | sí | `unverified` | bootstrap.sh genera la configuración de Claude Code y Codex. | — | No ejecutada en Codex CLI en esta auditoría. | Suites bats (prueba agent-ready-bats).; prueba `agent-ready-bats` |
-| `provider-autodetect` | no | `unverified` | resolve-provider.sh por ruta. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `bootstrap-config` | sí | `unverified` | `native` | bootstrap.sh genera la configuración de Claude Code y Codex. | — | No ejecutada en Codex CLI en esta auditoría. | Suites bats (prueba agent-ready-bats).; prueba `agent-ready-bats` |
+| `provider-autodetect` | no | `unverified` | `native` | resolve-provider.sh por ruta. | — | No ejecutada en Codex CLI en esta auditoría. | — |
 
 #### agent-ready-setup / `hermes`: `unverified`
 
-Hermes no es provider de destino; desde Hermes la inferencia de provider falla y exige AGENT_READY_SETUP_ACTIVE_PROVIDER. No ejecutada.
+Hermes no es provider de destino; desde su instalación, resolve-provider.sh elige el único CLI de provider presente o pide elegir si hay dos (verificado en Hermes).
 
 - Capacidades faltantes: Inferencia de provider desde $HERMES_HOME; Generación de configuración para Hermes.
-- Alternativas investigadas: AGENT_READY_SETUP_ACTIVE_PROVIDER=claude|codex elegido por el usuario.
+- Alternativas investigadas: reconocer $HERMES_HOME y usar el CLI presente (adoptado); Hermes como provider de destino (fuera de alcance).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `bootstrap-config` | sí | `unverified` | bootstrap.sh genera la configuración de Claude Code y Codex. | — | No ejecutada en Hermes Agent en esta auditoría. | Suites bats (prueba agent-ready-bats).; prueba `agent-ready-bats` |
-| `provider-autodetect` | no | `disabled` | — | AGENT_READY_SETUP_ACTIVE_PROVIDER elegido por el usuario. | resolve-provider.sh solo reconoce ~/.claude, $CODEX_HOME y CLAUDE_PLUGIN_ROOT; desde $HERMES_HOME termina con error. | Lectura de scripts/resolve-provider.sh. |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `bootstrap-config` | sí | `unverified` | `native` | bootstrap.sh genera la configuración de Claude Code y Codex. | — | No ejecutada en Hermes Agent en esta auditoría. | Suites bats (prueba agent-ready-bats).; prueba `agent-ready-bats` |
+| `provider-autodetect` | no | `adapted` | `alternative` | resolve-provider.sh reconoce $HERMES_HOME, ~/.hermes y %LOCALAPPDATA%\hermes; usa el único CLI de provider en PATH y, con dos, pide elegir (clarify). | AGENT_READY_SETUP_ACTIVE_PROVIDER elegido por el usuario. | Hermes no es provider de destino, pero desde su instalación el provider que hace el upgrade y la revisión es el CLI presente; con dos, decide el usuario. | Corrida real en Hermes; bats del resolver; prueba `hermes-real-resolve-provider`; prueba `resolve-provider-hermes-bats`; prueba `eval-sim-hermes-provider-choice` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `provider-autodetect` | Reconocer $HERMES_HOME y elegir el único CLI presente | corrida real + bats | sí | Determinista; no adivina cuando hay dos. |
+| `provider-autodetect` | Agregar Hermes como provider de destino | SKILL.md (paridad de providers) | no | Fuera de alcance: no genera configuración de Hermes. |
 
 **Implementación**
 
-- Adaptaciones: Sección «Compatibilidad entre agentes»: Hermes como excepción explícita y override manual.
-- Archivos modificados: `plugins/golfo-kit/skills/agent-ready-setup/SKILL.md`.
+- Adaptaciones: Sección «Compatibilidad entre agentes»: Hermes como excepción explícita y override manual; resolve-provider.sh reconoce instalaciones de Hermes (incluido HERMES_HOME en formato Windows).
+- Archivos modificados: `plugins/golfo-kit/skills/agent-ready-setup/SKILL.md`, `plugins/golfo-kit/skills/agent-ready-setup/scripts/resolve-provider.sh`, `plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats`, `plugins/golfo-kit/skills/agent-ready-setup/evals/eval-config.json`.
 - Fallback: Override manual del provider..
 - Cambios de comportamiento respecto del original: Ninguno..
 
@@ -163,6 +191,9 @@ Hermes no es provider de destino; desde Hermes la inferencia de provider falla y
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
 | `agent-ready-bats` | `any` | bats | `bats plugins/golfo-kit/skills/agent-ready-setup/tests/merge-instructions.bats` | `passed` | Suite de merge de instrucciones (agnóstica de agente). |
+| `hermes-real-resolve-provider` | `hermes` | real_run | `hermes chat -Q -q "<correr resolve-provider.sh --skill-dir $HERMES_HOME/plugins/golfo-kit/skills/agent-ready-setup con PATH completo y con solo codex>"` | `passed` | Con HERMES_HOME=C:\Users\guido\AppData\Local\hermes (formato Windows) y ambos CLIs: exit 1 'belongs to Hermes and both claude and codex are in PATH; ask the user …'. Con PATH reducido a codex: exit 0, stdout 'codex'. |
+| `resolve-provider-hermes-bats` | `any` | bats | `bats -f 'resolve-provider' plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats` | `passed` | 4 casos: un solo CLI → ese provider; ambos → error que pide elegir; ninguno → error; HERMES_HOME en formato Windows reconocido. |
+| `eval-sim-hermes-provider-choice` | `hermes` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/agent-ready-setup --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: hermes-install-asks-provider-when-both-clis: pregunta con clarify y relanza con AGENT_READY_SETUP_ACTIVE_PROVIDER. |
 
 Pendiente de verificar:
 
@@ -190,9 +221,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### async-operation-error-handling / `codex`: `unverified`
 
@@ -201,9 +232,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### async-operation-error-handling / `hermes`: `unverified`
 
@@ -212,9 +243,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -239,7 +270,7 @@ Pendiente de verificar:
 
 **Identificación**
 
-- Nombre: Codex auto-fix loop (local, vía Claude Code); versión: 1.3.0; SKILL.md: `plugins/golfo-kit/skills/codex-autofix-loop/SKILL.md`.
+- Nombre: Codex auto-fix loop (local, vía Claude Code); versión: 1.4.0; SKILL.md: `plugins/golfo-kit/skills/codex-autofix-loop/SKILL.md`.
 - Propósito: Opera el loop que auto-fixea los comentarios de Codex en un PR hasta converger y mergear con gates.
 - Funcionalidades principales: escucha de eventos del PR; triage y fix en clones efímeros; closeout de hilos; dedup y topes de rondas; merge con gates de CI y review limpia; auto-cancelación.
 - Agentes soportados declarados: no declara.
@@ -266,38 +297,55 @@ Modo A, comportamiento original sin cambios. La elección del modo pasó un eval
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `mode-selection` | sí | `enabled` | Elige el modo A cuando están Monitor, CronCreate/List/Delete y TaskStop. | — | Con las herramientas presentes, conserva el comportamiento original. | Eval en Claude Code.; prueba `eval-claude-mode-a` |
-| `pr-event-watch` | sí | `enabled` | `Monitor` del PR (paso 0 del prompt). | — | El Monitor del PR detectó y entregó los eventos del PR #22 y se rearmó al vencer. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22`; prueba `eval-claude-mode-a` |
-| `backup-schedule` | no | `unverified` | Cron de sesión vía `/loop`. | — | CronCreate creó el job de respaldo, pero no se observó un disparo del cron durante la corrida porque los eventos del Monitor llegaron antes. | Job f5c08f73 creado.; prueba `claude-real-loop-pr22` |
-| `fix-round` | sí | `enabled` | Triage, agrupación, fix, closeout y dedup (pasos 1 a 6). | — | Triage, inFlight, fix, closeout y dedup ejecutados sobre un hallazgo real. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22` |
-| `parallel-subagents` | no | `enabled` | Subagentes `Agent` en background por grupo de archivo. | Fix en contexto, grupo por grupo. | Un subagente Agent en background resolvió el grupo y devolvió el sha. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22` |
-| `merge-gates` | sí | `unverified` | Review limpia del head + GATE DE CI antes de cualquier merge. | — | No ejecutada en Claude Code en esta auditoría. | — |
-| `round-caps` | sí | `unverified` | Topes de rondas y de rondas de solo tests persistidos. | — | No ejecutada en Claude Code en esta auditoría. | — |
-| `auto-cancel` | sí | `unverified` | Borra el cron y detiene el Monitor. | — | No ejecutada en Claude Code en esta auditoría. | — |
-| `notifications` | no | `unverified` | `PushNotification` de una línea. | Línea en el chat. | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `mode-selection` | sí | `enabled` | `native` | Elige el modo A cuando están Monitor, CronCreate/List/Delete y TaskStop. | — | Con las herramientas presentes, conserva el comportamiento original. | Eval en Claude Code.; prueba `eval-claude-mode-a` |
+| `pr-event-watch` | sí | `enabled` | `native` | `Monitor` del PR (paso 0 del prompt). | — | El Monitor del PR detectó y entregó los eventos del PR #22 y se rearmó al vencer. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22`; prueba `eval-claude-mode-a` |
+| `backup-schedule` | no | `unverified` | `native` | Cron de sesión vía `/loop`. | — | CronCreate creó el job de respaldo, pero no se observó un disparo del cron durante la corrida porque los eventos del Monitor llegaron antes. | Job f5c08f73 creado.; prueba `claude-real-loop-pr22` |
+| `fix-round` | sí | `enabled` | `native` | Triage, agrupación, fix, closeout y dedup (pasos 1 a 6). | — | Triage, inFlight, fix, closeout y dedup ejecutados sobre un hallazgo real. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22` |
+| `parallel-subagents` | no | `enabled` | `native` | Subagentes `Agent` en background por grupo de archivo. | Fix en contexto, grupo por grupo. | Un subagente Agent en background resolvió el grupo y devolvió el sha. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22` |
+| `merge-gates` | sí | `unverified` | `native` | Review limpia del head + GATE DE CI antes de cualquier merge. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `round-caps` | sí | `unverified` | `native` | Topes de rondas y de rondas de solo tests persistidos. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `auto-cancel` | sí | `unverified` | `native` | Borra el cron y detiene el Monitor. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `notifications` | no | `unverified` | `native` | `PushNotification` de una línea. | Línea en el chat. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### codex-autofix-loop / `codex`: `unverified`
 
-Modo C (una ronda por invocación). Codex eligió el modo correcto en una corrida real; la ronda completa no se ejecutó en Codex y las evals con provider codex quedaron bloqueadas por el sandbox de Windows.
+Modo C: watcher en foreground dentro del turno que cubre la escucha del PR, el respaldo por timeout y el relanzado tras @codex review. Verificados la elección del modo y el watcher; la ronda completa no se ejecutó en Codex.
 
-- Capacidades faltantes: Herramienta que despierte al agente después del turno (Monitor o background con aviso); Scheduler de sesión; PushNotification.
-- Alternativas investigadas: exec_command + write_stdin dentro del turno (descartado: bloquea el turno sin supervisión); Automatizaciones de la app de escritorio (no verificadas desde el CLI); Relanzar `codex exec resume` desde un watcher externo (descartado: proceso sin supervisión); Workflow codex-autofix.yml del repo (persistencia real, fuera de la sesión).
+- Capacidades faltantes: Monitor; CronCreate; procesos en background con aviso.
+- Alternativas investigadas: watcher en foreground con exec_command/write_stdin (adoptado); automatizaciones de la app codex_app (solo app, no verificadas); codex exec resume + cron del SO (solo a pedido); codex-autofix.yml en GitHub Actions (complemento).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `mode-selection` | sí | `enabled` | Elige el modo C (una ronda por invocación). | — | Codex eligió el modo C con sus herramientas reales. | Corrida real en Codex.; prueba `codex-real-mode-selection` |
-| `pr-event-watch` | sí | `disabled` | — | Una ronda por invocación y relanzado manual. | Codex CLI no tiene herramienta que despierte al agente después del turno (confirmado en la lista de herramientas de `codex exec` 0.162.1). | Lista de herramientas de Codex.; prueba `codex-real-mode-selection` |
-| `backup-schedule` | no | `disabled` | — | Relanzado manual o workflow codex-autofix.yml. | No hay cron en la sesión de Codex CLI; las automatizaciones de la app de escritorio no se verificaron desde el CLI. | Lista de herramientas de Codex.; prueba `codex-real-mode-selection` |
-| `single-round` | sí | `unverified` | Modo C: una vuelta del prompt sin pasos 0 y 7; termina indicando cómo relanzar. | — | La elección del modo se verificó en Codex; la vuelta completa no se ejecutó. Eval simulado en Claude aprobado. | Eval simulado (no cuenta como evidencia en Codex).; prueba `eval-sim-codex-single-round`; prueba `eval-codex-provider` |
-| `fix-round` | sí | `unverified` | Pasos 1 a 6 del prompt, igual que el original. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `parallel-subagents` | no | `unverified` | `collaboration.spawn_agent` + `wait_agent` esperando dentro del turno. | Fix en contexto, grupo por grupo. | Herramientas presentes en la sesión; no se ejecutaron. | — |
-| `merge-gates` | sí | `unverified` | Mismos gates; con checks pendientes no espera y lo deja para la próxima invocación. | — | Eval simulado aprobado; no ejecutado en Codex. | prueba `eval-sim-codex-merge-gates` |
-| `round-caps` | sí | `unverified` | Topes persistidos entre invocaciones. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `auto-cancel` | sí | `unverified` | No queda nada vivo que cancelar: la invocación termina. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `notifications` | no | `unverified` | Línea en el mensaje final. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `auto-relaunch` | no | `disabled` | — | Instrucción de relanzado en el cierre. | El paso (7) exige que el loop siga vivo tras `@codex review`; en Codex no hay mecanismo para seguir vivo. | agent-modes.md, modo C.; prueba `codex-real-mode-selection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `mode-selection` | sí | `enabled` | `native` | Elige el modo C (watcher en foreground dentro del turno); el modo D solo si el usuario pide una ronda o el shell no sostiene comandos largos. | — | Codex eligió el modo C con sus herramientas reales. | Corrida real en Codex.; codex-real-inturn-watcher: eligió el modo C; prueba `codex-real-mode-selection`; prueba `codex-real-inturn-watcher` |
+| `pr-event-watch` | sí | `adapted` | `alternative` | Modo C: scripts/wait-for-pr-event.sh en foreground dentro del turno, ciclo por ciclo hasta MAX_INTURN_CYCLES (36). | Modo D (una ronda por invocación) si el usuario lo pide o el shell no sostiene comandos largos. | Sin Monitor, el mismo watcher acotado esperado dentro del turno detecta los eventos del PR; se pierde solo la supervisión después del turno. | Corrida real codex-real-inturn-watcher; watcher-bats; prueba `codex-real-inturn-watcher`; prueba `watcher-bats`; prueba `eval-sim-codex-inturn-watcher` |
+| `backup-schedule` | no | `adapted` | `alternative` | El timeout del watcher (exit 3) dispara la vuelta que evalúa TTLs y reintentos de merge, igual que en el modo B. | Modo D: la próxima invocación evalúa los TTLs. | El timeout acotado cumple el rol del cron de respaldo mientras dura el turno. | Exit 3 observado en codex-real-inturn-watcher; prueba `codex-real-inturn-watcher` |
+| `single-round` | no | `unverified` | `alternative` | Modo D: una vuelta del prompt sin pasos 0 y 7; termina indicando cómo relanzar. | — | Queda como modo opcional a pedido del usuario. | Eval simulado (no cuenta como evidencia en Codex).; prueba `eval-sim-codex-single-round`; prueba `eval-codex-provider`; prueba `eval-sim-codex-inturn-watcher` |
+| `fix-round` | sí | `unverified` | `native` | Pasos 1 a 6 del prompt, igual que el original. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `parallel-subagents` | no | `unverified` | `alternative` | `collaboration.spawn_agent` + `wait_agent` esperando dentro del turno. | Fix en contexto, grupo por grupo. | Herramientas presentes en la sesión; no se ejecutaron. | — |
+| `merge-gates` | sí | `unverified` | `native` | Mismos gates; con checks pendientes espera al ciclo siguiente del watcher (modo C) o a la próxima invocación (modo D). | — | Eval simulado aprobado; no ejecutado en Codex. | prueba `eval-sim-codex-merge-gates`; prueba `eval-sim-codex-inturn-watcher` |
+| `round-caps` | sí | `unverified` | `native` | Topes persistidos entre invocaciones. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `auto-cancel` | sí | `unverified` | `alternative` | Exit 5 del watcher o GUARD: termina el turno; nada queda vivo. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `notifications` | no | `unverified` | `alternative` | Línea en el mensaje final. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `auto-relaunch` | no | `unverified` | `alternative` | Tras @codex review, el ciclo siguiente del watcher en foreground detecta la respuesta de Codex y sigue sin intervención. | Modo D: relanzar a mano o el workflow codex-autofix.yml. | El mecanismo es el mismo watcher verificado, pero no se observó una respuesta real de Codex disparando la siguiente iteración. | agent-modes.md, modo C; prueba `codex-real-inturn-watcher` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `pr-event-watch` | wait-for-pr-event.sh en foreground (exec_command + write_stdin) | corrida real en codex exec | sí | Exit 3 y 5 observados y manejados según el modo. |
+| `pr-event-watch` | Automatizaciones de la app (codex_app, automation_update) | codex-app-tools 0.1.6: .mcp.json + server.mjs | no | Solo en la app de escritorio (herramientas servidas por CODEX_APP_TOOLS_PIPE_PATH); no disponibles en el CLI ni verificadas. |
+| `pr-event-watch` | codex exec resume desde cron del SO / Task Scheduler | codex exec --help | no | Viable técnicamente pero crea un scheduler persistente fuera de la sesión; solo a pedido del usuario. |
+| `pr-event-watch` | Workflow codex-autofix.yml (GitHub Actions) | SKILL.md | sí | Persistencia 24/7 fuera de la sesión; complemento, no reemplazo de la escucha local. |
+| `backup-schedule` | Timeout del watcher como respaldo | corrida real | sí | Exit 3 observado. |
+| `backup-schedule` | Automatizaciones de la app (codex_app) | codex-app-tools | no | Solo app de escritorio; no verificadas. |
+| `single-round` | Modo D: una vuelta del prompt sin pasos 0 y 7; termina indicando cómo relanzar. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Queda como modo opcional a pedido del usuario. |
+| `parallel-subagents` | `collaboration.spawn_agent` + `wait_agent` esperando dentro del turno. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Herramientas presentes en la sesión; no se ejecutaron. |
+| `auto-cancel` | Exit 5 del watcher o GUARD: termina el turno; nada queda vivo. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Codex CLI en esta auditoría. |
+| `notifications` | Línea en el mensaje final | agent-modes.md | sí | Siempre disponible. |
+| `notifications` | notify de config.toml | $CODEX_HOME/config.toml | no | Se dispara al terminar cada turno, no a pedido de la skill. |
+| `auto-relaunch` | Watcher en foreground dentro del turno | agent-modes.md | sí | Cubre la espera de la respuesta mientras dura el turno. |
+| `auto-relaunch` | codex exec resume programado | codex exec --help | no | Scheduler persistente fuera de la sesión; solo a pedido. |
+| `auto-relaunch` | handoff_thread / send_message_to_thread de la app | codex-app-tools/.mcp.json | no | Solo app de escritorio; no verificados. |
 
 #### codex-autofix-loop / `hermes`: `unverified`
 
@@ -306,21 +354,30 @@ Modo B (watcher en background). El watcher y la elección del modo funcionaron e
 - Capacidades faltantes: Monitor; CronCreate/CronList/CronDelete de sesión; TaskStop; PushNotification.
 - Alternativas investigadas: terminal(background, notify) + process_manage (adoptado); cronjob_manage con repeat (descartado: sesión nueva sin contexto ni subagentes); hermes send para avisos (no aplica a sesiones CLI).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `mode-selection` | sí | `enabled` | Elige el modo B (watcher en background). | — | Hermes eligió el modo B con sus herramientas reales. | Corrida real en Hermes.; prueba `hermes-real-mode-selection` |
-| `pr-event-watch` | sí | `adapted` | `scripts/wait-for-pr-event.sh` en background con aviso, rearmado hasta MAX_WATCH_CYCLES. | Modo C si falta alguna herramienta. | Reemplaza a Monitor con un proceso acotado y supervisado. | Watcher ejecutado en Hermes con aviso y wait.; Tests bats del watcher.; prueba `hermes-real-watcher`; prueba `watcher-bats` |
-| `backup-schedule` | no | `adapted` | El timeout del watcher (exit 3) dispara la vuelta que evalúa TTLs y reintentos de merge. | — | cronjob_manage corre en sesiones nuevas sin acceso a subagentes ni al watcher, así que no puede reconciliar inFlight; se descartó. | Exit 3 observado en Hermes.; prueba `hermes-real-watcher` |
-| `fix-round` | sí | `unverified` | Pasos 1 a 6 del prompt. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `parallel-subagents` | no | `unverified` | `delegate_task` con `tasks[]`; los hijos mueren con la sesión. | Fix en contexto. | Herramienta presente; no ejecutada. | — |
-| `merge-gates` | sí | `unverified` | Mismos gates. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `round-caps` | sí | `unverified` | Topes persistidos. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `auto-cancel` | sí | `unverified` | Mata el watcher vivo. | — | kill no se ejercitó en la prueba real (el watcher terminó por timeout). | — |
-| `notifications` | no | `unverified` | Línea en el chat. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `mode-selection` | sí | `enabled` | `native` | Elige el modo B (watcher en background). | — | Hermes eligió el modo B con sus herramientas reales. | Corrida real en Hermes.; prueba `hermes-real-mode-selection` |
+| `pr-event-watch` | sí | `adapted` | `alternative` | `scripts/wait-for-pr-event.sh` en background con aviso, rearmado hasta MAX_WATCH_CYCLES. | Modo C si falta alguna herramienta. | Reemplaza a Monitor con un proceso acotado y supervisado. | Watcher ejecutado en Hermes con aviso y wait.; Tests bats del watcher.; prueba `hermes-real-watcher`; prueba `watcher-bats` |
+| `backup-schedule` | no | `adapted` | `alternative` | El timeout del watcher (exit 3) dispara la vuelta que evalúa TTLs y reintentos de merge. | — | cronjob_manage corre en sesiones nuevas sin acceso a subagentes ni al watcher, así que no puede reconciliar inFlight; se descartó. | Exit 3 observado en Hermes.; prueba `hermes-real-watcher` |
+| `fix-round` | sí | `unverified` | `native` | Pasos 1 a 6 del prompt. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `parallel-subagents` | no | `unverified` | `alternative` | `delegate_task` con `tasks[]`; los hijos mueren con la sesión. | Fix en contexto. | Herramienta presente; no ejecutada. | — |
+| `merge-gates` | sí | `unverified` | `native` | Mismos gates. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `round-caps` | sí | `unverified` | `native` | Topes persistidos. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `auto-cancel` | sí | `unverified` | `alternative` | Mata el watcher vivo. | — | kill no se ejercitó en la prueba real (el watcher terminó por timeout). | — |
+| `notifications` | no | `unverified` | `alternative` | Línea en el chat (en el gateway llega a Telegram); opcional hermes send --to <destino> desde el shell. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `pr-event-watch` | `scripts/wait-for-pr-event.sh` en background con aviso, rearmado hasta MAX_WATCH_CYCLES. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Reemplaza a Monitor con un proceso acotado y supervisado. |
+| `backup-schedule` | El timeout del watcher (exit 3) dispara la vuelta que evalúa TTLs y reintentos de merge. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | cronjob_manage corre en sesiones nuevas sin acceso a subagentes ni al watcher, así que no puede reconciliar inFlight; se descartó. |
+| `parallel-subagents` | `delegate_task` con `tasks[]`; los hijos mueren con la sesión. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Herramienta presente; no ejecutada. |
+| `auto-cancel` | Mata el watcher vivo. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | kill no se ejercitó en la prueba real (el watcher terminó por timeout). |
+| `notifications` | Mensaje en el chat del gateway | variables HERMES_SESSION_PLATFORM=telegram | sí | En el gateway el propio mensaje es el aviso. |
+| `notifications` | hermes send --to telegram | hermes send --help y --list | sí | Envía sin agente; no se envió nada en la auditoría. |
 
 **Implementación**
 
-- Adaptaciones: Selección de modo por capacidades (A/B/C); Script portable `wait-for-pr-event.sh` con timeout, tope de polls y códigos de salida; Modo B para Hermes con rearmado acotado (MAX_WATCH_CYCLES); Modo C de una ronda por invocación; Casos de eval por agente.
+- Adaptaciones: Selección de modo por capacidades (A/B/C); Script portable `wait-for-pr-event.sh` con timeout, tope de polls y códigos de salida; Modo B para Hermes con rearmado acotado (MAX_WATCH_CYCLES); Modo C de una ronda por invocación; Casos de eval por agente; Modo C para Codex: wait-for-pr-event.sh en foreground dentro del turno con tope MAX_INTURN_CYCLES; la ronda única pasa a modo D.
 - Archivos modificados: `plugins/golfo-kit/skills/codex-autofix-loop/SKILL.md`, `plugins/golfo-kit/skills/codex-autofix-loop/references/agent-modes.md`, `plugins/golfo-kit/skills/codex-autofix-loop/scripts/wait-for-pr-event.sh`, `plugins/golfo-kit/skills/codex-autofix-loop/tests/wait-for-pr-event.bats`, `plugins/golfo-kit/skills/codex-autofix-loop/evals/eval-config.json`.
 - Fallback: Modo C: una ronda por invocación, sin esperas, con instrucciones para relanzar..
 - Cambios de comportamiento respecto del original: Ninguno en Claude Code (modo A). En Hermes la espera usa el watcher y no hay cron; en Codex no hay escucha continua ni relanzado automático..
@@ -339,12 +396,15 @@ Modo B (watcher en background). El watcher y la elección del modo funcionaron e
 | `hermes-real-watcher` | `hermes` | real_run | `hermes chat -Q -q "<terminal(background=true, notify=true) sobre wait-for-pr-event.sh --pr 20 --poll-seconds 10 --timeout-seconds 40; process_manage wait timeout=120>"` | `passed` | Hermes 0.22.4 lanzó el watcher con mcp__terminal background=true notify=true (session_id proc_49b329b77739, notify_on_complete: true) y process_manage wait devolvió status exited, exit_code 3, stdout «TIMEOUT no event on PR #20 after 3 polls». Solo lecturas a GitHub. |
 | `hermes-real-mode-selection` | `hermes` | real_run | `hermes chat -Q -q "<leer SKILL.md y referencias; describir modo y herramientas sin tocar GitHub>"` | `passed` | Hermes eligió el modo B (mcp__terminal background+notify, process_manage diferido), propuso delegate_task con tasks[], kill del watcher y delegate_task stop para cancelar, avisos en el chat, sin cronjob_manage; no mencionó invocar Monitor ni CronCreate. |
 | `claude-real-loop-pr22` | `claude_code` | real_run | `Loop en modo A sobre el PR #22 (Monitor + CronCreate */3 + Agent + codex-comment-closeout)` | `passed` | Claude Code 2.1.309 operó el loop sobre el PR #22: el Monitor entregó 8 eventos (checks, comentario y review de Codex, head nuevo) y se rearmó al vencer; CronCreate creó el job f5c08f73 (*/3); el inline 4362278361 (P2) se clasificó como realista, se registró en inFlight y lo fixeó un subagente Agent con fix-in-ephemeral-clone (commit f0bd513, 14/14 bats); el closeout publicó 👍, reply con plantilla (4362346998) verificado y resolvió el hilo; la review 5631925162 se minimizó como RESOLVED; processed-22.json registró el id y el outcome fixed. |
+| `codex-real-inturn-watcher` | `codex` | real_run | `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<leer agent-modes.md, elegir modo y correr solo wait-for-pr-event.sh en foreground sobre #21 y #22>"` | `passed` | Codex eligió el modo C por tener exec_command + write_stdin, corrió el watcher en foreground siguiendo la salida con write_stdin: PR #21 → exit 3 'TIMEOUT no event on PR #21 after 3 polls' (dispararía la iteración de respaldo), PR #22 → exit 5 'PR_NOT_OPEN MERGED' (auto-cancelar). No ejecutó iteraciones, comentarios ni merges. |
+| `eval-sim-codex-inturn-watcher` | `codex` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/codex-autofix-loop --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: codex-in-turn-foreground-watcher, codex-runs-single-round-without-waiting y codex-single-round-keeps-merge-gates (modos C y D). |
 
 Pendiente de verificar:
 
 - Claude Code: merge con gates, topes de rondas, auto-cancelación y disparo del cron de respaldo (ocurren después de congelar este reporte en el PR #22).
 - Codex: una ronda completa con fixes, closeout y merge gates.
 - Hermes: loop completo con delegate_task, kill del watcher y merge gates.
+- Codex: ronda completa en modo C sobre un PR de prueba, con respuesta real de Codex disparando la iteración siguiente.
 
 ### `codex-comment-closeout`
 
@@ -370,9 +430,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `enabled` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Closeout real con plantilla, reacción, resolución y verificación. | Closeout del inline 4362278361.; prueba `claude-real-closeout-pr22` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `enabled` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Closeout real con plantilla, reacción, resolución y verificación. | Closeout del inline 4362278361.; prueba `claude-real-closeout-pr22` |
 
 #### codex-comment-closeout / `codex`: `unverified`
 
@@ -381,9 +441,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### codex-comment-closeout / `hermes`: `unverified`
 
@@ -392,9 +452,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -438,9 +498,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### constants-refactor / `codex`: `unverified`
 
@@ -449,9 +509,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### constants-refactor / `hermes`: `unverified`
 
@@ -460,9 +520,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -505,9 +565,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### create-issue / `codex`: `unverified`
 
@@ -516,9 +576,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### create-issue / `hermes`: `unverified`
 
@@ -527,9 +587,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -572,9 +632,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### enforce-jsdoc-tsdoc / `codex`: `unverified`
 
@@ -583,9 +643,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### enforce-jsdoc-tsdoc / `hermes`: `unverified`
 
@@ -594,9 +654,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -639,9 +699,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### error-observability-diagnostics / `codex`: `unverified`
 
@@ -650,9 +710,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### error-observability-diagnostics / `hermes`: `unverified`
 
@@ -661,9 +721,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -709,9 +769,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### feature-branch-pr / `codex`: `unverified`
 
@@ -720,9 +780,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### feature-branch-pr / `hermes`: `unverified`
 
@@ -731,9 +791,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -779,10 +839,10 @@ Clone, validación y push usan solo git y shell; el modo background depende de u
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `in-context-fix` | sí | `enabled` | Workflow completo en el contexto actual. | — | Fix real en clone efímero con push verificado y cleanup. | Commit f0bd513.; prueba `claude-real-fix-pr22` |
-| `background-mode` | no | `unverified` | `Agent` con handle. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `in-context-fix` | sí | `enabled` | `native` | Workflow completo en el contexto actual. | — | Fix real en clone efímero con push verificado y cleanup. | Commit f0bd513.; prueba `claude-real-fix-pr22` |
+| `background-mode` | no | `unverified` | `native` | `Agent` con handle. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### fix-in-ephemeral-clone / `codex`: `unverified`
 
@@ -791,10 +851,14 @@ Clone, validación y push usan solo git y shell; el modo background depende de u
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: spawn_agent.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `in-context-fix` | sí | `unverified` | Workflow completo en el contexto actual. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `background-mode` | no | `unverified` | `spawn_agent` + `wait_agent`. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Codex CLI en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `in-context-fix` | sí | `unverified` | `native` | Workflow completo en el contexto actual. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `background-mode` | no | `unverified` | `alternative` | `spawn_agent` + `wait_agent`. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Codex CLI en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `background-mode` | `spawn_agent` + `wait_agent`. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Codex CLI en esta auditoría. |
 
 #### fix-in-ephemeral-clone / `hermes`: `unverified`
 
@@ -803,10 +867,14 @@ Clone, validación y push usan solo git y shell; el modo background depende de u
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: delegate_task.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `in-context-fix` | sí | `unverified` | Workflow completo en el contexto actual. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `background-mode` | no | `unverified` | `delegate_task`. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Hermes Agent en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `in-context-fix` | sí | `unverified` | `native` | Workflow completo en el contexto actual. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `background-mode` | no | `unverified` | `alternative` | `delegate_task`. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Hermes Agent en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `background-mode` | `delegate_task`. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Hermes Agent en esta auditoría. |
 
 **Implementación**
 
@@ -850,9 +918,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### fix-tests-intelligently / `codex`: `unverified`
 
@@ -861,9 +929,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### fix-tests-intelligently / `hermes`: `unverified`
 
@@ -872,9 +940,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -917,9 +985,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### functionality-check / `codex`: `unverified`
 
@@ -928,9 +996,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### functionality-check / `hermes`: `unverified`
 
@@ -939,9 +1007,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -986,9 +1054,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### generate-commit-messages / `codex`: `unverified`
 
@@ -997,9 +1065,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### generate-commit-messages / `hermes`: `unverified`
 
@@ -1008,9 +1076,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1055,10 +1123,14 @@ La pregunta en texto se verificó en una sesión headless sin AskUserQuestion; l
 - Capacidades faltantes: AskUserQuestion en sesiones headless (claude -p, sdk-cli).
 - Alternativas investigadas: AskUserQuestion (sesiones interactivas).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-user-choices` | sí | `adapted` | Fallback en texto en sesión headless; AskUserQuestion en sesiones interactivas. | Pregunta en texto con opciones numeradas y detenerse. | Verificado el fallback; la ruta nativa no. | Ver pruebas.; prueba `eval-claude-no-question-tool` |
-| `spec-improvement` | sí | `unverified` | Pasos 2 a 8: análisis, exploración, generación y guardado. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-user-choices` | sí | `adapted` | `alternative` | Fallback en texto en sesión headless; AskUserQuestion en sesiones interactivas. | Pregunta en texto con opciones numeradas y detenerse. | Verificado el fallback; la ruta nativa no. | Ver pruebas.; prueba `eval-claude-no-question-tool` |
+| `spec-improvement` | sí | `unverified` | `native` | Pasos 2 a 8: análisis, exploración, generación y guardado. | — | No ejecutada en Claude Code en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-user-choices` | Fallback en texto en sesión headless; AskUserQuestion en sesiones interactivas. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Verificado el fallback; la ruta nativa no. |
 
 #### improve-spec / `codex`: `unverified`
 
@@ -1067,10 +1139,14 @@ Pregunta en texto y se detiene (request_user_input solo existe en modo Plan); ve
 - Capacidades faltantes: request_user_input fuera del modo Plan.
 - Alternativas investigadas: request_user_input en modo Plan.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-user-choices` | sí | `adapted` | Pregunta en texto y detenerse; request_user_input solo en modo Plan. | Pregunta en texto con opciones numeradas y detenerse. | Verificado en Codex real. | Ver pruebas.; prueba `codex-real-ask-fallback` |
-| `spec-improvement` | sí | `unverified` | Pasos 2 a 8: análisis, exploración, generación y guardado. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-user-choices` | sí | `adapted` | `alternative` | Pregunta en texto y detenerse; request_user_input solo en modo Plan. | Pregunta en texto con opciones numeradas y detenerse. | Verificado en Codex real. | Ver pruebas.; prueba `codex-real-ask-fallback` |
+| `spec-improvement` | sí | `unverified` | `native` | Pasos 2 a 8: análisis, exploración, generación y guardado. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-user-choices` | Pregunta en texto y detenerse; request_user_input solo en modo Plan. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Verificado en Codex real. |
 
 #### improve-spec / `hermes`: `unverified`
 
@@ -1079,10 +1155,14 @@ Usa clarify; si devuelve undelivered (por ejemplo en `hermes chat -Q -q`) pregun
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: clarify (máx. 4 choices).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-user-choices` | sí | `adapted` | `clarify`; fallback en texto ante undelivered/timed_out/cancelled. | Pregunta en texto con opciones numeradas y detenerse. | Verificado en Hermes real. | Ver pruebas.; prueba `hermes-real-clarify-fallback` |
-| `spec-improvement` | sí | `unverified` | Pasos 2 a 8: análisis, exploración, generación y guardado. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-user-choices` | sí | `adapted` | `alternative` | `clarify`; fallback en texto ante undelivered/timed_out/cancelled. | Pregunta en texto con opciones numeradas y detenerse. | Verificado en Hermes real. | Ver pruebas.; prueba `hermes-real-clarify-fallback` |
+| `spec-improvement` | sí | `unverified` | `native` | Pasos 2 a 8: análisis, exploración, generación y guardado. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-user-choices` | `clarify`; fallback en texto ante undelivered/timed_out/cancelled. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | Verificado en Hermes real. |
 
 **Implementación**
 
@@ -1132,11 +1212,11 @@ Adaptaciones documentadas para la pregunta del entorno y el modo background; no 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-environment` | sí | `unverified` | `AskUserQuestion`. | Pregunta en texto y detención. | No ejecutada en Claude Code en esta auditoría. | — |
-| `background-handoff` | no | `unverified` | `Agent` con handle. | Modo in_context. | No ejecutada en Claude Code en esta auditoría. | — |
-| `pr-closeout` | sí | `unverified` | Reply, reacción y resolución del hilo con gh. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-environment` | sí | `unverified` | `native` | `AskUserQuestion`. | Pregunta en texto y detención. | No ejecutada en Claude Code en esta auditoría. | — |
+| `background-handoff` | no | `unverified` | `native` | `Agent` con handle. | Modo in_context. | No ejecutada en Claude Code en esta auditoría. | — |
+| `pr-closeout` | sí | `unverified` | `native` | Reply, reacción y resolución del hilo con gh. | — | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### inline-thread-autofix / `codex`: `unverified`
 
@@ -1145,11 +1225,16 @@ Adaptaciones documentadas para la pregunta del entorno y el modo background; no 
 - Capacidades faltantes: request_user_input fuera del modo Plan.
 - Alternativas investigadas: request_user_input en modo Plan; spawn_agent.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-environment` | sí | `unverified` | Texto y detención; `request_user_input` solo en modo Plan. | Pregunta en texto y detención. | No ejecutada en Codex CLI en esta auditoría. | — |
-| `background-handoff` | no | `unverified` | `spawn_agent` + `wait_agent`. | Modo in_context. | No ejecutada en Codex CLI en esta auditoría. | — |
-| `pr-closeout` | sí | `unverified` | Reply, reacción y resolución del hilo con gh. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-environment` | sí | `unverified` | `alternative` | Texto y detención; `request_user_input` solo en modo Plan. | Pregunta en texto y detención. | No ejecutada en Codex CLI en esta auditoría. | — |
+| `background-handoff` | no | `unverified` | `alternative` | `spawn_agent` + `wait_agent`. | Modo in_context. | No ejecutada en Codex CLI en esta auditoría. | — |
+| `pr-closeout` | sí | `unverified` | `native` | Reply, reacción y resolución del hilo con gh. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-environment` | Texto y detención; `request_user_input` solo en modo Plan. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Codex CLI en esta auditoría. |
+| `background-handoff` | `spawn_agent` + `wait_agent`. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Codex CLI en esta auditoría. |
 
 #### inline-thread-autofix / `hermes`: `unverified`
 
@@ -1158,11 +1243,16 @@ Adaptaciones documentadas para la pregunta del entorno y el modo background; no 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: clarify; delegate_task.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-environment` | sí | `unverified` | `clarify`; texto ante undelivered/timed_out/cancelled. | Pregunta en texto y detención. | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `background-handoff` | no | `unverified` | `delegate_task`. | Modo in_context. | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `pr-closeout` | sí | `unverified` | Reply, reacción y resolución del hilo con gh. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-environment` | sí | `unverified` | `alternative` | `clarify`; texto ante undelivered/timed_out/cancelled. | Pregunta en texto y detención. | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `background-handoff` | no | `unverified` | `alternative` | `delegate_task`. | Modo in_context. | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `pr-closeout` | sí | `unverified` | `native` | Reply, reacción y resolución del hilo con gh. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-environment` | `clarify`; texto ante undelivered/timed_out/cancelled. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Hermes Agent en esta auditoría. |
+| `background-handoff` | `delegate_task`. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Hermes Agent en esta auditoría. |
 
 **Implementación**
 
@@ -1194,7 +1284,9 @@ Pendiente de verificar:
 
 **Dependencias**
 
-Sin dependencias específicas de agente detectadas por inspección.
+| Dependencia | Tipo | Obligatoria | Agentes que la tienen |
+|---|---|---|---|
+| Automatización de navegador para verificar el flujo (Playwright/Chrome DevTools MCP, plugins Chrome/Browser de Codex, browser_exec de Hermes) | tool | no | `claude_code`; `codex`; `hermes` |
 
 **Compatibilidad por agente**
 
@@ -1205,9 +1297,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### measured-performance-optimization / `codex`: `unverified`
 
@@ -1216,9 +1308,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### measured-performance-optimization / `hermes`: `unverified`
 
@@ -1227,9 +1319,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1249,6 +1341,7 @@ Pendiente de verificar:
 - Ejecutar la skill en Claude Code con un caso real.
 - Ejecutar la skill en Codex CLI con un caso real.
 - Ejecutar la skill en Hermes Agent con un caso real.
+- Dependencia implícita detectada en esta revisión: verificación en navegador con la automatización disponible de cada agente (Codex: plugins Chrome/Browser; Hermes: browser_exec headless, que sirve para verificar pero no para capturas publicadas).
 
 ### `mobile-first-responsive-layout`
 
@@ -1272,9 +1365,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### mobile-first-responsive-layout / `codex`: `unverified`
 
@@ -1283,9 +1376,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### mobile-first-responsive-layout / `hermes`: `unverified`
 
@@ -1294,9 +1387,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1339,9 +1432,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### mock-first-testing-design / `codex`: `unverified`
 
@@ -1350,9 +1443,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### mock-first-testing-design / `hermes`: `unverified`
 
@@ -1361,9 +1454,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1406,9 +1499,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### nextjs-route-ui-boundaries / `codex`: `unverified`
 
@@ -1417,9 +1510,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### nextjs-route-ui-boundaries / `hermes`: `unverified`
 
@@ -1428,9 +1521,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1475,9 +1568,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### node-runtime-debugging / `codex`: `unverified`
 
@@ -1486,9 +1579,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### node-runtime-debugging / `hermes`: `unverified`
 
@@ -1497,9 +1590,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1542,9 +1635,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### optimistic-action-mutations / `codex`: `unverified`
 
@@ -1553,9 +1646,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### optimistic-action-mutations / `hermes`: `unverified`
 
@@ -1564,9 +1657,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1591,7 +1684,7 @@ Pendiente de verificar:
 
 **Identificación**
 
-- Nombre: PR Description Template; versión: 1.1.0; SKILL.md: `plugins/golfo-kit/skills/pr-description-template/SKILL.md`.
+- Nombre: PR Description Template; versión: 1.2.0; SKILL.md: `plugins/golfo-kit/skills/pr-description-template/SKILL.md`.
 - Propósito: Define el título y la descripción estándar de PR (y el modo traceability-only), incluidas capturas de UI.
 - Funcionalidades principales: título y body con plantilla; conteo de archivos; capturas de UI desde el navegador del usuario; modo traceability-only.
 - Agentes soportados declarados: no declara.
@@ -1601,7 +1694,7 @@ Pendiente de verificar:
 | Dependencia | Tipo | Obligatoria | Agentes que la tienen |
 |---|---|---|---|
 | `gh` en PATH | command | sí | `claude_code`; `codex`; `hermes` |
-| Claude in Chrome (mcp__claude-in-chrome__*) | mcp | no | `claude_code` |
+| Navegador real del usuario: Claude in Chrome / plugin chrome@openai-bundled / computer_use o browser_exec con perfil real | tool | no | `claude_code`; `codex`; `hermes` |
 
 **Compatibilidad por agente**
 
@@ -1612,41 +1705,54 @@ Plantilla y body por gh; capturas con Claude in Chrome. No ejecutada todavía en
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `pr-body` | sí | `enabled` | Plantilla y gh pr create/edit. | — | PR real creado con la plantilla y verificado. | PR #22.; prueba `claude-real-pr22` |
-| `ui-screenshots` | no | `unverified` | Capturas desde Claude in Chrome. | Omitir capturas. | Requiere un cambio de UI y la extensión conectada; no ejecutado. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `pr-body` | sí | `enabled` | `native` | Plantilla y gh pr create/edit. | — | PR real creado con la plantilla y verificado. | PR #22.; prueba `claude-real-pr22` |
+| `ui-screenshots` | no | `unverified` | `native` | Capturas desde Claude in Chrome. | Omitir capturas. | Requiere un cambio de UI y la extensión conectada; no ejecutado. | — |
 
 #### pr-description-template / `codex`: `unverified`
 
-Plantilla y body por gh; sin Claude in Chrome las capturas se omiten y se declara. No ejecutada.
+Plantilla y body por gh; capturas desde el Chrome real del usuario con el plugin Chrome de Codex (capacidad verificada). El body completo no se ejecutó en Codex.
 
 - Capacidades faltantes: Claude in Chrome.
-- Alternativas investigadas: browser headless o integrado (prohibidos por la skill para capturas publicadas).
+- Alternativas investigadas: plugin chrome@openai-bundled (adoptado); navegador in-app (descartado); computer-use (último recurso).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `pr-body` | sí | `unverified` | Plantilla y gh pr create/edit. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `ui-screenshots` | no | `disabled` | — | Omitir capturas y declararlo en las notas para el revisor. | La skill exige el navegador real del usuario vía Claude in Chrome y prohíbe navegadores headless. | Lista de herramientas de la sesión. |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `pr-body` | sí | `unverified` | `native` | Plantilla y gh pr create/edit. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `ui-screenshots` | no | `adapted` | `alternative` | Capturas en el Chrome real del usuario vía la extensión: agent.browsers.list() → type extension / family chrome, pestaña nueva, captura y cierre de las pestañas propias. | Sin navegador aceptado, omitir la captura con el motivo en Notas para el Revisor. | El plugin Chrome de Codex controla el mismo navegador real del usuario (sesiones, fuentes, extensiones) que Claude in Chrome. | plugin.json de chrome@openai-bundled; Corrida real codex-real-chrome-capture; prueba `codex-real-chrome-capture`; prueba `eval-sim-codex-chrome-capture` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ui-screenshots` | Plugin chrome@openai-bundled | plugin.json + corrida real en codex exec | sí | Chrome real del usuario, perfil Guido, webdriver=false. |
+| `ui-screenshots` | Plugin browser (navegador in-app, iab) | plugin.json del plugin browser | no | No es el navegador del usuario; no tiene sus sesiones ni extensiones. |
+| `ui-screenshots` | computer-use@openai-bundled | plugin.json | sí | Viable como último recurso, pero toma el escritorio; se prefiere el plugin Chrome. |
 
 #### pr-description-template / `hermes`: `unverified`
 
-Plantilla y body por gh; sin Claude in Chrome las capturas se omiten y se declara. No ejecutada.
+Plantilla y body por gh; capturas con computer_use sobre el Chrome real o browser_exec con perfil real (implementado, no verificado). El browser_exec por defecto no se acepta.
 
 - Capacidades faltantes: Claude in Chrome.
-- Alternativas investigadas: toolset browser (no es el navegador del usuario).
+- Alternativas investigadas: computer_use (adoptado, no verificado); browser_exec con use_real_profile + headed (adoptado, no verificado); browser_exec por defecto (descartado: headless); /browser connect (descartado: perfil dedicado).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `pr-body` | sí | `unverified` | Plantilla y gh pr create/edit. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `ui-screenshots` | no | `disabled` | — | Omitir capturas y declararlo en las notas para el revisor. | La skill exige el navegador real del usuario vía Claude in Chrome y prohíbe navegadores headless. | Lista de herramientas de la sesión. |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `pr-body` | sí | `unverified` | `native` | Plantilla y gh pr create/edit. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `ui-screenshots` | no | `unverified` | `alternative` | computer_use sobre la ventana real de Chrome del usuario, avisando antes de tomar el escritorio; o browser_exec solo con use_real_profile + headed. | Omitir la captura con el motivo y los navegadores revisados. | Hay alternativas que usan el navegador real del usuario, pero ninguna se ejecutó: computer_use tomaría el escritorio del usuario y la config de perfil real no está activa. | Doc de Hermes (browser y computer-use); Corrida real: browser_exec por defecto es headless y falló; prueba `hermes-real-browser-probe`; prueba `eval-sim-hermes-browser-choice` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ui-screenshots` | computer_use sobre la ventana real de Chrome | lista de herramientas + doc computer-use | sí | Usa el navegador real; requiere aviso porque mueve mouse y teclado. |
+| `ui-screenshots` | browser_exec con browser.use_real_profile: true + browser.headed: true | doc user-guide/features/browser | sí | Binario real sobre una copia del perfil; requiere cambiar config.yaml. |
+| `ui-screenshots` | browser_exec por defecto | corrida real hermes-real-browser-probe | no | Chromium headless con perfil descartable; además inestable en esta máquina. |
+| `ui-screenshots` | /browser connect (CDP) | doc browser | no | Exige un perfil dedicado sin sesiones (Chrome 136+): no es el navegador tal como lo usa el usuario. |
 
 **Implementación**
 
-- Adaptaciones: Sección «Agent compatibility»: omitir capturas sin Claude in Chrome y declararlo.
-- Archivos modificados: `plugins/golfo-kit/skills/pr-description-template/SKILL.md`.
-- Fallback: Sin capturas, declarado..
-- Cambios de comportamiento respecto del original: Ninguno en Claude Code..
+- Adaptaciones: Sección «Capture browser»: los navegadores aceptados viven en agent-capabilities.md (fuente única); la skill solo agrega las reglas propias de las capturas publicadas (pestaña nueva, aviso antes de tomar el escritorio).
+- Archivos modificados: `plugins/golfo-kit/skills/pr-description-template/SKILL.md`, `plugins/golfo-kit/skills/pr-description-template/evals/eval-config.json`.
+- Fallback: Sin navegador aceptado, omitir la captura con el motivo..
+- Cambios de comportamiento respecto del original: Codex ya no omite las capturas: usa el Chrome real del usuario. Hermes las toma solo con navegador real y aviso previo..
 
 **Verificación**
 
@@ -1654,12 +1760,15 @@ Plantilla y body por gh; sin Claude in Chrome las capturas se omiten y se declar
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
 | `claude-real-pr22` | `claude_code` | real_run | `gh pr create --body-file <plantilla> (PR #22)` | `passed` | Conteo con count-reviewable-files.sh (4), plantilla completa en español, verificado con gh pr view (https://github.com/guidomodarelli/golfo-marketplace/pull/22). |
+| `codex-real-chrome-capture` | `codex` | real_run | `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<abrir http://127.0.0.1:8791/ en el Chrome del usuario vía mcp__cua_repl.js, capturar y cerrar la pestaña>"` | `passed` | agent.browsers.list() devolvió {type: extension, family: chrome, profileName: Guido}; abrió la página local en una pestaña nueva del Chrome real (webdriver=false, Chrome/156), guardó chrome-shot.jpg (28 101 bytes, revisada: página completa con estilos) y cerró la pestaña. Prueba de la capacidad de captura que usa la skill; el flujo completo de antes/después y subida a pr-assets no se ejecutó en Codex. |
+| `hermes-real-browser-probe` | `hermes` | real_run | `hermes chat -Q -q "<abrir http://127.0.0.1:8791/ con browser_exec, capturar e identificar el navegador>"` | `failed` | browser_exec lanzó el Chromium propio de Hermes con --headless=new y --user-data-dir en Temp (perfil descartable, sin sesiones ni extensiones) y falló al arrancar 4 de 5 veces ('Chrome exited early … without writing DevToolsActivePort'); no produjo captura. Confirma que el navegador por defecto no sirve para capturas publicadas. |
+| `eval-sim-codex-chrome-capture` | `codex` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/pr-description-template --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: codex-chrome-plugin-screenshots: usa el Chrome real vía plugin, pestaña nueva, descarta el navegador in-app. |
+| `eval-sim-hermes-browser-choice` | `hermes` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/pr-description-template --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: hermes-default-browser-not-accepted: propone computer_use con aviso y rechaza browser_exec headless por defecto. |
 
 Pendiente de verificar:
 
-- Abrir un PR real con la plantilla en Claude Code.
-- Abrir un PR real con la plantilla en Codex CLI.
-- Abrir un PR real con la plantilla en Hermes Agent.
+- Codex: flujo completo antes/después + subida a pr-assets.
+- Hermes: captura con computer_use o con use_real_profile + headed.
 
 ### `pr-inline-comment-template`
 
@@ -1685,9 +1794,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### pr-inline-comment-template / `codex`: `unverified`
 
@@ -1696,9 +1805,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### pr-inline-comment-template / `hermes`: `unverified`
 
@@ -1707,9 +1816,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1741,7 +1850,9 @@ Pendiente de verificar:
 
 **Dependencias**
 
-Sin dependencias específicas de agente detectadas por inspección.
+| Dependencia | Tipo | Obligatoria | Agentes que la tienen |
+|---|---|---|---|
+| Automatización de navegador para verificar el flujo (Playwright/Chrome DevTools MCP, plugins Chrome/Browser de Codex, browser_exec de Hermes) | tool | no | `claude_code`; `codex`; `hermes` |
 
 **Compatibilidad por agente**
 
@@ -1752,9 +1863,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### prevent-ssr-hydration-mismatches / `codex`: `unverified`
 
@@ -1763,9 +1874,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### prevent-ssr-hydration-mismatches / `hermes`: `unverified`
 
@@ -1774,9 +1885,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1796,6 +1907,7 @@ Pendiente de verificar:
 - Ejecutar la skill en Claude Code con un caso real.
 - Ejecutar la skill en Codex CLI con un caso real.
 - Ejecutar la skill en Hermes Agent con un caso real.
+- Dependencia implícita detectada en esta revisión: verificación en navegador con la automatización disponible de cada agente (Codex: plugins Chrome/Browser; Hermes: browser_exec headless, que sirve para verificar pero no para capturas publicadas).
 
 ### `react-data-fetching-best-practices`
 
@@ -1819,9 +1931,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### react-data-fetching-best-practices / `codex`: `unverified`
 
@@ -1830,9 +1942,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### react-data-fetching-best-practices / `hermes`: `unverified`
 
@@ -1841,9 +1953,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1886,9 +1998,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### react-render-performance-patterns / `codex`: `unverified`
 
@@ -1897,9 +2009,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### react-render-performance-patterns / `hermes`: `unverified`
 
@@ -1908,9 +2020,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -1953,9 +2065,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### refactor-modularize-code / `codex`: `unverified`
 
@@ -1964,9 +2076,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### refactor-modularize-code / `hermes`: `unverified`
 
@@ -1975,9 +2087,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2020,9 +2132,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### refactor-ssr-data-fetching / `codex`: `unverified`
 
@@ -2031,9 +2143,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### refactor-ssr-data-fetching / `hermes`: `unverified`
 
@@ -2042,9 +2154,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2069,7 +2181,7 @@ Pendiente de verificar:
 
 **Identificación**
 
-- Nombre: Review Fix Loop; versión: 1.1.0; SKILL.md: `plugins/golfo-kit/skills/review-fix-loop/SKILL.md`.
+- Nombre: Review Fix Loop; versión: 1.2.0; SKILL.md: `plugins/golfo-kit/skills/review-fix-loop/SKILL.md`.
 - Propósito: Loop de review y fix multi-provider (Claude Code y Codex como reviewers CLI) sobre cambios locales o PRs.
 - Funcionalidades principales: selección de provider con fallback; rondas de review y fix; filtro adversarial; reporte final.
 - Agentes soportados declarados: no declara.
@@ -2079,7 +2191,7 @@ Pendiente de verificar:
 | Dependencia | Tipo | Obligatoria | Agentes que la tienen |
 |---|---|---|---|
 | CLIs `claude` y/o `codex` en PATH | command | sí | `claude_code`; `codex`; `hermes` |
-| Subagente aislado read-only (filtro) | subagent | no | `claude_code` |
+| Revisor aislado read-only: Agent (Claude Code) o proceso externo claude -p --tools Read,Grep,Glob | subagent | no | `claude_code`; `codex`; `hermes` |
 
 **Compatibilidad por agente**
 
@@ -2090,41 +2202,53 @@ Filtro adversarial con Agent; providers por CLI. No ejecutada en esta auditoría
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `provider-review` | sí | `unverified` | Helper `scripts/review-fix-loop` con providers CLI. | — | No ejecutada en Claude Code en esta auditoría. | Suite shell del helper (prueba review-fix-loop-shell-suite).; prueba `review-fix-loop-shell-suite` |
-| `isolated-filter` | no | `unverified` | Filtro adversarial en subagente aislado. | Filtro inline. | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `provider-review` | sí | `unverified` | `native` | Helper `scripts/review-fix-loop` con providers CLI. | — | No ejecutada en Claude Code en esta auditoría. | Suite shell del helper (prueba review-fix-loop-shell-suite).; prueba `review-fix-loop-shell-suite` |
+| `isolated-filter` | no | `unverified` | `native` | Filtro adversarial en subagente aislado. | Filtro inline. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### review-fix-loop / `codex`: `unverified`
 
-Providers por CLI; filtro inline porque spawn_agent no tiene modo read-only verificado. No ejecutada.
+Providers por CLI; filtro adversarial aislado con un proceso claude -p de solo lectura (verificado en Codex).
 
 - Capacidades faltantes: Subagente read-only verificado.
-- Alternativas investigadas: spawn_agent (sin restricción read-only verificada).
+- Alternativas investigadas: claude -p de solo lectura (adoptado); codex exec -s read-only (descartado en Windows); subagentes nativos (sin modo de solo lectura).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `provider-review` | sí | `unverified` | Helper `scripts/review-fix-loop` con providers CLI. | — | No ejecutada en Codex CLI en esta auditoría. | Suite shell del helper (prueba review-fix-loop-shell-suite).; prueba `review-fix-loop-shell-suite` |
-| `isolated-filter` | no | `disabled` | — | Filtro inline en la sesión principal. | No se verificó un modo read-only para spawn_agent. | agent-capabilities.md; documentación de Hermes (delegation). |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `provider-review` | sí | `unverified` | `native` | Helper `scripts/review-fix-loop` con providers CLI. | — | No ejecutada en Codex CLI en esta auditoría. | Suite shell del helper (prueba review-fix-loop-shell-suite).; prueba `review-fix-loop-shell-suite` |
+| `isolated-filter` | no | `adapted` | `alternative` | Proceso externo claude -p "<prompt del filtro>" --tools "Read,Grep,Glob" --permission-mode dontAsk < /dev/null acotado con timeout/gtimeout o, sin ellos, con un wrapper de Python (verificado en Windows). | Filtro inline con Limitaciones del agente. | Codex no tiene subagentes de solo lectura, pero un proceso claude -p limitado a lectura da el mismo aislamiento. | Corrida real del filtro externo; Prueba de aislamiento: no pudo escribir; prueba `codex-real-claude-filter`; prueba `claude-cli-read-only-filter-probe`; prueba `eval-sim-codex-windows-inline` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `isolated-filter` | claude -p --tools Read,Grep,Glob | corridas reales en Codex y Hermes | sí | Aislado y de solo lectura (verificado). |
+| `isolated-filter` | codex exec -s read-only | codex-read-only-sandbox-probe | no | En Windows el sandbox bloquea todo proceso, incluso leer; en Linux/macOS no verificado. |
+| `isolated-filter` | spawn_agent | lista de herramientas | no | No tiene modo de solo lectura. |
 
 #### review-fix-loop / `hermes`: `unverified`
 
-Providers por CLI; filtro inline porque delegate_task hereda los toolsets del padre. No ejecutada.
+Providers por CLI; filtro adversarial aislado con un proceso claude -p de solo lectura (verificado en Hermes).
 
 - Capacidades faltantes: Subagente read-only (delegate_task hereda toolsets).
-- Alternativas investigadas: delegate_task (sin parámetro de toolsets).
+- Alternativas investigadas: claude -p de solo lectura (adoptado); codex exec -s read-only (descartado en Windows); subagentes nativos (sin modo de solo lectura).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `provider-review` | sí | `unverified` | Helper `scripts/review-fix-loop` con providers CLI. | — | No ejecutada en Hermes Agent en esta auditoría. | Suite shell del helper (prueba review-fix-loop-shell-suite).; prueba `review-fix-loop-shell-suite` |
-| `isolated-filter` | no | `disabled` | — | Filtro inline en la sesión principal. | delegate_task no permite restringir toolsets: los hijos heredan escritura. | agent-capabilities.md; documentación de Hermes (delegation). |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `provider-review` | sí | `unverified` | `native` | Helper `scripts/review-fix-loop` con providers CLI. | — | No ejecutada en Hermes Agent en esta auditoría. | Suite shell del helper (prueba review-fix-loop-shell-suite).; prueba `review-fix-loop-shell-suite` |
+| `isolated-filter` | no | `adapted` | `alternative` | Proceso externo claude -p "<prompt del filtro>" --tools "Read,Grep,Glob" --permission-mode dontAsk < /dev/null acotado con timeout/gtimeout o, sin ellos, con un wrapper de Python (verificado en Windows). | Filtro inline con Limitaciones del agente. | Hermes no tiene subagentes de solo lectura, pero un proceso claude -p limitado a lectura da el mismo aislamiento. | Corrida real del filtro externo; Prueba de aislamiento: no pudo escribir; prueba `hermes-real-claude-filter`; prueba `claude-cli-read-only-filter-probe`; prueba `eval-sim-hermes-claude-filter` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `isolated-filter` | claude -p --tools Read,Grep,Glob | corridas reales en Codex y Hermes | sí | Aislado y de solo lectura (verificado). |
+| `isolated-filter` | codex exec -s read-only | codex-read-only-sandbox-probe | no | En Windows el sandbox bloquea todo proceso, incluso leer; en Linux/macOS no verificado. |
+| `isolated-filter` | delegate_task | lista de herramientas | no | Los hijos heredan los toolsets del padre. |
 
 **Implementación**
 
-- Adaptaciones: Sección «Agent compatibility»: providers por `command -v`, filtro inline fuera de Claude Code.
-- Archivos modificados: `plugins/golfo-kit/skills/review-fix-loop/SKILL.md`.
+- Adaptaciones: Runners del filtro aislado por capacidad: Agent, claude -p de solo lectura, codex exec -s read-only donde lea, o inline.
+- Archivos modificados: `plugins/golfo-kit/skills/review-fix-loop/SKILL.md`, `plugins/golfo-kit/skills/review-fix-loop/evals/eval-config.json`.
 - Fallback: Filtro inline..
-- Cambios de comportamiento respecto del original: Ninguno en Claude Code..
+- Cambios de comportamiento respecto del original: Codex y Hermes recuperan el filtro aislado cuando claude está en PATH..
 
 **Verificación**
 
@@ -2132,6 +2256,12 @@ Providers por CLI; filtro inline porque delegate_task hereda los toolsets del pa
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
 | `review-fix-loop-shell-suite` | `any` | bats | `pnpm run test:review-fix-loop` | `passed` | Suite shell del helper de providers (agnóstica de agente). |
+| `claude-cli-read-only-filter-probe` | `any` | static | `claude -p "<filtro adversarial + intentar crear pwned.txt>" --tools "Read,Grep,Glob" --permission-mode dontAsk` | `passed` | Desde una terminal: aceptó el off-by-one, rechazó el renombrado sin guía y no pudo crear pwned.txt (solo tenía Read/Glob/Grep). Comprueba el aislamiento del mecanismo, independiente del agente que lo invoque. |
+| `codex-read-only-sandbox-probe` | `codex` | real_run | `codex exec -s read-only [-c 'windows.sandbox="elevated"'] "<leer sum.js e intentar escribir pwned.txt>"` | `failed` | En Windows el sandbox read-only no deja crear ningún proceso: 'CreateProcessAsUserW failed: 5 (Access is denied.)'; con elevated: 'helper_unknown_error: setup refresh had errors'. No pudo ni leer los archivos, así que no sirve como filtro en esta máquina. |
+| `hermes-real-claude-filter` | `hermes` | real_run | `hermes chat -Q -q "<leer Agent compatibility de review-fix-loop y correr solo el filtro aislado sobre findings.md>"` | `passed` | Hermes eligió el runner 2, descartó delegate_task por heredar toolsets y corrió timeout 600 claude -p … --tools "Read,Grep,Glob" --permission-mode dontAsk < /dev/null (exit 0): aceptó 2 findings, rechazó 1 y el directorio quedó idéntico (ls antes/después). |
+| `codex-real-claude-filter` | `codex` | real_run | `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<leer Agent compatibility de review-fix-loop y correr solo el filtro aislado sobre findings.md>"` | `passed` | Codex corrió claude.exe -p … --tools Read,Grep,Glob --permission-mode dontAsk con timeout de 600 s y stdin cerrado (exit 0): aceptó 1 finding y rechazó 2; git status igual antes y después. |
+| `eval-sim-hermes-claude-filter` | `hermes` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/review-fix-loop --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: hermes-filter-via-claude-cli-read-only: claude -p --tools Read,Grep,Glob con timeout; descarta delegate_task. |
+| `eval-sim-codex-windows-inline` | `codex` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/review-fix-loop --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: windows-codex-only-filter-inline: sin claude en Windows filtra inline y lo reporta. |
 
 Pendiente de verificar:
 
@@ -2163,9 +2293,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### review-maintainability / `codex`: `unverified`
 
@@ -2174,9 +2304,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### review-maintainability / `hermes`: `unverified`
 
@@ -2185,9 +2315,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2232,9 +2362,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### review-performance / `codex`: `unverified`
 
@@ -2243,9 +2373,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### review-performance / `hermes`: `unverified`
 
@@ -2254,9 +2384,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2301,9 +2431,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### review-security / `codex`: `unverified`
 
@@ -2312,9 +2442,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### review-security / `hermes`: `unverified`
 
@@ -2323,9 +2453,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2368,9 +2498,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### semantic-html-a11y / `codex`: `unverified`
 
@@ -2379,9 +2509,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### semantic-html-a11y / `hermes`: `unverified`
 
@@ -2390,9 +2520,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2437,9 +2567,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### sibling-worktree / `codex`: `unverified`
 
@@ -2448,9 +2578,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### sibling-worktree / `hermes`: `unverified`
 
@@ -2459,9 +2589,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2506,9 +2636,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### simplify-code / `codex`: `unverified`
 
@@ -2517,9 +2647,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### simplify-code / `hermes`: `unverified`
 
@@ -2528,9 +2658,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2576,10 +2706,10 @@ audit no depende del agente; quick/full requieren subagente aislado y run-evals.
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `audit` | sí | `enabled` | Fase 1 read-only y reporte. | — | Audit real ejecutado sobre 10 skills. | Resultado AUDIT_ONLY.; prueba `claude-real-audit` |
-| `isolated-evaluation` | no | `unverified` | `Agent` con handle. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `audit` | sí | `enabled` | `native` | Fase 1 read-only y reporte. | — | Audit real ejecutado sobre 10 skills. | Resultado AUDIT_ONLY.; prueba `claude-real-audit` |
+| `isolated-evaluation` | no | `unverified` | `native` | `Agent` con handle. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### skill-optimizer / `codex`: `unverified`
 
@@ -2588,10 +2718,14 @@ audit no depende del agente; quick/full requieren subagente aislado y un CLI de 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: spawn_agent.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `audit` | sí | `unverified` | Fase 1 read-only y reporte. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `isolated-evaluation` | no | `unverified` | `spawn_agent` + `wait_agent`. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Codex CLI en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `audit` | sí | `unverified` | `native` | Fase 1 read-only y reporte. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `isolated-evaluation` | no | `unverified` | `alternative` | `spawn_agent` + `wait_agent`. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Codex CLI en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `isolated-evaluation` | `spawn_agent` + `wait_agent`. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Codex CLI en esta auditoría. |
 
 #### skill-optimizer / `hermes`: `unverified`
 
@@ -2600,10 +2734,14 @@ audit no depende del agente; quick/full requieren subagente aislado y un CLI de 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: delegate_task (contexto nuevo).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `audit` | sí | `unverified` | Fase 1 read-only y reporte. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `isolated-evaluation` | no | `unverified` | `delegate_task`. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Hermes Agent en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `audit` | sí | `unverified` | `native` | Fase 1 read-only y reporte. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `isolated-evaluation` | no | `unverified` | `alternative` | `delegate_task`. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Hermes Agent en esta auditoría. | — |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `isolated-evaluation` | `delegate_task`. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Hermes Agent en esta auditoría. |
 
 **Implementación**
 
@@ -2650,9 +2788,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### stacked-pr / `codex`: `unverified`
 
@@ -2661,9 +2799,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### stacked-pr / `hermes`: `unverified`
 
@@ -2672,9 +2810,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2717,9 +2855,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### test-best-practices / `codex`: `unverified`
 
@@ -2728,9 +2866,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### test-best-practices / `hermes`: `unverified`
 
@@ -2739,9 +2877,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2784,9 +2922,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### test-planning / `codex`: `unverified`
 
@@ -2795,9 +2933,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### test-planning / `hermes`: `unverified`
 
@@ -2806,9 +2944,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2851,9 +2989,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### typed-errors-refactor / `codex`: `unverified`
 
@@ -2862,9 +3000,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### typed-errors-refactor / `hermes`: `unverified`
 
@@ -2873,9 +3011,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2907,7 +3045,9 @@ Pendiente de verificar:
 
 **Dependencias**
 
-Sin dependencias específicas de agente detectadas por inspección.
+| Dependencia | Tipo | Obligatoria | Agentes que la tienen |
+|---|---|---|---|
+| Automatización de navegador para verificar el flujo (Playwright/Chrome DevTools MCP, plugins Chrome/Browser de Codex, browser_exec de Hermes) | tool | no | `claude_code`; `codex`; `hermes` |
 
 **Compatibilidad por agente**
 
@@ -2918,9 +3058,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### ui-ux-flow-patterns / `codex`: `unverified`
 
@@ -2929,9 +3069,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Codex CLI en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 #### ui-ux-flow-patterns / `hermes`: `unverified`
 
@@ -2940,9 +3080,9 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `core-workflow` | sí | `unverified` | `native` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Hermes Agent en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
 
 **Implementación**
 
@@ -2962,12 +3102,13 @@ Pendiente de verificar:
 - Ejecutar la skill en Claude Code con un caso real.
 - Ejecutar la skill en Codex CLI con un caso real.
 - Ejecutar la skill en Hermes Agent con un caso real.
+- Dependencia implícita detectada en esta revisión: verificación en navegador con la automatización disponible de cada agente (Codex: plugins Chrome/Browser; Hermes: browser_exec headless, que sirve para verificar pero no para capturas publicadas).
 
 ### `user-manual`
 
 **Identificación**
 
-- Nombre: User Manual Generator; versión: 2.4.0; SKILL.md: `plugins/golfo-kit/skills/user-manual/SKILL.md`.
+- Nombre: User Manual Generator; versión: 2.5.0; SKILL.md: `plugins/golfo-kit/skills/user-manual/SKILL.md`.
 - Propósito: Genera o actualiza manuales de usuario HTML autocontenidos con capturas reales de la app.
 - Funcionalidades principales: preguntas de dispositivo, idiomas y repo; mapa de visibilidad; HTML con DESIGN.md; capturas reales; publicación.
 - Agentes soportados declarados: no declara.
@@ -2984,47 +3125,60 @@ Pendiente de verificar:
 
 #### user-manual / `claude_code`: `unverified`
 
-Preguntas adaptadas por agente con fallback en texto; capturas con la herramienta JavaScript de navegador del agente o mockups dibujados. No ejecutada en Claude Code.
+Preguntas adaptadas por agente con fallback en texto; capturas con la herramienta JavaScript de navegador de cada agente (Claude in Chrome, runtime de navegador de Codex, browser_exec de Hermes) o mockups dibujados. No ejecutada en Claude Code.
 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-device-languages` | sí | `unverified` | `AskUserQuestion`. | Pregunta en texto y detención. | No ejecutada en Claude Code en esta auditoría. | — |
-| `manual-generation` | sí | `unverified` | Pasos 1 a 5 con los helpers de scripts/. | — | No ejecutada en Claude Code en esta auditoría. | — |
-| `real-app-captures` | no | `unverified` | frame-driver.js + capture-bridge.py desde el navegador del agente. | Mockups dibujados (mockup-body), declarados en el reporte. | No ejecutada en Claude Code en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-device-languages` | sí | `unverified` | `native` | `AskUserQuestion`. | Pregunta en texto y detención. | No ejecutada en Claude Code en esta auditoría. | — |
+| `manual-generation` | sí | `unverified` | `native` | Pasos 1 a 5 con los helpers de scripts/. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `real-app-captures` | no | `unverified` | `native` | frame-driver.js + capture-bridge.py desde el navegador del agente. | Mockups dibujados (mockup-body), declarados en el reporte. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### user-manual / `codex`: `unverified`
 
-Preguntas adaptadas por agente con fallback en texto; capturas con la herramienta JavaScript de navegador del agente o mockups dibujados. No ejecutada en Codex CLI.
+Preguntas adaptadas por agente con fallback en texto; capturas con la herramienta JavaScript de navegador de cada agente (Claude in Chrome, runtime de navegador de Codex, browser_exec de Hermes) o mockups dibujados. No ejecutada en Codex CLI.
 
 - Capacidades faltantes: request_user_input fuera del modo Plan.
 - Alternativas investigadas: request_user_input en modo Plan.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-device-languages` | sí | `unverified` | Texto y detención; `request_user_input` solo en modo Plan. | Pregunta en texto y detención. | No ejecutada en Codex CLI en esta auditoría. | — |
-| `manual-generation` | sí | `unverified` | Pasos 1 a 5 con los helpers de scripts/. | — | No ejecutada en Codex CLI en esta auditoría. | — |
-| `real-app-captures` | no | `unverified` | frame-driver.js + capture-bridge.py desde el navegador del agente. | Mockups dibujados (mockup-body), declarados en el reporte. | No ejecutada en Codex CLI en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-device-languages` | sí | `unverified` | `alternative` | Texto y detención; `request_user_input` solo en modo Plan. | Pregunta en texto y detención. | No ejecutada en Codex CLI en esta auditoría. | — |
+| `manual-generation` | sí | `unverified` | `native` | Pasos 1 a 5 con los helpers de scripts/. | — | No ejecutada en Codex CLI en esta auditoría. | — |
+| `real-app-captures` | no | `unverified` | `alternative` | capture-snippet.js evaluado en una pestaña del Chrome del usuario (plugin Chrome) o del navegador in-app para un dev server sin login. | Mockups dibujados (mockup-body) y Limitaciones del agente. | El runtime de navegador de Codex evalúa JavaScript en la página (verificado leyendo #ua en codex-real-chrome-capture de pr-description-template); la inyección del snippet no se ejecutó. | Corrida real de captura en Chrome desde codex exec (pr-description-template); prueba `eval-sim-codex-browser-runtime` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-device-languages` | Texto y detención; `request_user_input` solo en modo Plan. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Codex CLI en esta auditoría. |
+| `real-app-captures` | Plugin chrome@openai-bundled vía mcp__cua_repl.js | corrida real en codex exec | sí | Evalúa JS en el Chrome real del usuario. |
+| `real-app-captures` | Navegador in-app (iab) | plugin.json del plugin browser | sí | Sirve para dev servers sin login. |
+| `real-app-captures` | computer-use | plugin.json | no | No evalúa scripts en la página. |
 
 #### user-manual / `hermes`: `unverified`
 
-Preguntas adaptadas por agente con fallback en texto; capturas con la herramienta JavaScript de navegador del agente o mockups dibujados. No ejecutada en Hermes Agent.
+Preguntas adaptadas por agente con fallback en texto; capturas con la herramienta JavaScript de navegador de cada agente (Claude in Chrome, runtime de navegador de Codex, browser_exec de Hermes) o mockups dibujados. No ejecutada en Hermes Agent.
 
 - Capacidades faltantes: ninguna.
 - Alternativas investigadas: clarify; toolset browser.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `ask-device-languages` | sí | `unverified` | `clarify`; texto ante undelivered/timed_out/cancelled. | Pregunta en texto y detención. | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `manual-generation` | sí | `unverified` | Pasos 1 a 5 con los helpers de scripts/. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
-| `real-app-captures` | no | `unverified` | frame-driver.js + capture-bridge.py desde el navegador del agente. | Mockups dibujados (mockup-body), declarados en el reporte. | No ejecutada en Hermes Agent en esta auditoría. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `ask-device-languages` | sí | `unverified` | `alternative` | `clarify`; texto ante undelivered/timed_out/cancelled. | Pregunta en texto y detención. | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `manual-generation` | sí | `unverified` | `native` | Pasos 1 a 5 con los helpers de scripts/. | — | No ejecutada en Hermes Agent en esta auditoría. | — |
+| `real-app-captures` | no | `unverified` | `alternative` | capture-snippet.js con el helper js() de browser_exec; use_real_profile para pantallas con la sesión del usuario. | Mockups dibujados (mockup-body) y Limitaciones del agente. | browser_exec evalúa JS, pero en esta máquina falló al arrancar 4 de 5 veces; no verificado. | Doc de Hermes (browser); Corrida real hermes-real-browser-probe (pr-description-template); prueba `eval-sim-drawn-mockups-fallback` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `ask-device-languages` | `clarify`; texto ante undelivered/timed_out/cancelled. | Auditoría 1.0.0 (PR #22) y plugins/golfo-kit/references/agent-capabilities.md | sí | No ejecutada en Hermes Agent en esta auditoría. |
+| `real-app-captures` | browser_exec + js() | doc browser | sí | Evalúa scripts en la página; headless sirve para clonar DOM y CSS. |
+| `real-app-captures` | computer_use | doc computer-use | no | No evalúa scripts en la página. |
 
 **Implementación**
 
-- Adaptaciones: Sección «Agent compatibility»: preguntas por agente con fallback en texto y detención.
-- Archivos modificados: `plugins/golfo-kit/skills/user-manual/SKILL.md`.
+- Adaptaciones: Sección «Agent compatibility»: preguntas por agente con fallback en texto y detención; Tabla de la «herramienta JavaScript de navegador» por agente y fallback explícito a mockups dibujados.
+- Archivos modificados: `plugins/golfo-kit/skills/user-manual/SKILL.md`, `plugins/golfo-kit/skills/user-manual/evals/eval-config.json`.
 - Fallback: Pregunta en texto con detención..
 - Cambios de comportamiento respecto del original: Ninguno en Claude Code..
 
@@ -3034,108 +3188,145 @@ Preguntas adaptadas por agente con fallback en texto; capturas con la herramient
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
 | `design-tokens-bats` | `any` | bats | `bats plugins/golfo-kit/skills/user-manual/tests/check-design-tokens.bats` | `passed` | Suite del chequeo de tokens de DESIGN.md (agnóstica de agente). |
+| `eval-sim-codex-browser-runtime` | `codex` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/user-manual --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: codex-browser-runtime-for-captures: inyecta capture-snippet.js con mcp__cua_repl.js en el Chrome del usuario. |
+| `eval-sim-drawn-mockups-fallback` | `hermes` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/user-manual --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: no-script-browser-falls-back-to-drawn-mockups: sin navegador que evalúe scripts cae a mockups dibujados. |
 
 Pendiente de verificar:
 
 - Generar un manual real en Claude Code.
 - Generar un manual real en Codex CLI.
 - Generar un manual real en Hermes Agent.
+- Codex: inyectar capture-snippet.js y exportar una captura real.
+- Hermes: browser_exec estable para inyectar el snippet.
 
 ### `widget-ui-proposals`
 
 **Identificación**
 
-- Nombre: Widget-driven UI/UX proposals & previews; versión: 1.1.0; SKILL.md: `plugins/golfo-kit/skills/widget-ui-proposals/SKILL.md`.
+- Nombre: Widget-driven UI/UX proposals & previews; versión: 1.3.0; SKILL.md: `plugins/golfo-kit/skills/widget-ui-proposals/SKILL.md`.
 - Propósito: Muestra propuestas y previews de UI como widgets visuales interactivos antes de escribir código.
-- Funcionalidades principales: grid de propuestas aplicables; preview del resultado; aplicar e iterar.
+- Funcionalidades principales: Propuestas de UI como widget interactivo; Preview del cambio antes de aplicarlo; Aplicar las opciones elegidas e iterar.
 - Agentes soportados declarados: no declara.
 
 **Dependencias**
 
 | Dependencia | Tipo | Obligatoria | Agentes que la tienen |
 |---|---|---|---|
-| mcp__visualize__show_widget / read_me | mcp | sí | — |
+| mcp__visualize__show_widget / read_me | mcp | no | `claude_code` |
+| Plugin visualize@openai-bundled (skill visualize) | skill | no | `codex` |
+| Shell + navegador headless (chrome --headless --screenshot o browser_exec) para el preview estático | command | no | `claude_code`; `codex`; `hermes` |
+| Herramienta de preguntas (clarify) o texto para elegir | tool | no | `hermes` |
 
 **Compatibilidad por agente**
 
 #### widget-ui-proposals / `claude_code`: `unverified`
 
-El widget existe solo en sesiones Claude con el conector visualize; no está en la sesión headless de Claude Code usada en esta auditoría, así que no se verificó.
+Modo original con show_widget en sesiones Claude con el conector visualize (no verificado: el conector no está en sesiones headless). En sesiones headless aplica el preview estático.
 
 - Capacidades faltantes: mcp__visualize__show_widget en la sesión probada.
 - Alternativas investigadas: ninguna.
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `render-widget` | sí | `unverified` | Widget interactivo. | — | La herramienta no está en la sesión headless probada; no se probó en una sesión con el conector. | — |
-| `apply-proposal` | no | `unverified` | Botón Aplicar del widget. | — | Depende del widget. | — |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `render-widget` | sí | `unverified` | `native` | Widget interactivo. | — | La herramienta no está en la sesión headless probada; no se probó en una sesión con el conector. | — |
+| `apply-proposal` | no | `unverified` | `native` | Botón Aplicar del widget. | — | Depende del widget. | — |
 
-#### widget-ui-proposals / `codex`: `incompatible`
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `render-widget` | Preview estático (HTML → PNG) | SKILL.md de la skill | sí | Fallback para sesiones headless sin el conector. |
+| `apply-proposal` | Preview estático (HTML → PNG) | SKILL.md de la skill | sí | Fallback para sesiones headless sin el conector. |
 
-No existe ninguna herramienta equivalente (confirmado en la lista de herramientas de Codex). La skill se detiene y lo reporta.
+#### widget-ui-proposals / `codex`: `adapted`
 
-- Capacidades faltantes: mcp__visualize__show_widget.
-- Alternativas investigadas: HTML estático o texto (descartados: cambian sustancialmente el comportamiento).
-
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `render-widget` | sí | `disabled` | — | Detenerse y reportar; propuestas en texto solo si el usuario lo pide explícitamente. | La herramienta no existe en el agente. | Lista de herramientas de la sesión. |
-| `apply-proposal` | no | `disabled` | — | El usuario elige en texto. | Depende del widget. | Lista de herramientas de la sesión. |
-
-#### widget-ui-proposals / `hermes`: `incompatible`
-
-No existe ninguna herramienta equivalente (confirmado en la lista de herramientas de Hermes). La skill se detiene y lo reporta.
+En la app de escritorio, modo Codex con el plugin visualize (generación verificada; render no observado). En el CLI y codex exec, preview estático HTML → PNG (verificado en codex exec).
 
 - Capacidades faltantes: mcp__visualize__show_widget.
-- Alternativas investigadas: HTML estático, toolset browser o texto (descartados: cambian sustancialmente el comportamiento).
+- Alternativas investigadas: plugin visualize@openai-bundled (adoptado); preview estático HTML → PNG (fallback); navegador in-app browser@openai-bundled (descartado).
 
-| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
-|---|---|---|---|---|---|---|
-| `render-widget` | sí | `disabled` | — | Detenerse y reportar; propuestas en texto solo si el usuario lo pide explícitamente. | La herramienta no existe en el agente. | Lista de herramientas de la sesión. |
-| `apply-proposal` | no | `disabled` | — | El usuario elige en texto. | Depende del widget. | Lista de herramientas de la sesión. |
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `render-widget` | sí | `adapted` | `alternative` | App de escritorio (herramientas codex_app en la sesión): modo Codex con el plugin visualize (fragmento + visualize{…}, .viz-carousel). CLI o codex exec: preview estático HTML → PNG con Chrome headless. | Sin ninguna vía de render, detenerse y reportar. | Codex no tiene show_widget, pero su plugin visualize logra el mismo resultado (visual interactivo en la conversación) con otro mecanismo. | $CODEX_HOME/plugins/cache/openai-bundled/visualize/1.0.50/skills/visualize/SKILL.md y tweak.md; La skill visualize:visualize aparece en codex exec; En codex exec la referencia visualize{…} queda como texto: por eso el CLI usa el preview estático (hallazgo de Codex en el PR #23).; prueba `codex-real-visualize-fragment`; prueba `codex-real-cli-static-preview`; prueba `eval-sim-codex-visualize` |
+| `apply-proposal` | no | `unverified` | `alternative` | Botón Aplicar dentro de cada variante con window.openai.sendFollowUpMessage({prompt: 'Implementá: …'}); también se acepta que el usuario nombre la opción en el chat. | Elegir en el chat por nombre de variante. | El fragmento con sendFollowUpMessage se generó en una corrida real, pero el clic solo existe en la app de escritorio y no se observó. | skills/visualize/SKILL.md del plugin visualize; prueba `codex-real-visualize-fragment`; prueba `eval-sim-codex-visualize` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `render-widget` | Plugin visualize@openai-bundled | config.toml + skills/visualize/SKILL.md 1.0.50 + codex exec | sí | Mismo resultado: visual interactivo en la conversación con variantes y acciones. |
+| `render-widget` | Preview estático (HTML → PNG con navegador headless) | chrome --headless; prueba en Hermes | sí | Funciona, pero pierde interactividad; queda como fallback. |
+| `render-widget` | browser@openai-bundled (navegador in-app) | plugin.json del plugin browser | no | Abre páginas para el agente; no muestra un visual dentro del chat. |
+| `apply-proposal` | window.openai.sendFollowUpMessage | skills/visualize/SKILL.md | sí | Equivale a sendPrompt: el clic continúa la conversación. |
+| `apply-proposal` | Elección por nombre en el chat | SKILL.md de widget-ui-proposals | sí | Siempre disponible como respaldo. |
+
+#### widget-ui-proposals / `hermes`: `adapted`
+
+Adaptada con un preview estático: HTML renderizado a PNG, entregado por ruta o por el gateway, y elección con clarify u opciones numeradas. Se pierde la interactividad dentro del chat.
+
+- Capacidades faltantes: widget interactivo en el chat.
+- Alternativas investigadas: preview estático HTML → PNG con Chrome headless (adoptado); browser_exec + capture_screenshot (segunda opción, inestable); clarify / opciones numeradas para elegir (adoptado).
+
+| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |
+|---|---|---|---|---|---|---|---|
+| `render-widget` | sí | `adapted` | `alternative` | Preview estático: HTML autocontenido renderizado a PNG con chrome --headless (o browser_exec + capture_screenshot), revisado con vision y entregado por ruta (CLI) o subido por el gateway. | Sin shell ni navegador, detenerse y reportar. | Hermes no muestra widgets en el chat, pero puede mostrar una imagen fiel de las propuestas; se pierde la interactividad (documentado en la skill). | Doc de Hermes: deliverable-mode y browser; Sesión real de Hermes; prueba `hermes-real-static-preview`; prueba `eval-sim-hermes-static-preview` |
+| `apply-proposal` | no | `adapted` | `alternative` | clarify con multi_select (≤ 4 opciones); ante undelivered/timed_out/cancelled, opciones numeradas en el chat y detenerse. El HTML copia la instrucción Implementá: … al portapapeles. | Opciones numeradas en el chat. | La elección vuelve por clarify o por respuesta en el chat en lugar de un clic; mismo resultado (aplicar solo lo elegido). | Corrida real: clarify sin usuario en -q → opciones numeradas y detención; prueba `hermes-real-static-preview`; prueba `eval-sim-hermes-static-preview` |
+
+| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |
+|---|---|---|---|---|
+| `render-widget` | HTML → PNG con Chrome headless | corrida real hermes-real-static-preview | sí | Produce la imagen de las variantes; estable. |
+| `render-widget` | browser_exec + capture_screenshot() | doc de Hermes y corrida real del 2026-10-23 | sí | Funciona en teoría, pero en esta máquina el Chromium de Hermes falló al arrancar 4 de 5 veces; queda como segunda opción. |
+| `render-widget` | Entrega por gateway (Telegram) mencionando la ruta absoluta | doc deliverable-mode | sí | Muestra la imagen inline en mensajería; en el CLI solo se da la ruta. |
+| `render-widget` | Widget interactivo | lista de herramientas de Hermes | no | No existe ninguna herramienta de widget en Hermes. |
+| `apply-proposal` | clarify (multi_select) | tools-reference de Hermes | sí | Pregunta con opciones componibles. |
+| `apply-proposal` | Opciones numeradas en el chat | corrida real | sí | Verificado como fallback en -q. |
 
 **Implementación**
 
-- Adaptaciones: Sección «Agent compatibility»: detención y reporte sin el widget.
-- Archivos modificados: `plugins/golfo-kit/skills/widget-ui-proposals/SKILL.md`.
-- Fallback: Ninguno equivalente; propuestas en texto solo a pedido explícito..
-- Cambios de comportamiento respecto del original: Sin el widget, la skill se detiene en lugar de improvisar..
+- Adaptaciones: Modo Codex con el plugin visualize (fragmento HTML, visualize{…}, .viz-carousel, sendFollowUpMessage); Modo de preview estático (HTML → PNG con navegador headless, clarify u opciones numeradas) para Hermes y otros agentes con shell; Detención con Limitaciones del agente solo sin ninguna vía de render.
+- Archivos modificados: `plugins/golfo-kit/skills/widget-ui-proposals/SKILL.md`, `plugins/golfo-kit/skills/widget-ui-proposals/evals/eval-config.json`.
+- Fallback: Preview estático; sin shell ni navegador, detenerse y reportar..
+- Cambios de comportamiento respecto del original: Codex: mismo flujo con otro mecanismo de render. Hermes: la vista es una imagen fija y la elección vuelve por pregunta, no por clic..
 
 **Verificación**
 
 | Prueba | Agente | Tipo | Comando | Resultado | Evidencia |
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
+| `codex-real-visualize-fragment` | `codex` | real_run | `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<leer y seguir widget-ui-proposals/SKILL.md; dos variantes del botón Guardar cambios>" (en un directorio temporal)` | `passed` | Codex 0.162.1 eligió el modo Codex, escribió guardar-cambios.html (5582 bytes, fragmento sin <html>/<head>/<body>) con un .viz-carousel de dos hijos data-variant="Sólida azul"/"Outline" y botones Aplicar con window.openai.sendFollowUpMessage, y terminó la respuesta con visualize{"path":"C:/Users/guido/AppData/Local/Temp/rt-codex-widget/guardar-cambios.html"} en una línea propia más la recomendación. El render interactivo en la app de escritorio no se observó (codex exec es terminal). |
+| `hermes-real-static-preview` | `hermes` | real_run | `hermes chat -Q -q "<leer y seguir widget-ui-proposals/SKILL.md; tres variantes del header de una tabla de pedidos>" (en un directorio temporal)` | `passed` | Hermes 0.22.4 eligió el modo de preview estático: escribió propuestas-header-pedidos.html autocontenido, lo renderizó con chrome --headless y un --user-data-dir temporal a propuestas-header-pedidos.png (tarjetas A/B/C, B recomendada), revisó la imagen, corrigió la fila de filtros recortada y re-renderizó; clarify no tenía usuario (-q), así que pasó a opciones numeradas y se detuvo sin aplicar nada; reportó la pérdida de interactividad en Limitaciones del agente y dio las rutas absolutas. |
+| `eval-sim-codex-visualize` | `codex` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/widget-ui-proposals --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: codex-visualize-mode-without-show-widget: modo Codex con visualize{…}, .viz-carousel, sendFollowUpMessage y sin show_widget. codex-cli-falls-back-to-static-preview: en codex exec usa el preview estático. |
+| `eval-sim-hermes-static-preview` | `hermes` | simulated_eval | `run-evals <copia filtrada>/plugins/golfo-kit/skills/widget-ui-proposals --provider claude (solo los casos nuevos o modificados)` | `passed` | Claude (claude-sonnet-5-5) simulando el agente: hermes-static-preview-with-clarify: PNG con --screenshot, clarify multi_select y Limitaciones del agente; no-visual-capability-blocks-with-limitations: sin vía de render se detiene sin simular. |
+| `codex-real-cli-static-preview` | `codex` | real_run | `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<leer y seguir widget-ui-proposals/SKILL.md; dos variantes del botón Guardar cambios>" (en un directorio temporal)` | `passed` | Tras exigir un frontend que renderice: en codex exec (sin herramientas codex_app) eligió el modo de preview estático, escribió guardar-cambios-variantes.html, lo renderizó con Chrome headless y un perfil temporal a guardar-cambios-variantes.png, revisó la imagen, dio la recomendación y reportó la imagen estática en Limitaciones del agente. |
 
 Pendiente de verificar:
 
 - Claude: probar en una sesión con el conector visualize.
+- Codex: observar el render y el clic de Aplicar en la app de escritorio.
+- Hermes: verificar la entrega inline de la PNG por el gateway de Telegram.
 
 ## D. Registro de incompatibilidades
 
 | ID | Skill | Agente | Funcionalidad | Dependencia faltante | Motivo técnico | Alternativas investigadas | Solución o bloqueo | Severidad | Estado |
 |---|---|---|---|---|---|---|---|---|---|
-| `INC-agent-ready-setup--hermes--provider-autodetect` | `agent-ready-setup` | `hermes` | `provider-autodetect` | Provider Hermes en resolve-provider.sh | La skill genera configuración solo para Claude Code y Codex. | agregar Hermes como provider de destino (fuera de alcance) | Excepción explícita documentada; override manual del provider. | `low` | `mitigated` |
-| `INC-codex-autofix-loop--codex--pr-event-watch` | `codex-autofix-loop` | `codex` | `pr-event-watch` | Herramienta para esperar eventos después del turno | Codex CLI no expone Monitor, cron ni procesos en background que despierten al agente. | exec_command/write_stdin dentro del turno; codex exec resume desde un watcher externo; automatizaciones de la app de escritorio | Modo C: una ronda por invocación; las garantías de dedup, topes y gates se mantienen. | `medium` | `mitigated` |
-| `INC-codex-autofix-loop--codex--backup-schedule` | `codex-autofix-loop` | `codex` | `backup-schedule` | Scheduler de sesión | No hay cron en Codex CLI. | automatizaciones de la app (no verificadas) | Relanzado manual; persistencia con el workflow codex-autofix.yml. | `low` | `mitigated` |
-| `INC-codex-autofix-loop--codex--auto-relaunch` | `codex-autofix-loop` | `codex` | `auto-relaunch` | Mecanismo para seguir vivo tras `@codex review` | El paso (7) no es ejecutable sin espera supervisada. | ídem pr-event-watch | El cierre indica cómo relanzar; bloqueado en las instrucciones del modo C. | `low` | `mitigated` |
+| `INC-agent-ready-setup--hermes--provider-autodetect` | `agent-ready-setup` | `hermes` | `provider-autodetect` | Provider Hermes en resolve-provider.sh | La skill genera configuración solo para Claude Code y Codex. | agregar Hermes como provider de destino (fuera de alcance) | Resuelto: resolve-provider.sh reconoce instalaciones de Hermes. | `low` | `resolved` |
+| `INC-codex-autofix-loop--codex--pr-event-watch` | `codex-autofix-loop` | `codex` | `pr-event-watch` | Herramienta para esperar eventos después del turno | Codex CLI no expone Monitor, cron ni procesos en background que despierten al agente. | exec_command/write_stdin dentro del turno; codex exec resume desde un watcher externo; automatizaciones de la app de escritorio | Resuelto con el modo C (watcher en foreground dentro del turno). | `medium` | `resolved` |
+| `INC-codex-autofix-loop--codex--backup-schedule` | `codex-autofix-loop` | `codex` | `backup-schedule` | Scheduler de sesión | No hay cron en Codex CLI. | automatizaciones de la app (no verificadas) | Resuelto con el modo C (watcher en foreground dentro del turno). | `low` | `resolved` |
+| `INC-codex-autofix-loop--codex--auto-relaunch` | `codex-autofix-loop` | `codex` | `auto-relaunch` | Mecanismo para seguir vivo tras `@codex review` | El paso (7) no es ejecutable sin espera supervisada. | ídem pr-event-watch | Resuelto con el modo C (watcher en foreground dentro del turno). | `low` | `resolved` |
 | `INC-codex-autofix-loop--codex--fix-round` | `codex-autofix-loop` | `codex` | `fix-round` | Evidencia de ejecución en Codex | La ronda completa no se ejecutó en Codex y `run-evals --provider codex` falla en Windows por el sandbox. | corrida real con --dangerously-bypass-approvals-and-sandbox sobre un PR de prueba | Pendiente: correr una ronda real en un PR de prueba. | `high` | `pending` |
 | `INC-codex-autofix-loop--hermes--fix-round` | `codex-autofix-loop` | `hermes` | `fix-round` | Evidencia de ejecución en Hermes | Solo se ejecutaron el watcher y la elección de modo; fixes, closeout y merge no. | loop completo sobre un PR de prueba con delegate_task | Pendiente: correr el loop completo en Hermes sobre un PR de prueba. | `high` | `pending` |
-| `INC-pr-description-template--codex--ui-screenshots` | `pr-description-template` | `codex` | `ui-screenshots` | Claude in Chrome | Las capturas publicadas deben salir del navegador real del usuario. | browser_use de Codex | Capturas omitidas y declaradas en el body. | `low` | `mitigated` |
-| `INC-pr-description-template--hermes--ui-screenshots` | `pr-description-template` | `hermes` | `ui-screenshots` | Claude in Chrome | Las capturas publicadas deben salir del navegador real del usuario. | toolset browser de Hermes | Capturas omitidas y declaradas en el body. | `low` | `mitigated` |
-| `INC-review-fix-loop--codex--isolated-filter` | `review-fix-loop` | `codex` | `isolated-filter` | Subagente aislado read-only | spawn_agent no tiene un modo read-only verificado. | spawn_agent | El filtro corre inline y se reporta en Limitaciones del agente. | `low` | `mitigated` |
-| `INC-review-fix-loop--hermes--isolated-filter` | `review-fix-loop` | `hermes` | `isolated-filter` | Subagente aislado read-only | delegate_task hereda los toolsets del padre, incluida la escritura. | delegate_task | El filtro corre inline y se reporta en Limitaciones del agente. | `low` | `mitigated` |
-| `INC-widget-ui-proposals--codex--render-widget` | `widget-ui-proposals` | `codex` | `render-widget` | mcp__visualize__show_widget | El conector visualize solo existe en sesiones Claude. | HTML estático; texto; browser_use | Bloqueado: la skill se detiene y reporta; no simula el widget. | `medium` | `pending` |
-| `INC-widget-ui-proposals--codex--apply-proposal` | `widget-ui-proposals` | `codex` | `apply-proposal` | Botón sendPrompt del widget | Depende del render del widget. | elección en texto | Bloqueado junto con render-widget. | `low` | `pending` |
-| `INC-widget-ui-proposals--hermes--render-widget` | `widget-ui-proposals` | `hermes` | `render-widget` | mcp__visualize__show_widget | El conector visualize solo existe en sesiones Claude. | HTML estático; texto; toolset browser | Bloqueado: la skill se detiene y reporta; no simula el widget. | `medium` | `pending` |
-| `INC-widget-ui-proposals--hermes--apply-proposal` | `widget-ui-proposals` | `hermes` | `apply-proposal` | Botón sendPrompt del widget | Depende del render del widget. | elección en texto | Bloqueado junto con render-widget. | `low` | `pending` |
+| `INC-pr-description-template--codex--ui-screenshots` | `pr-description-template` | `codex` | `ui-screenshots` | Claude in Chrome | Las capturas publicadas deben salir del navegador real del usuario. | browser_use de Codex | Resuelto con un navegador real del usuario alternativo; ver «Capture browser» en la skill. | `low` | `resolved` |
+| `INC-pr-description-template--hermes--ui-screenshots` | `pr-description-template` | `hermes` | `ui-screenshots` | Claude in Chrome | Las capturas publicadas deben salir del navegador real del usuario. | toolset browser de Hermes | Resuelto con un navegador real del usuario alternativo; ver «Capture browser» en la skill. | `low` | `resolved` |
+| `INC-review-fix-loop--codex--isolated-filter` | `review-fix-loop` | `codex` | `isolated-filter` | Subagente aislado read-only | spawn_agent no tiene un modo read-only verificado. | spawn_agent | Resuelto con un proceso externo claude -p limitado a Read/Grep/Glob. | `low` | `resolved` |
+| `INC-review-fix-loop--hermes--isolated-filter` | `review-fix-loop` | `hermes` | `isolated-filter` | Subagente aislado read-only | delegate_task hereda los toolsets del padre, incluida la escritura. | delegate_task | Resuelto con un proceso externo claude -p limitado a Read/Grep/Glob. | `low` | `resolved` |
+| `INC-widget-ui-proposals--codex--render-widget` | `widget-ui-proposals` | `codex` | `render-widget` | mcp__visualize__show_widget | El conector visualize solo existe en sesiones Claude. | HTML estático; texto; browser_use | Resuelto con una alternativa equivalente; ver la funcionalidad y la sección «Agent compatibility» de la skill. | `medium` | `resolved` |
+| `INC-widget-ui-proposals--codex--apply-proposal` | `widget-ui-proposals` | `codex` | `apply-proposal` | Botón sendPrompt del widget | Depende del render del widget. | elección en texto | Resuelto con una alternativa equivalente; ver la funcionalidad y la sección «Agent compatibility» de la skill. | `low` | `resolved` |
+| `INC-widget-ui-proposals--hermes--render-widget` | `widget-ui-proposals` | `hermes` | `render-widget` | mcp__visualize__show_widget | El conector visualize solo existe en sesiones Claude. | HTML estático; texto; toolset browser | Resuelto con una alternativa equivalente; ver la funcionalidad y la sección «Agent compatibility» de la skill. | `medium` | `resolved` |
+| `INC-widget-ui-proposals--hermes--apply-proposal` | `widget-ui-proposals` | `hermes` | `apply-proposal` | Botón sendPrompt del widget | Depende del render del widget. | elección en texto | Resuelto con una alternativa equivalente; ver la funcionalidad y la sección «Agent compatibility» de la skill. | `low` | `resolved` |
 
 ## E. Plan de acciones pendientes
 
 | Prioridad | ID | Impacto | Acción recomendada | Criterio de resolución | Incompatibilidades |
 |---|---|---|---|---|---|
 | 1 | `ACT-001` | `high` | Correr codex-autofix-loop completo en Hermes (modo B) sobre un PR de prueba: delegate_task, kill del watcher, closeout y merge gates. | Prueba real_run en Hermes con fix, closeout y gates observados; features fix-round, merge-gates, round-caps y auto-cancel en adapted o enabled. | `INC-codex-autofix-loop--hermes--fix-round` |
-| 2 | `ACT-002` | `high` | Correr una ronda real de codex-autofix-loop en Codex (modo C) sobre un PR de prueba. | Prueba real_run en Codex con una ronda completa terminada sin procesos vivos y con instrucción de relanzar. | `INC-codex-autofix-loop--codex--fix-round` |
-| 3 | `ACT-003` | `medium` | Habilitar `run-evals --provider codex` en Windows (sandbox read-only no puede crear procesos) o correr las evals de Codex en Linux/CI. | Los casos nuevos de codex-autofix-loop e improve-spec pasan con provider codex. | — |
-| 4 | `ACT-004` | `medium` | Ejecutar en Codex y Hermes las skills sin dependencias de agente con un caso real cada una, empezando por las de flujo GitHub (feature-branch-pr, stacked-pr, pr-inline-comment-template). | Cada skill tiene una prueba eval o real_run aprobada por agente y su estado pasa de unverified a compatible. | — |
-| 5 | `ACT-005` | `low` | Evaluar si widget-ui-proposals debe ofrecer un entregable alternativo explícito (por ejemplo HTML de propuestas) fuera de Claude. | Decisión documentada en la skill y en este reporte. | `INC-widget-ui-proposals--codex--render-widget`; `INC-widget-ui-proposals--hermes--render-widget` |
+| 2 | `ACT-002` | `high` | Correr codex-autofix-loop en Codex (modo C) sobre un PR de prueba hasta que una respuesta real de Codex dispare la iteración siguiente. | Prueba real_run en Codex con auto-relaunch, fix-round y merge-gates observados. | `INC-codex-autofix-loop--codex--fix-round` |
+| 3 | `ACT-003` | `medium` | Verificar las alternativas implementadas sin ejecución: capturas de Hermes con computer_use o perfil real, render de visualize y clic de Aplicar en la app de escritorio de Codex, inyección de capture-snippet.js en Codex. | Cada una tiene una prueba real_run aprobada en su agente. | `INC-pr-description-template--hermes--ui-screenshots`; `INC-widget-ui-proposals--codex--apply-proposal` |
+| 4 | `ACT-004` | `medium` | Habilitar `run-evals --provider codex` en Windows (sandbox read-only no puede crear procesos) o correr las evals de Codex en Linux/CI. | Los casos nuevos pasan con provider codex. | — |
+| 5 | `ACT-005` | `medium` | Ejecutar en Codex y Hermes las skills sin dependencias de agente con un caso real cada una, empezando por las de flujo GitHub (feature-branch-pr, stacked-pr, pr-inline-comment-template). | Cada skill tiene una prueba eval o real_run aprobada por agente y su estado pasa de unverified a compatible. | — |
+| 6 | `ACT-006` | `low` | Investigar por qué browser_exec de Hermes no arranca de forma estable en esta máquina (Chromium 1208, gateway elevado). | browser_exec abre y captura una página local en 5 de 5 intentos. | — |

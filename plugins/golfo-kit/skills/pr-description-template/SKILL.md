@@ -4,7 +4,7 @@ description: "Provides the standard PR title and concise description template (c
 allowed-tools: Bash(gh:*) Bash(git:*) Bash(bash:*) Bash(jq:*)
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "git-workflow"
   tags: "pull-request, template, description, screenshots"
@@ -87,14 +87,14 @@ Place exactly one line, `<div align="right"><sup>📄 Archivos de código modifi
 
 ## Agent compatibility
 
-Screenshots need the user's own browser through Claude in Chrome (`mcp__claude-in-chrome__*`), which only Claude sessions with that extension expose (see [`agent-capabilities.md`](../../references/agent-capabilities.md)). When those tools are not in the session, skip the capture (never fall back to a headless or built-in browser), keep the rest of the body, and state under the reviewer notes that captures were skipped because the agent lacks access to the user's browser. Title, template and traceability-only mode work the same in every agent.
+Screenshots need the **user's own browser** (their real Chrome with its sessions, fonts and extensions), not a headless or app-embedded one. Which tool drives it depends on the agent; [Capture browser](#capture-browser) lists the accepted ones, checked by capability per [`agent-capabilities.md`](../../references/agent-capabilities.md) (row «Navegador real del usuario y capturas»). When none of them is available, skip the capture, keep the rest of the body, and state under the reviewer notes that captures were skipped and which browsers were checked. Title, template and traceability-only mode work the same in every agent.
 
 ## UI screenshots
 
 Apply only during `full composition`. When the diff changes what a user sees (components, markup, styles, visible copy, layout, theming, icons or animations) and you know how to launch the app, add a screenshot of the change to the body. Skip this section for changes with no visible effect (backend, tests, tooling, docs, agent instructions).
 
 1. **Find out how to launch the app** before capturing, from the first source that applies: a dev server that is already running for this checkout; a project skill that launches the app (for example `run`); the launch and local-verification instructions in `AGENTS.md`, `CLAUDE.md` or `README.md`; `.claude/launch.json`; the `dev`/`start` scripts in `package.json`. Follow the project's own rules (required URL, proxy, port, environment). If none of them tells you how, or the app does not start, skip the capture.
-2. **Always capture the real app.** Reach the changed screen on the running app in the user's own browser (Claude in Chrome, the `mcp__claude-in-chrome__*` tools), which has their sessions, fonts and extensions as they really use the app. Do not use the built-in browser pane or a headless Playwright browser for published captures. If Claude in Chrome is not connected, ask the user to connect it instead of switching browsers. Never capture a harness, a static HTML page, a mock page or a component rendered outside the app: it misses global styles, fonts, icons and the real components, and misleads the reviewer. If the screen needs a sign-in, use only a session that is already open or test credentials the project provides for local development; never type real credentials. If the screen cannot be reached in the real app, skip the capture.
+2. **Always capture the real app.** Reach the changed screen on the running app in the user's own browser (see [Capture browser](#capture-browser)), which has their sessions, fonts and extensions as they really use the app. Do not use a built-in browser pane, an app-embedded browser or a headless browser for published captures. If no accepted browser is connected, ask the user to connect one instead of switching to a non-accepted browser. Never capture a harness, a static HTML page, a mock page or a component rendered outside the app: it misses global styles, fonts, icons and the real components, and misleads the reviewer. If the screen needs a sign-in, use only a session that is already open or test credentials the project provides for local development; never type real credentials. If the screen cannot be reached in the real app, skip the capture.
 3. **Capture what a reviewer needs to judge the change**: always a before and an after (before from the base branch, or from the running app with the change temporarily undone, then restored), so the reviewer sees the difference at a glance. Crop both to the affected area, not the full page, and give each pair the same viewport, crop box and scroll position, so the only thing that differs is the change. Leave enough surrounding context to judge it (for example the neighbouring border the spacing is measured against). Capture each theme or viewport the change targets (for example dark and light, mobile and desktop) as its own pair.
 4. **Check every image before uploading**, by viewing it:
    - It looks like the app the user sees: fonts, icons, colors and component styles loaded. Wait for `document.fonts.ready` and for the page to settle (no loaders, skeletons or entrance animations mid-flight) before capturing.
@@ -104,6 +104,13 @@ Apply only during `full composition`. When the diff changes what a user sees (co
 5. **Stop every server you started** as soon as the last image passes the checks, before uploading, so it does not keep consuming CPU, memory or ports. This includes any server started for the base branch to capture the before image. Stop it through the same tool that launched it (`preview_stop`, `stop_terminal_tab`, `TaskStop`, or killing the process tree whose PID you recorded) and confirm the port no longer responds. Never stop a server that was already running before this skill started it: it belongs to the user. Apply the same cleanup when the capture is skipped or fails after the app was launched.
 6. **Upload** with `bash <skill-dir>/scripts/upload-pr-image.sh <owner/repo> <head-branch> <image>...`. It stores the files in the repository's orphan `pr-assets` branch through the GitHub API, under a folder named after the head branch, without touching the local checkout, and prints the URL of each file, one per line. Use the head branch name, so the links exist before the PR does. Name each file by what it shows (`before-dark.png`, `after-dark.png`).
 7. **Place the images** in the **Capturas** table of the template: one row per pair, the first cell names what the row shows (theme, viewport or state), and the **Antes** and **Después** columns hold the images side by side with the same `width`, so the reviewer compares them directly. Put each URL the script prints in `<img src="<url>" alt="<antes|después> <row>" width="<same width>">`; keep the width at most 400 so two fit side by side. Add one sentence above the table saying what to look at. Delete the section when no image applies.
+
+### Capture browser
+
+Which browsers count as the user's own, how to recognise each one and which are never accepted lives only in row «Navegador real del usuario y capturas» of [`agent-capabilities.md`](../../references/agent-capabilities.md). Use the first accepted one whose tools are actually in the session; a browser that row rejects (headless, app-embedded, throwaway profile) may check that a page loads, never produce the image the reviewer sees. What this skill adds for published captures:
+
+- Open a **new** tab for the captures and close only the tabs you opened; never navigate or close the user's own tabs.
+- A tool that drives the real desktop (for example Hermes `computer_use`) moves the user's mouse and keyboard: tell the user before starting and capture only if they agree. Crop the desktop screenshot to the page area.
 
 When the change affects the UI but no image could be captured from the real app, delete **Capturas** and add one line to **Notas para el Revisor** with the concrete reason (`Sin captura: <motivo>`). Do not block the PR on a screenshot.
 

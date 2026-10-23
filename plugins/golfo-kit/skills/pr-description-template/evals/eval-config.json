@@ -308,6 +308,76 @@
           "description": "No detiene el Storybook del puerto 6006 que ya era del usuario"
         }
       ]
+    },
+    {
+      "id": "codex-chrome-plugin-screenshots",
+      "description": "En Codex, sin Claude in Chrome pero con el plugin Chrome (navegador extension/chrome en agent.browsers), captura desde el Chrome real del usuario en una pestaña nueva y no omite las capturas ni usa el navegador in-app.",
+      "input": "Usando pr-description-template: estás en Codex. No existen las herramientas mcp__claude-in-chrome__*, pero tenés `mcp__cua_repl.js` y `agent.browsers.list()` devuelve `[{\"id\":\"1\",\"type\":\"extension\",\"family\":\"chrome\",\"profileName\":\"Guido\"}]`; también existe el navegador in-app. Componé el body en full composition para un diff que cambia el padding de `components/header/styles.module.scss`; el `README.md` dice que la app se levanta con `pnpm dev` en http://localhost:3000. No ejecutes nada: describí qué navegador usarías para las capturas antes/después y por qué, cómo las tomarías y qué harías con las pestañas.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "extension",
+            "plugin Chrome",
+            "Chrome del usuario",
+            "chrome@openai-bundled"
+          ],
+          "description": "Usa el Chrome real del usuario vía el plugin Chrome"
+        },
+        {
+          "type": "regex",
+          "pattern": "pesta[ñn]a[ *_]*nueva|nueva[ *_]*pesta[ñn]a|new tab",
+          "description": "Captura en una pestaña nueva"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|not|never)[^.]{0,80}(in-app|iab|headless)|(in-app|iab|headless)[^.]{0,80}(exclu|descart|no se acepta|no sirve|no lo us|not accepted|rechaz)|(descart|exclu|rechaz)[^.]{0,60}(in-app|iab|headless)",
+          "description": "Descarta el navegador in-app o headless para las capturas publicadas"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "Antes",
+            "antes"
+          ],
+          "description": "Mantiene el par antes/después"
+        }
+      ]
+    },
+    {
+      "id": "hermes-default-browser-not-accepted",
+      "description": "En Hermes con la configuración por defecto, browser_exec es un Chromium headless con perfil descartable: no lo usa para capturas publicadas; propone computer_use sobre el Chrome real con aviso previo o, si no se puede, omite la captura con el motivo.",
+      "input": "Usando pr-description-template: estás en Hermes. No existe Claude in Chrome. Tenés `browser_exec` (con la configuración por defecto de Hermes, sin `browser.use_real_profile` ni `browser.headed`) y la herramienta diferida `computer_use`. El usuario tiene su Chrome abierto. Componé el body para un diff que cambia el color del botón en `src/components/Button.tsx`; la app corre en http://localhost:5173. No ejecutes nada: describí con qué herramienta tomarías las capturas y qué harías antes de empezar.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "computer_use",
+          "description": "Propone computer_use sobre el Chrome real del usuario"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "headless",
+            "perfil descartable",
+            "perfil temporal",
+            "throwaway"
+          ],
+          "description": "Explica que browser_exec por defecto es headless con perfil descartable"
+        },
+        {
+          "type": "regex",
+          "pattern": "(avis|consult|pregunt|confirm|acuerd|permiso)",
+          "description": "Avisa o pide acuerdo antes de tomar el control del escritorio"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "use_real_profile",
+            "headed"
+          ],
+          "description": "Menciona la configuración que haría aceptable a browser_exec"
+        }
+      ]
     }
   ]
 }

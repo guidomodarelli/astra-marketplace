@@ -1,0 +1,74 @@
+{
+  "schema_version": 2,
+  "skill": "user-manual",
+  "description": "Evalúa la elección de la herramienta JavaScript de navegador para las capturas reales de la app según el agente (Claude in Chrome, runtime de navegador de Codex con el plugin Chrome o el navegador in-app, browser_exec de Hermes) y el fallback a mockups dibujados cuando ningún navegador puede evaluar scripts en la app.",
+  "test_cases": [
+    {
+      "id": "codex-browser-runtime-for-captures",
+      "description": "En Codex, sin Claude in Chrome, usa el runtime de navegador (mcp__cua_repl.js) para inyectar capture-snippet.js: el Chrome del usuario si la pantalla necesita su sesión.",
+      "input": "Usando user-manual: estás en Codex. No existe Claude in Chrome. Tenés `mcp__cua_repl.js`; `agent.browsers.list()` devuelve un navegador `{\"type\":\"extension\",\"family\":\"chrome\",\"profileName\":\"Guido\"}` y también existe el navegador in-app. Tenés que documentar el flujo de aprobación de pedidos de una app interna que exige estar logueado (el usuario ya tiene la sesión abierta en su Chrome). Ya elegiste dispositivo desktop e idioma es-AR. No ejecutes nada: describí con qué navegador y herramienta capturarías las pantallas reales y cómo.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "cua_repl",
+            "node_repl"
+          ],
+          "description": "Usa el runtime de navegador de Codex"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "extension",
+            "Chrome del usuario",
+            "plugin Chrome",
+            "sesión del usuario",
+            "su sesión"
+          ],
+          "description": "Elige el Chrome del usuario porque la pantalla requiere su sesión"
+        },
+        {
+          "type": "contains",
+          "value": "capture-snippet",
+          "description": "Inyecta capture-snippet.js en la página"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "computer_use",
+            "in-app",
+            "iab"
+          ],
+          "description": "Descarta las alternativas que no sirven para esta pantalla"
+        }
+      ]
+    },
+    {
+      "id": "no-script-browser-falls-back-to-drawn-mockups",
+      "description": "Sin ningún navegador que evalúe scripts en la app (solo computer_use), no lo usa para clonar el DOM: cae a mockups dibujados y lo reporta en Limitaciones del agente.",
+      "input": "Usando user-manual: estás en un agente sin Claude in Chrome, sin runtime de navegador de Codex y sin `browser_exec`; solo tenés `computer_use` para manejar el escritorio. Tenés que documentar la pantalla de configuración de notificaciones de la app que corre en http://localhost:3000. Ya elegiste dispositivo mobile e idioma es-AR. No ejecutes nada: describí cómo harías los mockups del manual.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "mockup-body",
+            "mockups dibujados",
+            "hand-drawn",
+            "dibujad"
+          ],
+          "description": "Cae a mockups dibujados"
+        },
+        {
+          "type": "contains",
+          "value": "Limitaciones del agente",
+          "description": "Reporta la limitación"
+        },
+        {
+          "type": "regex",
+          "pattern": "computer_use[^.]{0,120}(no puede|no evalúa|no permite|cannot|no sirve|no reemplaza)",
+          "description": "Explica que computer_use no evalúa scripts en la página"
+        }
+      ]
+    }
+  ]
+}

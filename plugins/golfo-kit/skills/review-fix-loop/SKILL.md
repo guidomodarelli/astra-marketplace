@@ -3,7 +3,7 @@ name: review-fix-loop
 description: "Multi-provider review and fix loop: Claude Code, then Codex fallback; local or PR targets; reruns after accepted findings. Use when the user asks for a Codex review, autoreview, second-model review or review-and-fix loop, after non-trivial code edits as a closeout check before final/commit/ship, or when reviewing a local branch or PR branch after fixes."
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, review-loop, codex, claude, convergence"
@@ -212,18 +212,30 @@ When exact target already has relevant passing test evidence from current task a
 
 ## Agent compatibility
 
-Providers are external CLIs (`claude`, `codex`), so this loop runs from any agent that has them in `PATH`; check with `command -v` before choosing one, per [`agent-capabilities.md`](../../references/agent-capabilities.md). The adversarial filter needs an isolated **read-only** subagent: `Agent` in Claude Code. Hermes `delegate_task` children inherit the parent's toolsets and Codex `spawn_agent` has no verified read-only mode, so in those agents run the filter inline (as when subagents are unavailable) and list `read-only isolated filter` under `Limitaciones del agente` in the final report.
+Providers are external CLIs (`claude`, `codex`), so this loop runs from any agent that has them in `PATH`; check with `command -v` before choosing one, per [`agent-capabilities.md`](../../references/agent-capabilities.md). The adversarial filter needs an **isolated, read-only** context. Pick the first runner that applies:
+
+1. **Native read-only subagent** — `Agent` in Claude Code.
+2. **External read-only CLI** — any agent with `claude` in `PATH` (Codex, Hermes, headless Claude Code): run the filter prompt as a separate process that can only read, from the repository root, with a timeout and no stdin:
+   `<timeout> 600 claude -p "<filter prompt>" --tools "Read,Grep,Glob" --permission-mode dontAsk < /dev/null`,
+   where `<timeout>` is the first of `timeout` or `gtimeout` (macOS with coreutils) found with `command -v`. Without either, bound it with Python instead, as the bundled helper does:
+   `python3 -c 'import subprocess, sys; sys.exit(subprocess.run(sys.argv[1:], stdin=subprocess.DEVNULL, timeout=600).returncode)' claude -p "<filter prompt>" --tools "Read,Grep,Glob" --permission-mode dontAsk`
+   (`python` when `python3` is not in `PATH`). With no timeout mechanism at all, this runner does not apply: go to the next one.
+   `--tools` limits the built-in tools to those three, so the filter cannot edit, write or run commands. Wait for the process to exit, as with providers.
+3. **`codex exec -s read-only`** — only on hosts where a trivial read in that sandbox works (check once with `codex exec -s read-only "<print the first line of README.md>"`). On Windows the read-only sandbox blocks every process the agent starts, reads included, so skip it there.
+4. **Inline** — none of the above: evaluate provider output directly in the main context and list `read-only isolated filter` under `Limitaciones del agente`, with the runners checked.
+
+Hermes `delegate_task` children inherit the parent's toolsets and Codex `spawn_agent` has no read-only mode, so neither counts as an isolated read-only filter.
 
 ## Context Efficiency
 
-Provider output is usually noisy. Use isolated read-only filter only when runtime supports native subagents. Otherwise evaluate provider output directly. The filter acts as the adversarial verifier: it tries to refute each finding by reading the code. Ask filter to return only:
+Provider output is usually noisy. Use the isolated read-only filter when one of the runners of [Agent compatibility](#agent-compatibility) is available. Otherwise evaluate provider output directly. The filter acts as the adversarial verifier: it tries to refute each finding by reading the code. Ask filter to return only:
 
 - actionable findings it accepts, with label (`Important`, `Nit`, `Pre-existing`) and bug class
 - findings it rejects, with one-line reason
 - findings already in the ledger, so they are not reopened
 - exact files/tests to rerun
 
-The filter must not invoke this skill or another provider. Run inline only for tiny changes or when subagents are unavailable.
+The filter must not invoke this skill or another provider. Run inline only for tiny changes or when no isolated runner is available.
 
 ## Long-Running Reviews
 

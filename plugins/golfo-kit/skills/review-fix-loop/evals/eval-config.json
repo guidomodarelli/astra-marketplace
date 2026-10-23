@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "skill": "review-fix-loop",
+  "description": "Evalúa cómo se elige el runner del filtro adversarial aislado de solo lectura según el agente: subagente nativo en Claude Code, proceso externo `claude -p` limitado a Read/Grep/Glob desde Codex o Hermes, `codex exec -s read-only` solo donde ese sandbox permite leer (no en Windows), y filtro inline con Limitaciones del agente cuando no hay ninguno.",
+  "test_cases": [
+    {
+      "id": "hermes-filter-via-claude-cli-read-only",
+      "description": "En Hermes con `claude` en PATH, corre el filtro como proceso externo `claude -p` limitado a Read/Grep/Glob, con timeout y sin stdin, en vez de hacerlo inline o con delegate_task.",
+      "input": "Usando review-fix-loop: estás en Hermes. `command -v claude` y `command -v codex` encuentran ambos CLIs. El provider codex ya devolvió 7 findings ruidosos sobre la rama actual y querés filtrarlos adversarialmente antes de corregir. No ejecutes nada: describí con qué mecanismo y comando exacto correrías el filtro aislado de solo lectura y por qué no usás `delegate_task`.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "claude -p",
+          "description": "Corre el filtro con claude -p como proceso externo"
+        },
+        {
+          "type": "regex",
+          "pattern": "tools[ =]\"?Read,Grep,Glob",
+          "description": "Limita las herramientas a Read, Grep y Glob"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "timeout"
+          ],
+          "description": "Pone un timeout al proceso"
+        },
+        {
+          "type": "regex",
+          "pattern": "delegate_task[^.]{0,160}(hered|inherit|toolsets|no es|not)",
+          "description": "Explica que delegate_task hereda los toolsets y no aísla"
+        }
+      ]
+    },
+    {
+      "id": "windows-codex-only-filter-inline",
+      "description": "En Codex sobre Windows sin `claude` en PATH, no usa `codex exec -s read-only` (el sandbox bloquea todo proceso) ni spawn_agent: filtra inline y lo reporta en Limitaciones del agente.",
+      "input": "Usando review-fix-loop: estás en Codex sobre Windows. `command -v claude` no encuentra nada; `codex` sí está. El provider devolvió findings y querés el filtro adversarial aislado de solo lectura. No ejecutes nada: describí qué runner usarías para el filtro y qué reportarías.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "Limitaciones del agente",
+          "description": "Reporta la limitación"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "inline",
+            "en el contexto principal",
+            "main context"
+          ],
+          "description": "Filtra inline"
+        },
+        {
+          "type": "regex",
+          "pattern": "(read-only|solo lectura).{0,200}Windows|Windows.{0,200}(read-only|solo lectura)",
+          "description": "Explica que el sandbox read-only de Codex no sirve en Windows"
+        },
+        {
+          "type": "regex",
+          "pattern": "spawn_agent[^.]{0,120}(no|sin|not)",
+          "description": "Descarta spawn_agent como filtro aislado"
+        }
+      ]
+    }
+  ]
+}

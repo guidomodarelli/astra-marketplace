@@ -12,7 +12,7 @@ description: >-
   ready", o pida pasar Agent Ready Score.
 license: MIT
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   author: "guponce"
   category: "developer-experience"
   tags: "agent-ready, multi-provider, claude-code, codex, bootstrap, setup, scaffold, context-optimized-v1.20.1"
@@ -79,7 +79,7 @@ y `.codex/hooks.json` (merge), y assets desconocidos se preservan.
 
 ## Compatibilidad entre agentes
 
-La configuración que genera esta skill es para **Claude Code y Codex**; Hermes no es un provider de destino (excepción explícita a la paridad de providers). `resolve-provider.sh` infiere el provider por la ruta de instalación (`~/.claude`, `$CODEX_HOME` o `CLAUDE_PLUGIN_ROOT`) y, fuera de ellas (por ejemplo, desde `$HERMES_HOME/skills`), termina con error. En ese caso, ejecutar la skill desde otro agente solo con `AGENT_READY_SETUP_ACTIVE_PROVIDER=claude|codex` elegido por el usuario, nunca adivinado, y reportar en `Limitaciones del agente` que no se generó configuración para Hermes. Ver [`agent-capabilities.md`](../../references/agent-capabilities.md) para las rutas de cada agente.
+La configuración que genera esta skill es para **Claude Code y Codex**; Hermes no es un provider de destino (excepción explícita a la paridad de providers). `resolve-provider.sh` infiere el provider por la ruta de instalación (`~/.claude`, `$CODEX_HOME` o `CLAUDE_PLUGIN_ROOT`). Desde una instalación de Hermes (`$HERMES_HOME`, `~/.hermes` o `%LOCALAPPDATA%\hermes` en Windows, por ejemplo `$HERMES_HOME/plugins/golfo-kit/skills/agent-ready-setup`) usa el único CLI de provider presente en `PATH` (`claude` o `codex`), que es el que hará el upgrade del marketplace y la revisión de instrucciones. Si están los dos, termina con error: preguntá al usuario cuál usar (con `clarify` en Hermes) y relanzá con `AGENT_READY_SETUP_ACTIVE_PROVIDER=claude|codex`, nunca adivinado; si no hay ninguno, reportalo. En todos los casos, informar en `Limitaciones del agente` que no se generó configuración para Hermes. Ver [`agent-capabilities.md`](../../references/agent-capabilities.md) para las rutas de cada agente.
 
 ## Step 1 — Locate SKILL_DIR
 
@@ -158,8 +158,9 @@ bash "$SKILL_DIR/scripts/merge-instructions.sh" \
 
 `resolve-provider.sh` respeta `AGENT_READY_SETUP_ACTIVE_PROVIDER` cuando vale
 `claude` o `codex`; si no existe, infiere provider desde `SKILL_DIR` bajo
-`$HOME/.claude/`, `$HOME/.codex/` o `CLAUDE_PLUGIN_ROOT`. Para rutas fuera de
-instalación reconocible, termina con error y exige provider explícito.
+`$HOME/.claude/`, `$HOME/.codex/` o `CLAUDE_PLUGIN_ROOT`; bajo una instalación de
+Hermes, toma el único CLI de provider en `PATH` y falla si hay dos o ninguno. Para
+rutas fuera de instalación reconocible, termina con error y exige provider explícito.
 
 El script actualiza assets compartidos gestionados bajo `.agents/`, crea o
 conserva symlinks relativos (o hard links, donde no hay symlinks) para assets
