@@ -12,7 +12,7 @@ description: >
 metadata:
   tags: "context-optimized-v1.20.1"
   author: "Guido Modarelli"
-  version: "2.4.0"
+  version: "2.5.0"
 ---
 
 # User Manual Generator
@@ -35,6 +35,16 @@ Helpers live in `scripts/` (see "Helpers" at the end). Use them instead of rewri
 ## Agent compatibility
 
 Every question in this skill (device, languages, repo location, glossary terms) uses the question tool that is actually present in the session, per [`agent-capabilities.md`](../../references/agent-capabilities.md): `AskUserQuestion` in Claude Code, `clarify` in Hermes (up to 4 `choices` per question), `request_user_input` only when Codex is in Plan mode. With none of them, or when `clarify` returns `undelivered`, `timed_out` or `cancelled`, ask the same question in chat with numbered options and **stop** until the user answers; never pick a default device, language or repo on their behalf. Report the fallback under `Limitaciones del agente` in the final message.
+
+The real-app captures ([references/real-app-mockups.md](references/real-app-mockups.md)) need a browser where you can **evaluate JavaScript in the app's page**; they clone DOM and CSS, so they do not depend on pixel screenshots. Use the first one present in the session (row «Navegador real del usuario y capturas» of `agent-capabilities.md`):
+
+| Agent | "Browser JavaScript tool" of this skill |
+|---|---|
+| Claude Code | Claude in Chrome (`mcp__claude-in-chrome__javascript_tool` and its navigation tools) |
+| Codex | The browser runtime of the Chrome or Browser plugins (`mcp__cua_repl.js` or `node_repl`): prefer the `extension`/`chrome` entry of `agent.browsers.list()` when the app needs the user's session; the in-app browser (`iab`) is enough for a local dev server without sign-in. Evaluate the snippet in the claimed tab and close only the tabs you opened |
+| Hermes | `browser_exec` with its `js(...)` helper. With the default config it is a headless Chromium with a throwaway profile: fine for a local dev server or test credentials the project provides; for screens that need the user's own session it requires `browser.use_real_profile: true` |
+
+`computer_use` (Hermes, Codex) can drive the desktop but cannot evaluate page scripts, so it does not replace this tool. If no browser can evaluate scripts in the app, or the one available keeps failing to start, fall back to hand-drawn mockups as described in Step 4 and report it under `Limitaciones del agente`.
 
 ## Step 0 — Ask the device and the languages
 
@@ -490,7 +500,7 @@ with the one-line definition you would write. Then:
   `scripts/embed-app-frames.mjs`.
 - In shared environments (production, sandbox, staging) navigate read-only and never confirm.
 
-**Fallback: hand-drawn mockups** (`mockup-body`) only when the app cannot be reached, a gate blocks
+**Fallback: hand-drawn mockups** (`mockup-body`) only when the app cannot be reached, no browser can evaluate scripts in it (see "Agent compatibility"), a gate blocks
 it, or its stylesheets are cross-origin and blocked; say so in the report.
 
 Use real label strings and example data, never real people or IDs. The `mockup-url` shows only the

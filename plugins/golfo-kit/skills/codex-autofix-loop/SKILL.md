@@ -1,9 +1,9 @@
 ---
 name: codex-autofix-loop
-description: "Relanzar y operar el loop local (vía Claude Code) que auto-fixea comentarios de Codex (chatgpt-codex-connector[bot]) en un PR: clone efímero → fix → push → closeout del hilo, o delegación a Codex con `@codex fix` en el propio hilo (modo `codex`/`auto` con fallback local), con dedup por PR, tope de rondas, auto-merge sin esperar revisión humana y guard de auto-cancelación. Adapta la espera a las herramientas del agente (Monitor en Claude Code, watcher en background en Hermes, una ronda por invocación en Codex). Para responder un solo comentario de Codex fuera del loop alcanza con `codex-comment-closeout`. Use when the user asks to relaunch/start the Codex auto-fix loop for a PR, set up Codex comment auto-fixing, mentions docs/codex-autofix-loop.md, processed-PR.json, or the codex-autofix workflow."
+description: "Relanzar y operar el loop local (vía Claude Code) que auto-fixea comentarios de Codex (chatgpt-codex-connector[bot]) en un PR: clone efímero → fix → push → closeout del hilo, o delegación a Codex con `@codex fix` en el propio hilo (modo `codex`/`auto` con fallback local), con dedup por PR, tope de rondas, auto-merge sin esperar revisión humana y guard de auto-cancelación. Adapta la espera a las herramientas del agente (Monitor en Claude Code, watcher en background en Hermes, watcher en foreground dentro del turno en Codex, una ronda por invocación si no hay otra opción). Para responder un solo comentario de Codex fuera del loop alcanza con `codex-comment-closeout`. Use when the user asks to relaunch/start the Codex auto-fix loop for a PR, set up Codex comment auto-fixing, mentions docs/codex-autofix-loop.md, processed-PR.json, or the codex-autofix workflow."
 license: MIT
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, codex, pull-request, autofix, convergence"
@@ -196,10 +196,13 @@ herramientas **realmente presentes en la sesión**, no según el nombre del agen
 - **A. Monitor + cron** (Claude Code): el prompt tal cual.
 - **B. Watcher en background** (Hermes): `scripts/wait-for-pr-event.sh` acotado en background
   con aviso al terminar, rearmado tras cada vuelta hasta `{{MAX_WATCH_CYCLES}}` ciclos.
-- **C. Una ronda por invocación** (Codex y el resto): una vuelta del prompt, sin monitor, cron
-  ni esperas, y cierre con instrucciones para relanzar.
+- **C. Watcher en foreground dentro del turno** (Codex y otros agentes con terminal): el mismo
+  script esperado en primer plano, ciclo por ciclo, hasta `{{MAX_INTURN_CYCLES}}` ciclos; cubre la
+  escucha del PR, el respaldo por timeout y el relanzado tras `@codex review`.
+- **D. Una ronda por invocación** (sin shell para comandos largos, o si el usuario lo pide): una
+  vuelta del prompt, sin monitor, cron ni esperas, y cierre con instrucciones para relanzar.
 
-En los tres modos se mantienen el dedup de `processed-<PR>.json`, los topes de rondas, el
+En todos los modos se mantienen el dedup de `processed-<PR>.json`, los topes de rondas, el
 guard de auto-cancelación y los gates de merge (review limpia del head + CI verde). Lo que el
 modo desactiva se reporta al cierre en `Limitaciones del agente`.
 

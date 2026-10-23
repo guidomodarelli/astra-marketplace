@@ -33,7 +33,33 @@ const STATUS_DERIVATION_RULE = [
   'Las funcionalidades opcionales `unverified` no cambian el estado global, pero se listan como pendientes de verificar.',
   'Una funcionalidad solo puede estar `enabled` o `adapted` si la respalda al menos una prueba `eval` o `real_run` ejecutada **en ese agente** con resultado `passed`; las pruebas `simulated_eval` (otro agente simulando este), `bats` (scripts) y `static` (inspección) no alcanzan.',
   'Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilidades con ID `INC-<skill>--<agente>--<funcionalidad>`.',
+  '',
+  'La **resolución** de cada funcionalidad dice cómo se entrega en ese agente, independientemente de cuánto se verificó: `native` (la misma funcionalidad que el original), `alternative` (un mecanismo equivalente con otra implementación) o `disabled` (sin solución directa ni alternativa viable).',
+  'Una funcionalidad `disabled` lista las alternativas investigadas y ninguna es viable; una `alternative` lista al menos una alternativa viable.',
 ].join('\n');
+
+/**
+ * Derives the resolution a feature must declare from its status and adaptation flag.
+ *
+ * @param {{status: string, adaptation: boolean}} feature Feature of a skill in an agent.
+ * @returns {string} `native`, `alternative` or `disabled`.
+ */
+function deriveResolution(feature) {
+  if (feature.status === 'disabled') return 'disabled';
+  return feature.adaptation ? 'alternative' : 'native';
+}
+
+/**
+ * Counts the reclassifications that took a feature out of `disabled`.
+ *
+ * @param {object} report Parsed compatibility report.
+ * @returns {number} Features that were disabled in the previous revision and are not anymore.
+ */
+function countReclassifiedFromDisabled(report) {
+  return report.revision.reclassified
+    .filter((reclassification) => reclassification.from === 'disabled' && reclassification.to !== 'disabled')
+    .length;
+}
 
 /**
  * Derives the status of one skill in one agent from its features.
@@ -101,6 +127,7 @@ function computeSummary(report) {
     disabled_features: disabledFeatures,
     adaptations: { implemented: implementedAdaptations, verified: verifiedAdaptations },
     critical_pending: criticalPending,
+    reclassified_from_disabled: countReclassifiedFromDisabled(report),
   };
 }
 
@@ -185,8 +212,38 @@ function checkConsistency(report, options = {}) {
           const issueId = buildIssueId(skill.id, agentId, feature.id);
           if (!issuesById.has(issueId)) errors.push(`${featureWhere}: disabled feature needs issue ${issueId}`);
         }
+        const expectedResolution = deriveResolution(feature);
+        if (feature.resolution !== expectedResolution) {
+          errors.push(`${featureWhere}: resolution is ${feature.resolution} but status ${feature.status} with adaptation ${feature.adaptation} means ${expectedResolution}`);
+        }
+        const viableAlternatives = feature.alternatives_investigated.filter((alternative) => alternative.viable);
+        if (feature.resolution === 'disabled' && (!feature.alternatives_investigated.length || viableAlternatives.length)) {
+          errors.push(`${featureWhere}: disabled features must list the alternatives investigated, none of them viable`);
+        }
+        if (feature.resolution === 'alternative' && !viableAlternatives.length) {
+          errors.push(`${featureWhere}: alternative resolution needs at least one viable investigated alternative`);
+        }
       }
     }
+  }
+
+  const seenReclassifications = new Set();
+  for (const reclassification of report.revision.reclassified) {
+    const key = `${reclassification.skill} / ${reclassification.agent} / ${reclassification.feature}`;
+    const where = `revision.reclassified ${key}`;
+    if (seenReclassifications.has(key)) errors.push(`${where}: duplicated`);
+    seenReclassifications.add(key);
+    const skill = report.skills.find((candidate) => candidate.id === reclassification.skill);
+    const feature = skill && skill.agents[reclassification.agent].features.find((candidate) => candidate.id === reclassification.feature);
+    if (!feature) {
+      errors.push(`${where}: unknown feature`);
+      continue;
+    }
+    if (reclassification.from === reclassification.to && feature.resolution === reclassification.resolution) {
+      errors.push(`${where}: from and to are equal; only list features that changed`);
+    }
+    if (feature.status !== reclassification.to) errors.push(`${where}: to is ${reclassification.to} but the feature is ${feature.status}`);
+    if (feature.resolution !== reclassification.resolution) errors.push(`${where}: resolution is ${reclassification.resolution} but the feature declares ${feature.resolution}`);
   }
 
   const expectedSummary = computeSummary(report);
@@ -251,7 +308,16 @@ function renderMarkdown(report) {
   push(`- **Total de skills analizadas:** ${report.summary.total_skills}.`);
   push(`- **Funcionalidades deshabilitadas:** ${report.summary.disabled_features}.`);
   push(`- **Adaptaciones implementadas:** ${report.summary.adaptations.implemented}; verificadas: ${report.summary.adaptations.verified}.`);
-  push(`- **Problemas críticos pendientes:** ${report.summary.critical_pending.length ? report.summary.critical_pending.map((issueId) => `\`${issueId}\``).join(', ') : 'ninguno'}.`, '');
+  push(`- **Problemas críticos pendientes:** ${report.summary.critical_pending.length ? report.summary.critical_pending.map((issueId) => `\`${issueId}\``).join(', ') : 'ninguno'}.`);
+  push(`- **Funcionalidades que dejaron de estar deshabilitadas en esta revisión:** ${report.summary.reclassified_from_disabled} (respecto de \`${report.revision.previous_revision}\`).`, '');
+  push('### Cambios de esta revisión', '', report.revision.summary, '');
+  if (report.revision.reclassified.length) {
+    push('| Skill | Agente | Funcionalidad | Antes | Ahora | Resolución | Motivo |', '|---|---|---|---|---|---|---|');
+    for (const reclassification of report.revision.reclassified) {
+      push(`| \`${reclassification.skill}\` | \`${reclassification.agent}\` | \`${reclassification.feature}\` | \`${reclassification.from}\` | \`${reclassification.to}\` | \`${reclassification.resolution}\` | ${cell(reclassification.reason)} |`);
+    }
+    push('');
+  }
   push('### Agentes evaluados', '', '| Agente | Versión | Comando | Señales de detección |', '|---|---|---|---|');
   for (const agent of report.agents) {
     push(`| ${cell(agent.name)} (\`${agent.id}\`) | ${cell(agent.version)} | \`${cell(agent.version_command)}\` | ${cell(agent.detection_signals)} |`);
@@ -292,12 +358,22 @@ function renderMarkdown(report) {
       push(compatibility.summary, '');
       push(`- Capacidades faltantes: ${compatibility.missing_capabilities.length ? compatibility.missing_capabilities.join('; ') : 'ninguna'}.`);
       push(`- Alternativas investigadas: ${compatibility.alternatives_investigated.length ? compatibility.alternatives_investigated.join('; ') : 'ninguna'}.`, '');
-      push('| Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |', '|---|---|---|---|---|---|---|');
+      push('| Funcionalidad | Obligatoria | Estado | Resolución | Implementación | Fallback | Justificación | Evidencia |', '|---|---|---|---|---|---|---|---|');
       for (const feature of compatibility.features) {
         const evidence = [...feature.evidence, ...feature.tests.map((testId) => `prueba \`${testId}\``)];
-        push(`| \`${feature.id}\` | ${feature.required ? 'sí' : 'no'} | \`${feature.status}\` | ${cell(feature.implementation)} | ${cell(feature.fallback)} | ${cell(feature.reason)} | ${cell(evidence)} |`);
+        push(`| \`${feature.id}\` | ${feature.required ? 'sí' : 'no'} | \`${feature.status}\` | \`${feature.resolution}\` | ${cell(feature.implementation)} | ${cell(feature.fallback)} | ${cell(feature.reason)} | ${cell(evidence)} |`);
       }
       push('');
+      const featuresWithAlternatives = compatibility.features.filter((feature) => feature.alternatives_investigated.length);
+      if (featuresWithAlternatives.length) {
+        push('| Funcionalidad | Alternativa investigada | Fuente | Viable | Motivo |', '|---|---|---|---|---|');
+        for (const feature of featuresWithAlternatives) {
+          for (const alternative of feature.alternatives_investigated) {
+            push(`| \`${feature.id}\` | ${cell(alternative.name)} | ${cell(alternative.source)} | ${alternative.viable ? 'sí' : 'no'} | ${cell(alternative.reason)} |`);
+          }
+        }
+        push('');
+      }
     }
     push('**Implementación**', '');
     push(`- Adaptaciones: ${skill.implementation.adaptations.length ? skill.implementation.adaptations.join('; ') : 'ninguna'}.`);
@@ -447,5 +523,6 @@ module.exports = {
   checkMarkdownSync,
   computeSummary,
   deriveAgentStatus,
+  deriveResolution,
   renderMarkdown,
 };

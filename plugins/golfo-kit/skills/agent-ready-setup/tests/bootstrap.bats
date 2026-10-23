@@ -2906,3 +2906,66 @@ commit_agents_and_detach_security_rule() {
   [ -z "$(git config --get hook.agent-ready-relink.event)" ]
   [ ! -e "$(git rev-parse --git-path hooks)/post-index-change" ]
 }
+
+# Builds a PATH that only exposes the given fake provider CLIs plus system tools.
+provider_cli_path() {
+  local isolated_bin="$test_root/isolated-bin-$1"
+  local provider_cli
+  mkdir -p "$isolated_bin"
+  shift
+  for provider_cli in "$@"; do
+    cp "$fake_bin/$provider_cli" "$isolated_bin/$provider_cli"
+  done
+  printf '%s:/usr/bin:/bin\n' "$isolated_bin"
+}
+
+@test "resolve-provider infers the only provider CLI for a Hermes installation" {
+  hermes_home="$test_root/hermes-home"
+  hermes_skill_dir="$hermes_home/plugins/golfo-kit/skills/agent-ready-setup"
+  mkdir -p "$hermes_skill_dir"
+
+  run env -u AGENT_READY_SETUP_ACTIVE_PROVIDER -u LOCALAPPDATA HERMES_HOME="$hermes_home" \
+    PATH="$(provider_cli_path codex-only codex)" \
+    bash "$skill_dir/scripts/resolve-provider.sh" --skill-dir "$hermes_skill_dir"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "codex" ]
+}
+
+@test "resolve-provider asks for a choice when a Hermes installation sees both provider CLIs" {
+  hermes_home="$test_root/hermes-home"
+  hermes_skill_dir="$hermes_home/skills/agent-ready-setup"
+  mkdir -p "$hermes_skill_dir"
+
+  run env -u AGENT_READY_SETUP_ACTIVE_PROVIDER -u LOCALAPPDATA HERMES_HOME="$hermes_home" \
+    PATH="$(provider_cli_path both claude codex)" \
+    bash "$skill_dir/scripts/resolve-provider.sh" --skill-dir "$hermes_skill_dir"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"belongs to Hermes and both claude and codex are in PATH"* ]]
+}
+
+@test "resolve-provider rejects a Hermes installation without provider CLIs" {
+  hermes_skill_dir="$HOME/.hermes/plugins/golfo-kit/skills/agent-ready-setup"
+
+  run env -u AGENT_READY_SETUP_ACTIVE_PROVIDER -u LOCALAPPDATA -u HERMES_HOME \
+    PATH="$(provider_cli_path none)" \
+    bash "$skill_dir/scripts/resolve-provider.sh" --skill-dir "$hermes_skill_dir"
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"belongs to Hermes, which is not a target provider, and neither claude nor codex is in PATH"* ]]
+}
+
+@test "resolve-provider matches a Windows-style HERMES_HOME" {
+  command -v cygpath >/dev/null 2>&1 || skip "cygpath is only available on Windows"
+  hermes_home="$test_root/hermes-home"
+  hermes_skill_dir="$hermes_home/plugins/golfo-kit/skills/agent-ready-setup"
+  mkdir -p "$hermes_skill_dir"
+
+  run env -u AGENT_READY_SETUP_ACTIVE_PROVIDER -u LOCALAPPDATA HERMES_HOME="$(cygpath -w "$hermes_home")" \
+    PATH="$(provider_cli_path claude-only claude)" \
+    bash "$skill_dir/scripts/resolve-provider.sh" --skill-dir "$hermes_skill_dir"
+
+  [ "$status" -eq 0 ]
+  [ "$output" = "claude" ]
+}

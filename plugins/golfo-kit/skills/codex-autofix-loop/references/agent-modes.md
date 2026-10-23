@@ -1,6 +1,6 @@
 # Modos de ejecución por capacidades del agente
 
-El prompt del loop (`SKILL.md`, «Prompt») está escrito para Claude Code: `Monitor` como disparador, cron de `/loop` como respaldo, `Agent` para subagentes y `PushNotification` para avisos. Este archivo define cómo correr **el mismo prompt** cuando faltan esas herramientas. Las equivalencias generales y el protocolo detectar → verificar → alternativa → desactivar y reportar viven en [`agent-capabilities.md`](../../../references/agent-capabilities.md).
+El prompt del loop (`SKILL.md`, «Prompt») está escrito para Claude Code: `Monitor` como disparador, cron de `/loop` como respaldo, `Agent` para subagentes y `PushNotification` para avisos. Este archivo define cómo correr **el mismo prompt** cuando faltan esas herramientas, con alternativas que conservan la escucha del PR siempre que el agente pueda esperar un comando acotado. Las equivalencias generales y el protocolo detectar → verificar → alternativa → desactivar y reportar viven en [`agent-capabilities.md`](../../../references/agent-capabilities.md).
 
 ## Elegir el modo (por capacidades, no por nombre del agente)
 
@@ -10,7 +10,8 @@ Antes del paso (0) del prompt, verificá en la lista de herramientas de la sesi�
 |---|---|---|
 | **A. Monitor + cron** (original) | `Monitor`, `CronCreate`, `CronList`, `CronDelete`, `TaskStop` | Claude Code interactivo |
 | **B. Watcher en background** | Un proceso en background que avisa al terminar (`terminal` con `background` + `notify`/`notify_on_complete`) y una herramienta para esperarlo o matarlo (`process`/`process_manage` con `wait` y `kill`) | Hermes |
-| **C. Una ronda por invocación** | Nada de lo anterior | Codex CLI, `claude -p`, otros agentes |
+| **C. Watcher en foreground dentro del turno** | Un shell que sostiene un comando de hasta `{{WATCH_TIMEOUT_SEC}}` s dentro del turno: bloqueante con timeout propio, o que devuelve el control y deja leer la salida después (`exec_command` con `yield_time_ms` + `write_stdin` vacío para seguir leyendo, en Codex) | Codex CLI y app, `claude -p`, otros agentes con terminal |
+| **D. Una ronda por invocación** | Nada de lo anterior, o el usuario pidió explícitamente una sola ronda sin ocupar la sesión | Agentes sin shell para comandos largos |
 
 Si falta una sola herramienta de un modo, ese modo no aplica: bajá al siguiente. No mezcles modos en una misma corrida.
 
@@ -45,7 +46,22 @@ Reemplaza el paso (0) y el cron de respaldo por ciclos de un watcher acotado:
 
 No uses `cronjob` como respaldo: cada disparo corre en una sesión nueva sin acceso a los subagentes ni al watcher de esta sesión, así que no puede reconciliar `inFlight` ni cancelar el loop.
 
-## Modo C — Una ronda por invocación (Codex y otros agentes)
+## Modo C — Watcher en foreground dentro del turno (Codex y otros agentes con terminal)
+
+Mismo watcher que el modo B, pero esperado en primer plano: el turno queda ocupado por el loop y nada sobrevive al turno.
+
+1. **Esperar el evento**: corré en foreground
+   `bash <skill-dir>/scripts/wait-for-pr-event.sh --repo {{OWNER}}/{{REPO}} --pr {{PR}} --poll-seconds {{MONITOR_POLL_SEC}} --timeout-seconds {{WATCH_TIMEOUT_SEC}}`.
+   En Codex, con `exec_command` y un `yield_time_ms` corto: si devuelve un `session_id` porque sigue corriendo, seguí leyendo con `write_stdin` (entrada vacía) hasta obtener el código de salida, sin lanzar otro watcher. Un solo watcher vivo por PR.
+2. **Según el código de salida**, igual que el modo B: `0` o `3` → **una** iteración completa del prompt desde el GUARD (el `3` cumple el rol del cron de respaldo y evalúa TTLs y reintentos de merge); `5` → auto-cancelar y terminar; `4` o `2` → reportar la salida del script y terminar.
+3. **Repetir** tras cada iteración, contando ciclos, hasta `{{MAX_INTURN_CYCLES}}`. Así se cubre el relanzado tras `@codex review` (paso 7): el ciclo siguiente detecta la respuesta de Codex y sigue sin intervención. Con checks pendientes, el merge espera al ciclo en que la CI termine; nunca se mergea antes.
+4. **Terminar** cuando el GUARD auto-cancela, se mergea, se llega al tope de ciclos («loop detenido por tope de ciclos: relanzá la skill para seguir») o el usuario interrumpe el turno. El estado del JSON se conserva siempre, así que relanzar retoma donde quedó.
+5. **Subagentes**: `spawn_agent` + `wait_agent` esperados dentro de la iteración; si no hay, `fix-in-ephemeral-clone` en contexto, grupo por grupo. Ninguno queda vivo al terminar el turno.
+6. **Avisos**: cada `PushNotification` se reemplaza por una línea en el chat (y en el mensaje final).
+
+Bloqueado en este modo: `sleep` en bucle fuera del script, procesos en background que sobrevivan al turno y crons. El único mecanismo de espera es el script, que siempre termina.
+
+## Modo D — Una ronda por invocación
 
 Corré el prompt **una sola vez**, sin el paso (0) ni el paso (7):
 
@@ -55,10 +71,11 @@ Corré el prompt **una sola vez**, sin el paso (0) ni el paso (7):
 - **Cierre**: el mensaje final incluye la línea de resumen del paso (6-bis), qué quedó pendiente (por ejemplo «`@codex review` posteado, esperando a Codex») y cómo relanzar: «volvé a invocar `codex-autofix-loop` para el PR {{PR}} cuando Codex responda».
 - **Avisos**: cada `PushNotification` se reemplaza por una línea del mensaje final.
 
-## Variables de los modos B y C
+## Variables de los modos B, C y D
 
 - `{{WATCH_TIMEOUT_SEC}}` = `300` — presupuesto de cada ciclo del watcher (también marca cada cuánto se evalúan los TTL).
 - `{{MAX_WATCH_CYCLES}}` = `72` — ciclos por sesión en el modo B (≈ 6 h con el timeout por defecto).
+- `{{MAX_INTURN_CYCLES}}` = `36` — ciclos por turno en el modo C (≈ 3 h con el timeout por defecto); más corto que el modo B porque ocupa el turno del usuario.
 
 ## Limitaciones del agente (reportar al cierre)
 
@@ -66,5 +83,6 @@ Corré el prompt **una sola vez**, sin el paso (0) ni el paso (7):
 |---|---|---|---|
 | B | Cron de respaldo | No hay cron de sesión; `cronjob` corre en sesiones nuevas | Watcher con timeout como respaldo |
 | B | Supervisión después de cerrar la sesión | El watcher y los subagentes mueren con la sesión (igual que en Claude Code) | Workflow `codex-autofix.yml` del repo |
-| C | Escucha continua del PR | No hay herramienta que despierte al agente después del turno | Watcher en foreground dentro del turno: descartado porque bloquearía el turno sin supervisión del usuario |
-| C | Relanzado automático tras `@codex review` (paso 7) | Ídem | Relanzar a mano o usar el workflow `codex-autofix.yml` |
+| C | Uso del turno mientras el loop corre | El watcher ocupa el turno; el usuario puede interrumpirlo y relanzar sin perder estado | Automatizaciones de la app de escritorio de Codex (`codex_app`, `automation_update`): solo existen en la app (las herramientas las sirve la app por `CODEX_APP_TOOLS_PIPE_PATH`) y no se verificaron; `codex exec resume` + cron del SO o GitHub Actions (`codex-autofix.yml`): viables, pero crean un scheduler persistente fuera de la sesión, así que solo se arman si el usuario lo pide |
+| C | Supervisión después del turno o tras `{{MAX_INTURN_CYCLES}}` ciclos | Nada sobrevive al turno | Ídem |
+| D | Escucha continua del PR y relanzado automático (paso 7) | Modo elegido por el usuario o sin shell para comandos largos | Modo C si el shell lo permite; relanzar a mano o el workflow `codex-autofix.yml` |

@@ -98,7 +98,18 @@ render_markdown() {
   [[ "$output" == *"codex-autofix-loop / codex / merge-gates: enabled requires a passed eval or real_run test executed in codex"* ]]
 }
 
+# Turns review-fix-loop / hermes / isolated-filter into a consistent disabled feature.
+disable_hermes_filter() {
+  mutate_report '
+    const filter = skill("review-fix-loop").agents.hermes.features.find((entry) => entry.id === "isolated-filter");
+    Object.assign(filter, { status: "disabled", resolution: "disabled", adaptation: false, tests: [] });
+    filter.alternatives_investigated.forEach((entry) => { entry.viable = false; });
+    report.revision.reclassified = report.revision.reclassified.filter((entry) => !(entry.skill === "review-fix-loop" && entry.agent === "hermes"));
+  '
+}
+
 @test "rejects a disabled feature without its incompatibility entry" {
+  disable_hermes_filter
   mutate_report 'skill("review-fix-loop").issues = skill("review-fix-loop").issues.filter((entry) => entry.agent !== "hermes");'
   render_markdown
 
@@ -106,6 +117,57 @@ render_markdown() {
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"disabled feature needs issue INC-review-fix-loop--hermes--isolated-filter"* ]]
+}
+
+@test "rejects a disabled feature that lists a viable alternative" {
+  disable_hermes_filter
+  mutate_report 'skill("review-fix-loop").agents.hermes.features.find((entry) => entry.id === "isolated-filter").alternatives_investigated[0].viable = true;'
+  render_markdown
+
+  validate
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"isolated-filter: disabled features must list the alternatives investigated, none of them viable"* ]]
+}
+
+@test "rejects a resolution that does not match status and adaptation" {
+  mutate_report 'skill("review-fix-loop").agents.codex.features.find((entry) => entry.id === "isolated-filter").resolution = "native";'
+  render_markdown
+
+  validate
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"isolated-filter: resolution is native but status adapted with adaptation true means alternative"* ]]
+}
+
+@test "rejects an alternative resolution without a viable investigated alternative" {
+  mutate_report 'skill("review-fix-loop").agents.codex.features.find((entry) => entry.id === "isolated-filter").alternatives_investigated.forEach((entry) => { entry.viable = false; });'
+  render_markdown
+
+  validate
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"isolated-filter: alternative resolution needs at least one viable investigated alternative"* ]]
+}
+
+@test "rejects a reclassification whose target status differs from the feature" {
+  mutate_report 'report.revision.reclassified.find((entry) => entry.skill === "review-fix-loop" && entry.agent === "codex").to = "unverified";'
+  render_markdown
+
+  validate
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"revision.reclassified review-fix-loop / codex / isolated-filter: to is unverified but the feature is adapted"* ]]
+}
+
+@test "rejects a reclassified-from-disabled count that does not match the revision" {
+  mutate_report 'report.summary.reclassified_from_disabled += 1;'
+  render_markdown
+
+  validate
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"summary.reclassified_from_disabled: declared"* ]]
 }
 
 @test "rejects summary counts that do not match the skills" {

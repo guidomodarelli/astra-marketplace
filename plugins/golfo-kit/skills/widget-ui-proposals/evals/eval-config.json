@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "widget-ui-proposals",
-  "description": "Evalúa propuestas y previews de UI/UX con widgets visuales: grid de opciones componibles con botones Aplicar que llaman a sendPrompt, recomendación y trade-offs en el chat y no dentro del widget, preview con datos realistas y aplicación solo de las opciones elegidas.",
+  "description": "Evalúa propuestas y previews de UI/UX con widgets visuales: grid de opciones componibles con botones Aplicar que llaman a sendPrompt, recomendación y trade-offs en el chat y no dentro del widget, preview con datos realistas y aplicación solo de las opciones elegidas. En Codex sin show_widget usa el plugin visualize (fragmento HTML, referencia visualize{...} y carrusel); en Hermes u otros agentes con terminal renderiza un preview estático (HTML a PNG) y la elección se hace con clarify u opciones numeradas; sin ninguna vía de render se detiene con Limitaciones del agente.",
   "test_cases": [
     {
       "id": "variants-grid-with-apply-buttons",
@@ -86,6 +86,102 @@
           "type": "contains_any",
           "values": ["lint", "typecheck", "tests", "quality gates", "gates"],
           "description": "Valida los cambios con los quality gates del proyecto"
+        }
+      ]
+    },
+    {
+      "id": "codex-visualize-mode-without-show-widget",
+      "description": "En Codex, sin mcp__visualize__show_widget pero con el plugin visualize habilitado, usa el modo Codex: fragmento HTML en un archivo, referencia visualize{...} en línea propia, carrusel de variantes y sendFollowUpMessage para Aplicar, sin llamar a show_widget ni bloquear.",
+      "input": "Usando widget-ui-proposals: estás en Codex. En esta sesión no existe la herramienta mcp__visualize__show_widget, pero el plugin `visualize@openai-bundled` está habilitado y su skill `visualize` se puede cargar. Quiero ver dos variantes del botón primario \"Guardar cambios\" de `SettingsForm.tsx`. No ejecutes ni edites nada: describí paso a paso qué harías, qué archivo escribirías, cómo estructurarías las variantes, cómo funcionaría Aplicar y qué pondrías en la respuesta final.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "visualize{",
+          "description": "Emite la referencia visualize{...} hacia el fragmento"
+        },
+        {
+          "type": "contains_any",
+          "values": ["viz-carousel", "carrusel", "carousel"],
+          "description": "Organiza las variantes en un carrusel .viz-carousel"
+        },
+        {
+          "type": "contains_any",
+          "values": ["fragmento", "fragment"],
+          "description": "Escribe un fragmento HTML sin documento completo"
+        },
+        {
+          "type": "contains",
+          "value": "sendFollowUpMessage",
+          "description": "El botón Aplicar usa window.openai.sendFollowUpMessage"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|not|without|nunca|never)[^.]{0,60}show_widget|show_widget[^.]{0,30}(no existe|no está|no hay|not available|is missing)",
+          "description": "Dice explícitamente que no usa show_widget"
+        }
+      ]
+    },
+    {
+      "id": "no-visual-capability-blocks-with-limitations",
+      "description": "Sin show_widget, sin el plugin visualize de Codex, sin shell y sin navegador para renderizar, se detiene antes de proponer, informa Limitaciones del agente y no simula un widget.",
+      "input": "Usando widget-ui-proposals: estás en un agente que no tiene la herramienta mcp__visualize__show_widget, ni el plugin o la skill `visualize` de Codex, ni acceso a shell, ni ningún navegador o herramienta de captura para renderizar HTML. Mostrame tres variantes del header de `OrdersTable.tsx`. No ejecutes ni edites nada: describí qué harías.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "Limitaciones del agente",
+          "description": "Reporta la sección Limitaciones del agente"
+        },
+        {
+          "type": "contains_any",
+          "values": ["no simul", "sin simular", "not simulate", "no fing", "no invent", "widget falso", "fake widget", "simular"],
+          "description": "No simula el widget"
+        },
+        {
+          "type": "contains_any",
+          "values": ["visualize@openai-bundled", "plugin visualize", "plugin `visualize`", "conector visualize", "visualize connector", "headless", "navegador"],
+          "description": "Explica qué vías de render revisó y cómo obtener la funcionalidad"
+        },
+        {
+          "type": "contains_any",
+          "values": ["texto plano", "sin visuales", "plain text", "en texto"],
+          "description": "Ofrece propuestas en texto solo si el usuario lo pide explícitamente"
+        }
+      ]
+    },
+    {
+      "id": "hermes-static-preview-with-clarify",
+      "description": "En Hermes, sin show_widget ni visualize pero con terminal y un navegador headless, usa el modo de preview estático: HTML autocontenido renderizado a PNG, revisa la imagen, la entrega por ruta absoluta y hace elegir con clarify (multi_select) o con opciones numeradas, informando la pérdida de interactividad.",
+      "input": "Usando widget-ui-proposals: estás en Hermes (CLI). No existe mcp__visualize__show_widget ni la skill `visualize` de Codex, pero tenés `terminal`, `clarify`, `vision_analyze` y Google Chrome instalado. Quiero ver tres variantes del header de `OrdersTable.tsx`. No ejecutes ni edites nada: describí paso a paso qué archivo escribirías, con qué comando lo renderizarías, cómo me lo mostrarías, cómo elegiría yo y qué se pierde respecto del widget interactivo.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["--screenshot", "capture_screenshot"],
+          "description": "Renderiza el HTML a una imagen con un navegador headless o el helper de captura"
+        },
+        {
+          "type": "contains_any",
+          "values": ["PNG", "png"],
+          "description": "Produce una imagen PNG de las variantes"
+        },
+        {
+          "type": "contains",
+          "value": "clarify",
+          "description": "Hace elegir la opción con clarify"
+        },
+        {
+          "type": "contains_any",
+          "values": ["multi_select", "varias opciones", "combinar", "componibles"],
+          "description": "Permite elegir varias opciones componibles"
+        },
+        {
+          "type": "contains_any",
+          "values": ["Limitaciones del agente"],
+          "description": "Reporta la pérdida de interactividad en Limitaciones del agente"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|not|without|nunca|never)[^.]{0,60}show_widget",
+          "description": "Dice explícitamente que no usa show_widget"
         }
       ]
     }

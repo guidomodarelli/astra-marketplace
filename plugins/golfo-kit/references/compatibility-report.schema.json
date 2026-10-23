@@ -12,11 +12,12 @@
     "agents",
     "summary",
     "skills",
+    "revision",
     "pending_actions"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "generated_at": {
       "type": "string",
@@ -48,6 +49,9 @@
       "items": {
         "$ref": "#/$defs/pendingAction"
       }
+    },
+    "revision": {
+      "$ref": "#/$defs/revision"
     }
   },
   "$defs": {
@@ -171,7 +175,8 @@
         "by_agent",
         "disabled_features",
         "adaptations",
-        "critical_pending"
+        "critical_pending",
+        "reclassified_from_disabled"
       ],
       "properties": {
         "total_skills": {
@@ -233,6 +238,11 @@
           "items": {
             "$ref": "#/$defs/issueId"
           }
+        },
+        "reclassified_from_disabled": {
+          "description": "Features that were disabled in the previous revision and are no longer disabled.",
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -288,7 +298,9 @@
         "fallback",
         "reason",
         "evidence",
-        "tests"
+        "tests",
+        "resolution",
+        "alternatives_investigated"
       ],
       "properties": {
         "id": {
@@ -325,6 +337,15 @@
             "$ref": "#/$defs/testId"
           },
           "uniqueItems": true
+        },
+        "resolution": {
+          "$ref": "#/$defs/resolution"
+        },
+        "alternatives_investigated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/investigatedAlternative"
+          }
         }
       }
     },
@@ -623,6 +644,100 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/issueId"
+          }
+        }
+      }
+    },
+    "resolution": {
+      "description": "How the feature is delivered in the agent: native (same functionality as the original), alternative (an equivalent mechanism with a different implementation) or disabled (no viable direct solution nor alternative).",
+      "enum": [
+        "native",
+        "alternative",
+        "disabled"
+      ]
+    },
+    "investigatedAlternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "source",
+        "viable",
+        "reason"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source": {
+          "description": "Where the alternative was found or verified (config file, plugin manifest, documentation URL, real run).",
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "viable": {
+          "type": "boolean"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "reclassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill",
+        "agent",
+        "feature",
+        "from",
+        "to",
+        "resolution",
+        "reason"
+      ],
+      "properties": {
+        "skill": {
+          "$ref": "#/$defs/skillId"
+        },
+        "agent": {
+          "$ref": "#/$defs/agentId"
+        },
+        "feature": {
+          "$ref": "#/$defs/featureId"
+        },
+        "from": {
+          "$ref": "#/$defs/featureStatus"
+        },
+        "to": {
+          "$ref": "#/$defs/featureStatus"
+        },
+        "resolution": {
+          "$ref": "#/$defs/resolution"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "revision": {
+      "description": "What changed against the previous revision of the report.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "previous_revision",
+        "summary",
+        "reclassified"
+      ],
+      "properties": {
+        "previous_revision": {
+          "description": "Git reference of the previous report.",
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "reclassified": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/reclassification"
           }
         }
       }
