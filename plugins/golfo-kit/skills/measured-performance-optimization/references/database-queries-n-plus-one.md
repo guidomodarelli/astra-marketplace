@@ -25,6 +25,7 @@ Son 101 queries cuando con 1 o 2 alcanza. El costo crece linealmente con la cant
 - Sentry: issue de tipo "N+1 Query" o spans `db` repetidos dentro de una transacción.
 - Señales en el código: aplicar el criterio de [Database And Remote Calls](../../review-performance/SKILL.md#database-and-remote-calls) de `review-performance`; acá solo se confirma con las señales en runtime de esta sección.
 - Un endpoint cuyo tiempo crece proporcionalmente con el tamaño de la página.
+- Un job periódico que relee toda una ventana en cada corrida y casi todo sale sin cambios: no es N+1 sino barrido completo; ver [incremental-sweep-jobs.md](incremental-sweep-jobs.md).
 
 ## Corregir
 

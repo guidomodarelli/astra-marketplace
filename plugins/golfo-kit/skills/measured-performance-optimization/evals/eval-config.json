@@ -168,6 +168,43 @@
           "description": "Usa la cantidad de requests agregadas como métrica"
         }
       ]
+    },
+    {
+      "id": "cron-full-window-sweep",
+      "description": "Ante un cron que relee toda la ventana de 24 h paginada y cuya demora crece con la ventana, propone un barrido incremental con frontera monótona y reintentos aparte, trata las confirmaciones tardías y mide filas examinadas frente a filas nuevas.",
+      "input": "Usando measured-performance-optimization: tenemos un cron que corre cada minuto y procesa una página de 25 filas de la tabla `events` de las últimas 24 h, ordenada por `created_at`. Recién cuando termina de recorrer toda la ventana marca como certificado todo lo anterior al inicio de ese barrido. Hoy la ventana tiene unas 600 filas y casi todo lo que lee sale como ya procesado, pero una fila nueva tarda cada vez más en quedar certificada. A veces la fuente externa de una fila no responde. La base es Postgres remota. No ejecutes ni edites nada: explicá el problema, cómo lo medirías y qué cambiarías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(frontera|cursor|watermark|marca de agua|checkpoint|high[- ]water)[^.;]{0,120}(mon(ó|o)ton|solo avanza|nunca retroced|no retroced|incremental)|(mon(ó|o)ton|solo avanza|incremental)[^.;]{0,120}(frontera|cursor|watermark|checkpoint|high[- ]water)",
+          "description": "Propone una frontera o cursor persistido que solo avanza (barrido incremental), en la misma frase y en cualquier orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reintento|retry|retries)[^.;]{0,160}(tabla|cola|queue|aparte|separad|fallid|no disponible|no responde)|(tabla|cola|queue)[^.;]{0,80}(reintento|retry)",
+          "description": "Separa los reintentos de las filas fallidas o no disponibles en una tabla o cola aparte"
+        },
+        {
+          "type": "regex",
+          "pattern": "(confirm|commit)[^.;]{0,80}(tard|late|despu(é|e)s)|(tard(í|i)a|late)[^.;]{0,40}(commit|confirm|transacci)|FOR UPDATE|FOR SHARE|xmin",
+          "description": "Trata el riesgo de confirmaciones tardías con un fence de lock, el xmin del snapshot o una explicación equivalente"
+        },
+        {
+          "type": "regex",
+          "pattern": "(filas|rows|registros)[^.;]{0,60}(examinad|le(í|i)d|escanead|scanned|read)[^.;]{0,80}(nuev|new)|(nuev|new)[^.;]{0,80}(examinad|le(í|i)d|escanead|scanned)",
+          "description": "Mide filas examinadas frente a filas nuevas por corrida"
+        },
+        {
+          "type": "regex",
+          "pattern": "(demora|latencia|delay|lag|tarda)[^.;]{0,120}(ventana|tama(ñ|n)o|cantidad de filas|p(á|a)ginas|ticks?)|(ventana|p(á|a)ginas)[^.;]{0,120}(demora|latencia|delay|lag)",
+          "description": "Relaciona la demora con el tamaño de la ventana o la cantidad de páginas"
+        },
+        {
+          "type": "regex",
+          "pattern": "antes|before|l(í|i)nea base|baseline",
+          "description": "Plantea medir antes del cambio"
+        }
+      ]
     }
   ]
 }

@@ -1,12 +1,12 @@
 ---
 name: measured-performance-optimization
-description: 'Mide y optimiza rendimiento web: app lenta, Core Web Vitals, bundle, renders, caching o N+1. Usar también sin pedido explícito al crear un flujo nuevo o sumarle a uno existente requests, llamadas, queries o pasos nuevos; no en refactors, fixes ni cambios de copy o estilos que no agregan carga.'
+description: 'Mide y optimiza rendimiento web: app lenta, Core Web Vitals, bundle, renders, caching, N+1 o jobs periódicos que releen toda una ventana en cada corrida. Usar también sin pedido explícito al crear un flujo nuevo o sumarle a uno existente requests, llamadas, queries o pasos nuevos; no en refactors, fixes ni cambios de copy o estilos que no agregan carga.'
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "performance"
-  tags: "performance, web-vitals, bundle, caching, n+1, lazy-loading, chrome-devtools, playwright, sentry"
+  tags: "performance, web-vitals, bundle, caching, n+1, incremental-sweep, cron, lazy-loading, chrome-devtools, playwright, sentry"
   command: "/measured-performance-optimization"
 ---
 
@@ -76,6 +76,7 @@ Ordenar los hallazgos por impacto medido en el flujo crítico, no por facilidad.
 | Requests y caching | Orden, cantidad y cacheo de requests entre cliente, red y servidor | [references/requests-caching.md](references/requests-caching.md) |
 | Queries lentas y N+1 | Acceso a base de datos desde el backend | [references/database-queries-n-plus-one.md](references/database-queries-n-plus-one.md) |
 | Imágenes, fuentes y scripts | Carga de imágenes, fuentes web y scripts de terceros | [references/images-fonts-scripts.md](references/images-fonts-scripts.md) |
+| Jobs periódicos con barrido completo | Cron o driver que relee una ventana entera en cada corrida y cuya demora crece con la ventana, no con lo nuevo | [references/incremental-sweep-jobs.md](references/incremental-sweep-jobs.md) |
 
 ### 5. Aplicar una optimización a la vez
 
