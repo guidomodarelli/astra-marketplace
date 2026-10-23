@@ -13,7 +13,7 @@ import { EXIT_CODES } from './lib/constants.mjs';
 import { abortRun, addEvidence, beginRun, recordRun } from './lib/evaluation/run-lifecycle.mjs';
 import { openProjectContext } from './lib/evaluation/project-context.mjs';
 import { discoverUnits, writeDiscoveredUnits } from './lib/discovery/next-app-router.mjs';
-import { splitInputKey } from './lib/impact/input-diff.mjs';
+import { snapshotPaths, splitInputKey } from './lib/impact/input-diff.mjs';
 import { dependencyChain } from './lib/impact/unit-inputs.mjs';
 import { describeInputKey } from './lib/policies/base-policy.mjs';
 import { builtInPolicySkills } from './lib/policies/index.mjs';
@@ -280,7 +280,11 @@ const COMMANDS = {
     for (const unit of units) {
       for (const skill of skills) {
         const evaluation = context.evaluate(unit, skill);
-        const matches = Object.keys(evaluation.current.files).filter((filePath) => paths.has(filePath));
+        // Recorded baselines keep the paths of dependencies that were deleted or
+        // whose import no longer resolves, so their units are still selected.
+        const recordedBaselines = [evaluation.record?.verified, evaluation.record?.latest].filter(Boolean).map((attempt) => attempt.baseline);
+        const unitPaths = new Set([evaluation.current, ...recordedBaselines].flatMap(snapshotPaths));
+        const matches = [...unitPaths].filter((filePath) => paths.has(filePath)).sort();
         if (matches.length) {
           affected.push({ decision: evaluation.decision.decision, files: matches, freshness: evaluation.coverage.freshness, skill, state: evaluation.coverage.state, unit: unit.id });
         }

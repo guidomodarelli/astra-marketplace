@@ -17,6 +17,19 @@ export function splitInputKey(key) {
 }
 
 /**
+ * Lists the project paths an input snapshot depends on: the files read when
+ * it was computed and the paths of its inputs, including the ones recorded as
+ * missing (`path#*`), so a deleted dependency still belongs to the snapshot.
+ *
+ * @param {{ files: Record<string, string>, inputs: Record<string, string> }} snapshot Current inputs or an attempt baseline.
+ * @returns {string[]} Sorted unique paths.
+ */
+export function snapshotPaths(snapshot) {
+  const inputPaths = Object.keys(snapshot.inputs).map((key) => splitInputKey(key).path).filter(Boolean);
+  return [...new Set([...Object.keys(snapshot.files), ...inputPaths])].sort();
+}
+
+/**
  * @typedef {{ key: string, change: 'modified' | 'added' | 'removed' | 'relocated', previousHash?: string, currentHash?: string, from?: string }} InputChange
  */
 
