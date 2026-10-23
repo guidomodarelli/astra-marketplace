@@ -3,7 +3,7 @@ name: ui-ux-flow-patterns
 description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "ux, ui, empty-state, loading, error-state, toast, feedback, components, flows"
@@ -62,6 +62,17 @@ Cada estado vacío, error y confirmación responde: **qué pasó**, **por qué**
 2. Verificar cada estado de verdad, no solo el feliz: simular la red lenta (throttling o un delay temporal), una respuesta vacía, un error del servidor y un doble clic en cada acción. Si hay dev server, recorrer los estados en el browser con el teclado y con el lector de pantalla o las herramientas de accesibilidad disponibles.
 3. Agregar o actualizar tests de comportamiento para los estados nuevos (render del vacío con su acción, error con reintento que recupera, botón en pending que no envía dos veces), siguiendo la estrategia de testing del proyecto.
 
+## Compatibilidad entre agentes
+
+El recorrido de estados del paso 5 usa el navegador que exista en la sesión, según la fila «Verificar en un navegador» de [`agent-capabilities.md`](../../references/agent-capabilities.md): buscá la herramienta concreta en la sesión o en `PATH`, no te guíes por el nombre del agente.
+
+- Claude in Chrome o un MCP de navegador conectado: recorrer cada estado con clics y teclado.
+- Codex: plugin `chrome@openai-bundled` (`tab.playwright.getByRole(...).click()` por estado y `tab.dev.logs` para errores); en la app de escritorio también sirve el navegador in-app para localhost.
+- Hermes: `browser_exec` para localhost sin login; si no arranca dos veces seguidas, pasar a Playwright por terminal. `computer_use` solo si la pantalla necesita la sesión del usuario, avisando antes y con su consentimiento.
+- Cualquier agente con shell: Playwright con el Chrome instalado ([comando](../../references/agent-capabilities.md#verificación-en-navegador-por-terminal)), sin sesión del usuario.
+
+Un navegador headless confirma qué se ve y qué se puede hacer en cada estado, pero no reemplaza el lector de pantalla: si no hubo uno, decilo en **Verificación**. Si ningún mecanismo estuvo disponible o algo quedó sin recorrer, sumá **Limitaciones del agente** al cierre con lo omitido y cómo verificarlo.
+
 ## Formato del reporte
 
 Solo en modo completo:
@@ -77,7 +88,10 @@ Solo en modo completo:
 | Evento | Canal | Motivo |
 
 ## Verificación
-<estados recorridos, tests y comprobaciones ejecutadas, con resultado>
+<estados recorridos, con qué navegador o herramienta, tests y comprobaciones ejecutadas, con resultado>
+
+## Limitaciones del agente
+<solo si faltó una herramienta: qué se omitió, qué se evaluó y cómo verificarlo>
 ```
 
 ## Límites con otras skills

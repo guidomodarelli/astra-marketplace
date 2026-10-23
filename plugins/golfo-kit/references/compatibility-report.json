@@ -1,6 +1,6 @@
 {
   "schema_version": "1.1.0",
-  "generated_at": "2026-10-23T18:30:00Z",
+  "generated_at": "2026-10-23T21:00:00Z",
   "audit_date": "2026-10-23",
   "agents": [
     {
@@ -75,123 +75,69 @@
     },
     "disabled_features": 0,
     "adaptations": {
-      "implemented": 36,
-      "verified": 14
+      "implemented": 42,
+      "verified": 20
     },
     "critical_pending": [],
-    "reclassified_from_disabled": 12
+    "reclassified_from_disabled": 0
   },
   "revision": {
-    "previous_revision": "44b45fe (golfo-kit 0.10.0, PR #22, schema 1.0.0)",
-    "summary": "Revisión de alternativas equivalentes: se relevó el inventario real de capacidades de Codex (plugins habilitados en config.toml y su caché), Hermes (sesión real + doc) y Claude Code, y se re-evaluaron las funcionalidades de las 43 skills buscando mecanismos que logren el mismo resultado. Las 12 funcionalidades deshabilitadas en la revisión anterior tienen ahora una alternativa implementada; 9 se verificaron con corridas reales en el agente y 3 quedan implementadas sin verificar. Además se detectaron dependencias implícitas de navegador en measured-performance-optimization, prevent-ssr-hydration-mismatches y ui-ux-flow-patterns. También pasaron a resolución alternative, sin cambiar de estado, las capturas reales de user-manual en Codex y Hermes y los avisos de codex-autofix-loop en Codex y Hermes. Las alternativas previas de cada funcionalidad adaptada de la revisión 1.0.0 se migraron al campo alternatives_investigated.",
+    "previous_revision": "1e937e0 (golfo-kit 0.11.0, PR #23, schema 1.1.0)",
+    "summary": "Dependencias implícitas de navegador de measured-performance-optimization, prevent-ssr-hydration-mismatches y ui-ux-flow-patterns: se agregó la funcionalidad opcional browser-verification por agente, con la fila «Verificar en un navegador» y la sección «Verificación en navegador por terminal» de agent-capabilities.md como fuente única. Codex usa el plugin Chrome (consola con tab.dev.logs y clics, verificado; su evaluate no expone performance, así que las métricas van por terminal) y Hermes usa browser_exec si arranca o Lighthouse, Chrome headless con log y Playwright por terminal (verificados; browser_exec falló 7 de 9 veces). En Claude Code el camino nativo (Claude in Chrome) queda unverified porque no estaba conectado; el fallback por terminal sí corrió. Ninguna funcionalidad se deshabilitó.",
     "reclassified": [
       {
-        "skill": "widget-ui-proposals",
+        "skill": "measured-performance-optimization",
         "agent": "codex",
-        "feature": "render-widget",
-        "from": "disabled",
+        "feature": "browser-verification",
+        "from": "unverified",
         "to": "adapted",
         "resolution": "alternative",
-        "reason": "El plugin visualize de Codex logra el mismo visual interactivo con otro mecanismo."
+        "reason": "El plugin Chrome reproduce el flujo en el Chrome real pero su evaluate no expone performance; Lighthouse y Playwright por terminal dan las mismas métricas de laboratorio."
       },
       {
-        "skill": "widget-ui-proposals",
-        "agent": "codex",
-        "feature": "apply-proposal",
-        "from": "disabled",
-        "to": "unverified",
-        "resolution": "alternative",
-        "reason": "sendFollowUpMessage equivale a sendPrompt; el clic no se observó (solo en la app)."
-      },
-      {
-        "skill": "widget-ui-proposals",
+        "skill": "measured-performance-optimization",
         "agent": "hermes",
-        "feature": "render-widget",
-        "from": "disabled",
+        "feature": "browser-verification",
+        "from": "unverified",
         "to": "adapted",
         "resolution": "alternative",
-        "reason": "Preview estático HTML → PNG con Chrome headless, verificado en Hermes."
+        "reason": "Lighthouse, Chrome headless con log y Playwright por terminal, verificados en Hermes; browser_exec queda como primera opción si arranca."
       },
       {
-        "skill": "widget-ui-proposals",
+        "skill": "prevent-ssr-hydration-mismatches",
+        "agent": "codex",
+        "feature": "browser-verification",
+        "from": "unverified",
+        "to": "adapted",
+        "resolution": "alternative",
+        "reason": "El plugin Chrome captura la consola de la carga en el Chrome real con tab.dev.logs, igual que la consola de Claude in Chrome."
+      },
+      {
+        "skill": "prevent-ssr-hydration-mismatches",
         "agent": "hermes",
-        "feature": "apply-proposal",
-        "from": "disabled",
+        "feature": "browser-verification",
+        "from": "unverified",
         "to": "adapted",
         "resolution": "alternative",
-        "reason": "Elección con clarify u opciones numeradas, verificado en Hermes."
+        "reason": "Lighthouse, Chrome headless con log y Playwright por terminal, verificados en Hermes; browser_exec queda como primera opción si arranca."
       },
       {
-        "skill": "pr-description-template",
+        "skill": "ui-ux-flow-patterns",
         "agent": "codex",
-        "feature": "ui-screenshots",
-        "from": "disabled",
+        "feature": "browser-verification",
+        "from": "unverified",
         "to": "adapted",
         "resolution": "alternative",
-        "reason": "El plugin Chrome de Codex controla el Chrome real del usuario (verificado)."
+        "reason": "El plugin Chrome hace clic y lee la consola en el Chrome real del usuario, igual que Claude in Chrome."
       },
       {
-        "skill": "pr-description-template",
+        "skill": "ui-ux-flow-patterns",
         "agent": "hermes",
-        "feature": "ui-screenshots",
-        "from": "disabled",
-        "to": "unverified",
-        "resolution": "alternative",
-        "reason": "computer_use o browser_exec con perfil real; implementado, no verificado."
-      },
-      {
-        "skill": "review-fix-loop",
-        "agent": "codex",
-        "feature": "isolated-filter",
-        "from": "disabled",
+        "feature": "browser-verification",
+        "from": "unverified",
         "to": "adapted",
         "resolution": "alternative",
-        "reason": "Proceso externo claude -p de solo lectura, verificado desde Codex."
-      },
-      {
-        "skill": "review-fix-loop",
-        "agent": "hermes",
-        "feature": "isolated-filter",
-        "from": "disabled",
-        "to": "adapted",
-        "resolution": "alternative",
-        "reason": "Proceso externo claude -p de solo lectura, verificado desde Hermes."
-      },
-      {
-        "skill": "codex-autofix-loop",
-        "agent": "codex",
-        "feature": "pr-event-watch",
-        "from": "disabled",
-        "to": "adapted",
-        "resolution": "alternative",
-        "reason": "Watcher en foreground dentro del turno (modo C), verificado en Codex."
-      },
-      {
-        "skill": "codex-autofix-loop",
-        "agent": "codex",
-        "feature": "backup-schedule",
-        "from": "disabled",
-        "to": "adapted",
-        "resolution": "alternative",
-        "reason": "El timeout del watcher cumple el rol del cron de respaldo (exit 3 observado)."
-      },
-      {
-        "skill": "codex-autofix-loop",
-        "agent": "codex",
-        "feature": "auto-relaunch",
-        "from": "disabled",
-        "to": "unverified",
-        "resolution": "alternative",
-        "reason": "El ciclo siguiente del watcher detecta la respuesta de Codex; no observado con una respuesta real."
-      },
-      {
-        "skill": "agent-ready-setup",
-        "agent": "hermes",
-        "feature": "provider-autodetect",
-        "from": "disabled",
-        "to": "adapted",
-        "resolution": "alternative",
-        "reason": "resolve-provider.sh reconoce instalaciones de Hermes (verificado en Hermes)."
+        "reason": "Lighthouse, Chrome headless con log y Playwright por terminal, verificados en Hermes; browser_exec queda como primera opción si arranca."
       }
     ]
   },
@@ -3553,7 +3499,7 @@
     {
       "id": "measured-performance-optimization",
       "name": "Measured Performance Optimization",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "path": "plugins/golfo-kit/skills/measured-performance-optimization/SKILL.md",
       "purpose": "Mide y optimiza rendimiento web con evidencia.",
       "main_features": [
@@ -3563,7 +3509,7 @@
       "declared_agents": null,
       "dependencies": [
         {
-          "name": "Automatización de navegador para verificar el flujo (Playwright/Chrome DevTools MCP, plugins Chrome/Browser de Codex, browser_exec de Hermes)",
+          "name": "Verificación en navegador: Claude in Chrome o MCP de DevTools/Playwright / plugin chrome@openai-bundled (flujo) + Lighthouse o Playwright por terminal (métricas) / browser_exec o Lighthouse y Playwright por terminal",
           "kind": "tool",
           "required": false,
           "agents": [
@@ -3576,7 +3522,7 @@
       "agents": {
         "claude_code": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Claude Code durante esta auditoría, así que su funcionamiento no está verificado.",
+          "summary": "Sin dependencias obligatorias de agente. La verificación en navegador usa Claude in Chrome o un MCP de navegador (no conectados en la auditoría); el fallback por terminal sí corrió. La skill completa no se ejecutó en Claude Code.",
           "missing_capabilities": [],
           "alternatives_investigated": [],
           "features": [
@@ -3600,14 +3546,41 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "unverified",
+              "resolution": "native",
+              "required": false,
+              "adaptation": false,
+              "required_capabilities": [
+                "Claude in Chrome (mcp__claude-in-chrome__*) o un MCP de navegador"
+              ],
+              "implementation": "Claude in Chrome o un MCP de navegador para medir Web Vitals, interacciones y renders antes y después, y recorrer el flujo (pasos 3, 5 y 6); si no están, el fallback por terminal de agent-capabilities.md.",
+              "fallback": "Lighthouse, Chrome headless con log y Playwright por terminal (verificados desde Claude Code).",
+              "reason": "Claude in Chrome no estaba conectado en la sesión de esta auditoría: el camino nativo no se ejecutó. El fallback por terminal sí corrió desde Claude Code.",
+              "alternatives_investigated": [],
+              "evidence": [
+                "Corrida real claude-real-terminal-browser (fallback por terminal)"
+              ],
+              "tests": [
+                "claude-real-terminal-browser"
+              ]
             }
           ]
         },
         "codex": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Codex CLI durante esta auditoría, así que su funcionamiento no está verificado.",
-          "missing_capabilities": [],
-          "alternatives_investigated": [],
+          "summary": "Verificación en navegador adaptada y verificada: Métricas con Lighthouse o Playwright por terminal (el plugin Chrome no expone performance); el plugin Chrome solo confirma el flujo del paso 5. La skill completa no se ejecutó en Codex CLI.",
+          "missing_capabilities": [
+            "Claude in Chrome"
+          ],
+          "alternatives_investigated": [
+            "Plugin chrome@openai-bundled (viable)",
+            "Lighthouse, Chrome headless con log y Playwright por terminal (viable)",
+            "Plugin browser@openai-bundled / browser-use (iab) (viable)",
+            "computer-use@openai-bundled (descartado)"
+          ],
           "features": [
             {
               "id": "core-workflow",
@@ -3629,14 +3602,70 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "adapted",
+              "resolution": "alternative",
+              "required": false,
+              "adaptation": true,
+              "required_capabilities": [
+                "plugin chrome@openai-bundled (runtime mcp__cua_repl.js)",
+                "o npx + Chrome instalado (terminal)"
+              ],
+              "implementation": "Métricas con Lighthouse o Playwright por terminal (el plugin Chrome no expone performance); el plugin Chrome solo confirma el flujo del paso 5.",
+              "fallback": "Sin ningún mecanismo, la verificación queda BLOCKED (nunca PASS) y se reporta en Limitaciones del agente.",
+              "reason": "El plugin Chrome reproduce el flujo en el Chrome real pero su evaluate no expone performance; Lighthouse y Playwright por terminal dan las mismas métricas de laboratorio.",
+              "alternatives_investigated": [
+                {
+                  "name": "Plugin chrome@openai-bundled",
+                  "source": "docs/api.json del plugin + corrida real codex-real-chrome-console-states",
+                  "viable": true,
+                  "reason": "Sirve para confirmar el flujo; no para medir, porque su evaluate no expone performance."
+                },
+                {
+                  "name": "Lighthouse, Chrome headless con log y Playwright por terminal",
+                  "source": "plugins/golfo-kit/references/agent-capabilities.md#verificación-en-navegador-por-terminal + corridas reales",
+                  "viable": true,
+                  "reason": "Agnóstico del agente; verificado desde los tres agentes. Sin sesión del usuario: solo localhost/staging sin login o con credenciales de prueba."
+                },
+                {
+                  "name": "Plugin browser@openai-bundled / browser-use (iab)",
+                  "source": "plugin.json y docs del plugin",
+                  "viable": true,
+                  "reason": "Navegador in-app para localhost; solo en la app de escritorio, no probado desde el CLI."
+                },
+                {
+                  "name": "computer-use@openai-bundled",
+                  "source": "plugin.json",
+                  "viable": false,
+                  "reason": "Toma el escritorio; el plugin Chrome cubre el mismo caso sin hacerlo."
+                }
+              ],
+              "evidence": [
+                "Corrida real codex-real-terminal-metrics",
+                "Corrida real codex-real-chrome-console-states",
+                "Eval simulada eval-sim-codex-metrics-via-terminal-not-chrome-plugin"
+              ],
+              "tests": [
+                "codex-real-terminal-metrics",
+                "codex-real-chrome-console-states",
+                "eval-sim-codex-metrics-via-terminal-not-chrome-plugin"
+              ]
             }
           ]
         },
         "hermes": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Hermes Agent durante esta auditoría, así que su funcionamiento no está verificado.",
-          "missing_capabilities": [],
-          "alternatives_investigated": [],
+          "summary": "Verificación en navegador adaptada y verificada por terminal: browser_exec si arranca (localhost sin login); si falla dos veces, Lighthouse y Playwright por terminal con el Chrome instalado. La skill completa no se ejecutó en Hermes Agent.",
+          "missing_capabilities": [
+            "Claude in Chrome"
+          ],
+          "alternatives_investigated": [
+            "browser_exec (Chromium headless, perfil descartable) (viable)",
+            "Lighthouse, Chrome headless con log y Playwright por terminal (viable)",
+            "computer_use sobre el Chrome real (viable)"
+          ],
           "features": [
             {
               "id": "core-workflow",
@@ -3658,17 +3687,87 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "adapted",
+              "resolution": "alternative",
+              "required": false,
+              "adaptation": true,
+              "required_capabilities": [
+                "terminal + npx + Chrome instalado",
+                "o browser_exec"
+              ],
+              "implementation": "browser_exec si arranca (localhost sin login); si falla dos veces, Lighthouse y Playwright por terminal con el Chrome instalado.",
+              "fallback": "Sin ningún mecanismo, la verificación queda BLOCKED (nunca PASS) y se reporta en Limitaciones del agente.",
+              "reason": "browser_exec es inestable en esta máquina; Lighthouse, Chrome headless con log y Playwright por terminal logran la misma verificación y corrieron desde Hermes.",
+              "alternatives_investigated": [
+                {
+                  "name": "browser_exec (Chromium headless, perfil descartable)",
+                  "source": "corrida real hermes-real-browser-exec-probe + doc browser",
+                  "viable": true,
+                  "reason": "Sirve para localhost sin login cuando arranca; en esta máquina falló 7 de 9 veces, así que la skill pasa a terminal tras dos fallos."
+                },
+                {
+                  "name": "Lighthouse, Chrome headless con log y Playwright por terminal",
+                  "source": "plugins/golfo-kit/references/agent-capabilities.md#verificación-en-navegador-por-terminal + corridas reales",
+                  "viable": true,
+                  "reason": "Agnóstico del agente; verificado desde los tres agentes. Sin sesión del usuario: solo localhost/staging sin login o con credenciales de prueba."
+                },
+                {
+                  "name": "computer_use sobre el Chrome real",
+                  "source": "lista de herramientas + doc computer-use",
+                  "viable": true,
+                  "reason": "Único camino para pantallas que necesitan la sesión del usuario; requiere aviso y consentimiento. No ejecutado."
+                }
+              ],
+              "evidence": [
+                "Corrida real hermes-real-terminal-console-metrics",
+                "Corrida real hermes-real-playwright-states",
+                "Corrida real hermes-real-browser-exec-probe",
+                "Eval simulada eval-sim-hermes-browser-exec-fails-terminal-fallback"
+              ],
+              "tests": [
+                "hermes-real-terminal-console-metrics",
+                "hermes-real-playwright-states",
+                "hermes-real-browser-exec-probe",
+                "eval-sim-hermes-browser-exec-fails-terminal-fallback"
+              ]
             }
           ]
         }
       },
       "implementation": {
-        "adaptations": [],
-        "files_modified": [],
-        "fallback": "",
-        "behavior_changes": ""
+        "adaptations": [
+          "Sección «Compatibilidad entre agentes»: mecanismo por métrica según agent-capabilities.md (Lighthouse por terminal en cualquier agente; el plugin Chrome de Codex no mide), mismo mecanismo antes y después, y Limitaciones del agente en el reporte",
+          "Fila «Verificar en un navegador» y sección «Verificación en navegador por terminal» en plugins/golfo-kit/references/agent-capabilities.md (fuente única compartida)"
+        ],
+        "files_modified": [
+          "plugins/golfo-kit/skills/measured-performance-optimization/SKILL.md",
+          "plugins/golfo-kit/skills/measured-performance-optimization/references/measurement-tools.md",
+          "plugins/golfo-kit/skills/measured-performance-optimization/evals/eval-config.json",
+          "plugins/golfo-kit/references/agent-capabilities.md"
+        ],
+        "fallback": "Sin ningún mecanismo de navegador, la verificación queda BLOCKED y se reporta en Limitaciones del agente.",
+        "behavior_changes": "Codex mide por terminal en lugar de intentar medir con el plugin Chrome; Hermes pasa a terminal si browser_exec no arranca. Sin ningún mecanismo aplica la detención del paso 3."
       },
-      "issues": [],
+      "issues": [
+        {
+          "id": "INC-measured-performance-optimization--hermes--browser-verification",
+          "skill": "measured-performance-optimization",
+          "agent": "hermes",
+          "feature": "browser-verification",
+          "missing_dependency": "browser_exec estable",
+          "technical_reason": "browser_exec falló al arrancar 7 de 9 veces (DevToolsActivePort) con Chromium huérfanos de corridas previas.",
+          "alternatives_investigated": [
+            "Lighthouse, Chrome headless con log y Playwright por terminal",
+            "computer_use"
+          ],
+          "resolution": "Mitigado: la skill pasa a la terminal tras dos fallos; la causa de la inestabilidad sigue abierta (ACT-006).",
+          "severity": "low",
+          "status": "mitigated"
+        }
+      ],
       "tests": [
         {
           "id": "static-inspection",
@@ -3677,13 +3776,78 @@
           "command": "grep -rE \"AskUserQuestion|request_user_input|Monitor|Cron(Create|List|Delete)|PushNotification|TaskStop|Agent|subagent|mcp__|claude -p|codex exec|~/.claude|~/.codex|apply_patch|update_plan\" plugins/golfo-kit/skills/<skill>",
           "result": "passed",
           "evidence": "Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de \"hook\" son hooks de React o de git, no hooks de agente."
+        },
+        {
+          "id": "claude-real-terminal-browser",
+          "agent": "claude_code",
+          "kind": "real_run",
+          "command": "npx -y lighthouse@12 http://127.0.0.1:8793/ --output=json --only-categories=performance --chrome-flags=--headless=new; chrome.exe --headless=new --enable-logging --log-file=<log> --v=0 --virtual-time-budget=3000 --dump-dom http://127.0.0.1:8793/ (Start-Process -Wait); node walk-states.mjs (playwright-core 1.64.1, channel chrome)",
+          "result": "passed",
+          "evidence": "Desde la Bash de Claude Code sobre una página local servida con python -m http.server: Lighthouse 12.8.2 devolvió LCP 1.1 s, CLS 0, TBT 0 ms, FCP 1.1 s; el log de Chrome headless tuvo la línea CONSOLE con el warning de hidratación simulado; Playwright con el Chrome instalado capturó el console.error, la navegación (169 ms) y los cuatro estados (loading, empty, data, error). Claude in Chrome no estaba conectado en la sesión, así que el camino nativo no se ejecutó."
+        },
+        {
+          "id": "codex-real-chrome-console-states",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<abrir http://127.0.0.1:8793/ en una pestaña nueva del Chrome real con el plugin Chrome, tab.reload(), tab.dev.logs, tab.playwright.evaluate de performance y clic en cada estado>\"",
+          "result": "passed",
+          "evidence": "agent.browsers.list() → {type: extension, family: chrome, profileName: Guido}; tab.dev.logs devolvió el console.error de hidratación simulado (una entrada por carga); getByRole(...).click() recorrió Carga, Vacío, Con datos y Error con data-current loading/empty/data/error; la pestaña propia se cerró. tab.playwright.evaluate no expone performance ni PerformanceObserver (scope de solo lectura): las métricas no salen del plugin."
+        },
+        {
+          "id": "codex-real-terminal-metrics",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<npx -y lighthouse@12 … y node walk-states.mjs por exec_command>\"",
+          "result": "passed",
+          "evidence": "Lighthouse 12.8.2 desde Codex: LCP 1125 ms, CLS 0, TBT 0, FCP 1125 ms. Playwright con el Chrome instalado: console.error de hidratación, navegación 176 ms y los cuatro estados recorridos."
+        },
+        {
+          "id": "hermes-real-browser-exec-probe",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<browser_exec: listener de consola antes de navegar, recarga, performance y clic en cada estado de http://127.0.0.1:8793/>\"",
+          "result": "failed",
+          "evidence": "browser_exec falló al arrancar 7 de 9 veces ('Chrome exited early … without writing DevToolsActivePort'); las dos que arrancaron eran HeadlessChrome/145 sobre about:blank. Había unos 24 Chromium huérfanos con user-data-dir agent-browser-chrome-<uuid> en Temp, que no se mataron. Ninguna verificación de la página se completó con browser_exec."
+        },
+        {
+          "id": "hermes-real-terminal-console-metrics",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<solo terminal: Chrome headless con --enable-logging --log-file y npx -y lighthouse@12 sobre http://127.0.0.1:8793/>\"",
+          "result": "passed",
+          "evidence": "Hermes encontró Chrome y npx; el log tuvo la línea CONSOLE del warning de hidratación simulado; Lighthouse 12.8.2: LCP 1.1 s, CLS 0, TBT 0 ms, FCP 1.1 s (hermes-lh.json de 192 KB)."
+        },
+        {
+          "id": "hermes-real-playwright-states",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<solo terminal: node walk-states.mjs http://127.0.0.1:8793/ (playwright-core, channel chrome, headless)>\"",
+          "result": "passed",
+          "evidence": "Salida del script desde Hermes: console.error de hidratación simulado, navegación 175 ms y data-current loading/empty/data/error tras cada clic; exitCode 0."
+        },
+        {
+          "id": "eval-sim-codex-metrics-via-terminal-not-chrome-plugin",
+          "agent": "codex",
+          "kind": "simulated_eval",
+          "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/measured-performance-optimization --provider claude (solo los casos nuevos)",
+          "result": "passed",
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: codex-metrics-via-terminal-not-chrome-plugin: mide LCP con Lighthouse por terminal, explica que el plugin Chrome no expone performance, mismo mecanismo antes y después y reserva el plugin para confirmar el flujo."
+        },
+        {
+          "id": "eval-sim-hermes-browser-exec-fails-terminal-fallback",
+          "agent": "hermes",
+          "kind": "simulated_eval",
+          "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/measured-performance-optimization --provider claude (solo los casos nuevos)",
+          "result": "passed",
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: hermes-browser-exec-fails-terminal-fallback: tras dos fallos de browser_exec mide la interacción con Playwright por terminal y el Chrome instalado, con performance.mark/measure, y declara Limitaciones del agente."
         }
       ],
       "pending_verification": [
         "Ejecutar la skill en Claude Code con un caso real.",
         "Ejecutar la skill en Codex CLI con un caso real.",
         "Ejecutar la skill en Hermes Agent con un caso real.",
-        "Dependencia implícita detectada en esta revisión: verificación en navegador con la automatización disponible de cada agente (Codex: plugins Chrome/Browser; Hermes: browser_exec headless, que sirve para verificar pero no para capturas publicadas)."
+        "Claude Code: verificación en navegador con Claude in Chrome conectado (camino nativo).",
+        "Hermes: pantallas que requieren la sesión del usuario con computer_use (con consentimiento) o browser_exec con perfil real."
       ]
     },
     {
@@ -4787,7 +4951,7 @@
     {
       "id": "prevent-ssr-hydration-mismatches",
       "name": "React SSR Hydration Consistency",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "plugins/golfo-kit/skills/prevent-ssr-hydration-mismatches/SKILL.md",
       "purpose": "Previene y diagnostica mismatches de hidratación SSR en React.",
       "main_features": [
@@ -4796,7 +4960,7 @@
       "declared_agents": null,
       "dependencies": [
         {
-          "name": "Automatización de navegador para verificar el flujo (Playwright/Chrome DevTools MCP, plugins Chrome/Browser de Codex, browser_exec de Hermes)",
+          "name": "Verificación en navegador: Claude in Chrome o MCP de navegador / plugin chrome@openai-bundled (tab.dev.logs) / browser_exec o Chrome headless con log y Playwright por terminal",
           "kind": "tool",
           "required": false,
           "agents": [
@@ -4809,7 +4973,7 @@
       "agents": {
         "claude_code": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Claude Code durante esta auditoría, así que su funcionamiento no está verificado.",
+          "summary": "Sin dependencias obligatorias de agente. La verificación en navegador usa Claude in Chrome o un MCP de navegador (no conectados en la auditoría); el fallback por terminal sí corrió. La skill completa no se ejecutó en Claude Code.",
           "missing_capabilities": [],
           "alternatives_investigated": [],
           "features": [
@@ -4833,14 +4997,41 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "unverified",
+              "resolution": "native",
+              "required": false,
+              "adaptation": false,
+              "required_capabilities": [
+                "Claude in Chrome (mcp__claude-in-chrome__*) o un MCP de navegador"
+              ],
+              "implementation": "Claude in Chrome o un MCP de navegador para hard reload de la ruta afectada y lectura de los warnings de hidratación en la consola (pasos 6 a 8 de la validación); si no están, el fallback por terminal de agent-capabilities.md.",
+              "fallback": "Lighthouse, Chrome headless con log y Playwright por terminal (verificados desde Claude Code).",
+              "reason": "Claude in Chrome no estaba conectado en la sesión de esta auditoría: el camino nativo no se ejecutó. El fallback por terminal sí corrió desde Claude Code.",
+              "alternatives_investigated": [],
+              "evidence": [
+                "Corrida real claude-real-terminal-browser (fallback por terminal)"
+              ],
+              "tests": [
+                "claude-real-terminal-browser"
+              ]
             }
           ]
         },
         "codex": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Codex CLI durante esta auditoría, así que su funcionamiento no está verificado.",
-          "missing_capabilities": [],
-          "alternatives_investigated": [],
+          "summary": "Verificación en navegador adaptada y verificada: tab.reload() y tab.dev.logs({ levels: [\"error\", \"warn\"] }) del plugin Chrome sobre el Chrome real del usuario. La skill completa no se ejecutó en Codex CLI.",
+          "missing_capabilities": [
+            "Claude in Chrome"
+          ],
+          "alternatives_investigated": [
+            "Plugin chrome@openai-bundled (viable)",
+            "Lighthouse, Chrome headless con log y Playwright por terminal (viable)",
+            "Plugin browser@openai-bundled / browser-use (iab) (viable)",
+            "computer-use@openai-bundled (descartado)"
+          ],
           "features": [
             {
               "id": "core-workflow",
@@ -4862,14 +5053,70 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "adapted",
+              "resolution": "alternative",
+              "required": false,
+              "adaptation": true,
+              "required_capabilities": [
+                "plugin chrome@openai-bundled (runtime mcp__cua_repl.js)",
+                "o npx + Chrome instalado (terminal)"
+              ],
+              "implementation": "tab.reload() y tab.dev.logs({ levels: [\"error\", \"warn\"] }) del plugin Chrome sobre el Chrome real del usuario.",
+              "fallback": "Sin ningún mecanismo, la verificación queda BLOCKED (nunca PASS) y se reporta en Limitaciones del agente.",
+              "reason": "El plugin Chrome captura la consola de la carga en el Chrome real con tab.dev.logs, igual que la consola de Claude in Chrome.",
+              "alternatives_investigated": [
+                {
+                  "name": "Plugin chrome@openai-bundled",
+                  "source": "docs/api.json del plugin + corrida real codex-real-chrome-console-states",
+                  "viable": true,
+                  "reason": "Chrome real del usuario: tab.dev.logs lee la consola de la carga y getByRole().click() recorre estados."
+                },
+                {
+                  "name": "Lighthouse, Chrome headless con log y Playwright por terminal",
+                  "source": "plugins/golfo-kit/references/agent-capabilities.md#verificación-en-navegador-por-terminal + corridas reales",
+                  "viable": true,
+                  "reason": "Agnóstico del agente; verificado desde los tres agentes. Sin sesión del usuario: solo localhost/staging sin login o con credenciales de prueba."
+                },
+                {
+                  "name": "Plugin browser@openai-bundled / browser-use (iab)",
+                  "source": "plugin.json y docs del plugin",
+                  "viable": true,
+                  "reason": "Navegador in-app para localhost; solo en la app de escritorio, no probado desde el CLI."
+                },
+                {
+                  "name": "computer-use@openai-bundled",
+                  "source": "plugin.json",
+                  "viable": false,
+                  "reason": "Toma el escritorio; el plugin Chrome cubre el mismo caso sin hacerlo."
+                }
+              ],
+              "evidence": [
+                "Corrida real codex-real-chrome-console-states",
+                "Corrida real codex-real-terminal-metrics",
+                "Eval simulada eval-sim-codex-hydration-console-via-dev-logs"
+              ],
+              "tests": [
+                "codex-real-chrome-console-states",
+                "codex-real-terminal-metrics",
+                "eval-sim-codex-hydration-console-via-dev-logs"
+              ]
             }
           ]
         },
         "hermes": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Hermes Agent durante esta auditoría, así que su funcionamiento no está verificado.",
-          "missing_capabilities": [],
-          "alternatives_investigated": [],
+          "summary": "Verificación en navegador adaptada y verificada por terminal: browser_exec con listener registrado antes de navegar si arranca; si no, Chrome headless con --enable-logging --log-file o Playwright con page.on(\"console\") por terminal. Rutas con sesión sin credenciales de prueba: BLOCKED. La skill completa no se ejecutó en Hermes Agent.",
+          "missing_capabilities": [
+            "Claude in Chrome"
+          ],
+          "alternatives_investigated": [
+            "browser_exec (Chromium headless, perfil descartable) (viable)",
+            "Lighthouse, Chrome headless con log y Playwright por terminal (viable)",
+            "computer_use sobre el Chrome real (viable)"
+          ],
           "features": [
             {
               "id": "core-workflow",
@@ -4891,17 +5138,86 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "adapted",
+              "resolution": "alternative",
+              "required": false,
+              "adaptation": true,
+              "required_capabilities": [
+                "terminal + npx + Chrome instalado",
+                "o browser_exec"
+              ],
+              "implementation": "browser_exec con listener registrado antes de navegar si arranca; si no, Chrome headless con --enable-logging --log-file o Playwright con page.on(\"console\") por terminal. Rutas con sesión sin credenciales de prueba: BLOCKED.",
+              "fallback": "Sin ningún mecanismo, la verificación queda BLOCKED (nunca PASS) y se reporta en Limitaciones del agente.",
+              "reason": "browser_exec es inestable en esta máquina; Lighthouse, Chrome headless con log y Playwright por terminal logran la misma verificación y corrieron desde Hermes.",
+              "alternatives_investigated": [
+                {
+                  "name": "browser_exec (Chromium headless, perfil descartable)",
+                  "source": "corrida real hermes-real-browser-exec-probe + doc browser",
+                  "viable": true,
+                  "reason": "Sirve para localhost sin login cuando arranca; en esta máquina falló 7 de 9 veces, así que la skill pasa a terminal tras dos fallos."
+                },
+                {
+                  "name": "Lighthouse, Chrome headless con log y Playwright por terminal",
+                  "source": "plugins/golfo-kit/references/agent-capabilities.md#verificación-en-navegador-por-terminal + corridas reales",
+                  "viable": true,
+                  "reason": "Agnóstico del agente; verificado desde los tres agentes. Sin sesión del usuario: solo localhost/staging sin login o con credenciales de prueba."
+                },
+                {
+                  "name": "computer_use sobre el Chrome real",
+                  "source": "lista de herramientas + doc computer-use",
+                  "viable": true,
+                  "reason": "Único camino para pantallas que necesitan la sesión del usuario; requiere aviso y consentimiento. No ejecutado."
+                }
+              ],
+              "evidence": [
+                "Corrida real hermes-real-terminal-console-metrics",
+                "Corrida real hermes-real-playwright-states",
+                "Corrida real hermes-real-browser-exec-probe",
+                "Eval simulada eval-sim-hermes-session-route-blocked"
+              ],
+              "tests": [
+                "hermes-real-terminal-console-metrics",
+                "hermes-real-playwright-states",
+                "hermes-real-browser-exec-probe",
+                "eval-sim-hermes-session-route-blocked"
+              ]
             }
           ]
         }
       },
       "implementation": {
-        "adaptations": [],
-        "files_modified": [],
-        "fallback": "",
-        "behavior_changes": ""
+        "adaptations": [
+          "Sección «Agent compatibility»: captura de la consola desde la carga según el mecanismo presente (Claude in Chrome, tab.dev.logs, browser_exec con listener previo o terminal), BLOCKED si la ruta exige sesión y no hay navegador real, y Agent limitations en el reporte",
+          "Fila «Verificar en un navegador» y sección «Verificación en navegador por terminal» en plugins/golfo-kit/references/agent-capabilities.md (fuente única compartida)"
+        ],
+        "files_modified": [
+          "plugins/golfo-kit/skills/prevent-ssr-hydration-mismatches/SKILL.md",
+          "plugins/golfo-kit/skills/prevent-ssr-hydration-mismatches/evals/eval-config.json",
+          "plugins/golfo-kit/references/agent-capabilities.md"
+        ],
+        "fallback": "Sin ningún mecanismo de navegador, la verificación queda BLOCKED y se reporta en Limitaciones del agente.",
+        "behavior_changes": "Codex lee la consola con tab.dev.logs; Hermes usa la terminal si browser_exec no arranca. Rutas con sesión sin navegador real quedan BLOCKED en lugar de omitirse."
       },
-      "issues": [],
+      "issues": [
+        {
+          "id": "INC-prevent-ssr-hydration-mismatches--hermes--browser-verification",
+          "skill": "prevent-ssr-hydration-mismatches",
+          "agent": "hermes",
+          "feature": "browser-verification",
+          "missing_dependency": "browser_exec estable",
+          "technical_reason": "browser_exec falló al arrancar 7 de 9 veces (DevToolsActivePort) con Chromium huérfanos de corridas previas.",
+          "alternatives_investigated": [
+            "Lighthouse, Chrome headless con log y Playwright por terminal",
+            "computer_use"
+          ],
+          "resolution": "Mitigado: la skill pasa a la terminal tras dos fallos; la causa de la inestabilidad sigue abierta (ACT-006).",
+          "severity": "low",
+          "status": "mitigated"
+        }
+      ],
       "tests": [
         {
           "id": "static-inspection",
@@ -4910,13 +5226,78 @@
           "command": "grep -rE \"AskUserQuestion|request_user_input|Monitor|Cron(Create|List|Delete)|PushNotification|TaskStop|Agent|subagent|mcp__|claude -p|codex exec|~/.claude|~/.codex|apply_patch|update_plan\" plugins/golfo-kit/skills/<skill>",
           "result": "passed",
           "evidence": "Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de \"hook\" son hooks de React o de git, no hooks de agente."
+        },
+        {
+          "id": "claude-real-terminal-browser",
+          "agent": "claude_code",
+          "kind": "real_run",
+          "command": "npx -y lighthouse@12 http://127.0.0.1:8793/ --output=json --only-categories=performance --chrome-flags=--headless=new; chrome.exe --headless=new --enable-logging --log-file=<log> --v=0 --virtual-time-budget=3000 --dump-dom http://127.0.0.1:8793/ (Start-Process -Wait); node walk-states.mjs (playwright-core 1.64.1, channel chrome)",
+          "result": "passed",
+          "evidence": "Desde la Bash de Claude Code sobre una página local servida con python -m http.server: Lighthouse 12.8.2 devolvió LCP 1.1 s, CLS 0, TBT 0 ms, FCP 1.1 s; el log de Chrome headless tuvo la línea CONSOLE con el warning de hidratación simulado; Playwright con el Chrome instalado capturó el console.error, la navegación (169 ms) y los cuatro estados (loading, empty, data, error). Claude in Chrome no estaba conectado en la sesión, así que el camino nativo no se ejecutó."
+        },
+        {
+          "id": "codex-real-chrome-console-states",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<abrir http://127.0.0.1:8793/ en una pestaña nueva del Chrome real con el plugin Chrome, tab.reload(), tab.dev.logs, tab.playwright.evaluate de performance y clic en cada estado>\"",
+          "result": "passed",
+          "evidence": "agent.browsers.list() → {type: extension, family: chrome, profileName: Guido}; tab.dev.logs devolvió el console.error de hidratación simulado (una entrada por carga); getByRole(...).click() recorrió Carga, Vacío, Con datos y Error con data-current loading/empty/data/error; la pestaña propia se cerró. tab.playwright.evaluate no expone performance ni PerformanceObserver (scope de solo lectura): las métricas no salen del plugin."
+        },
+        {
+          "id": "codex-real-terminal-metrics",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<npx -y lighthouse@12 … y node walk-states.mjs por exec_command>\"",
+          "result": "passed",
+          "evidence": "Lighthouse 12.8.2 desde Codex: LCP 1125 ms, CLS 0, TBT 0, FCP 1125 ms. Playwright con el Chrome instalado: console.error de hidratación, navegación 176 ms y los cuatro estados recorridos."
+        },
+        {
+          "id": "hermes-real-browser-exec-probe",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<browser_exec: listener de consola antes de navegar, recarga, performance y clic en cada estado de http://127.0.0.1:8793/>\"",
+          "result": "failed",
+          "evidence": "browser_exec falló al arrancar 7 de 9 veces ('Chrome exited early … without writing DevToolsActivePort'); las dos que arrancaron eran HeadlessChrome/145 sobre about:blank. Había unos 24 Chromium huérfanos con user-data-dir agent-browser-chrome-<uuid> en Temp, que no se mataron. Ninguna verificación de la página se completó con browser_exec."
+        },
+        {
+          "id": "hermes-real-terminal-console-metrics",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<solo terminal: Chrome headless con --enable-logging --log-file y npx -y lighthouse@12 sobre http://127.0.0.1:8793/>\"",
+          "result": "passed",
+          "evidence": "Hermes encontró Chrome y npx; el log tuvo la línea CONSOLE del warning de hidratación simulado; Lighthouse 12.8.2: LCP 1.1 s, CLS 0, TBT 0 ms, FCP 1.1 s (hermes-lh.json de 192 KB)."
+        },
+        {
+          "id": "hermes-real-playwright-states",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<solo terminal: node walk-states.mjs http://127.0.0.1:8793/ (playwright-core, channel chrome, headless)>\"",
+          "result": "passed",
+          "evidence": "Salida del script desde Hermes: console.error de hidratación simulado, navegación 175 ms y data-current loading/empty/data/error tras cada clic; exitCode 0."
+        },
+        {
+          "id": "eval-sim-codex-hydration-console-via-dev-logs",
+          "agent": "codex",
+          "kind": "simulated_eval",
+          "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/prevent-ssr-hydration-mismatches --provider claude (solo los casos nuevos)",
+          "result": "passed",
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: codex-hydration-console-via-dev-logs: recarga la pestaña y lee los warnings de hidratación con tab.dev.logs, con resultado PASS/FAIL/BLOCKED."
+        },
+        {
+          "id": "eval-sim-hermes-session-route-blocked",
+          "agent": "hermes",
+          "kind": "simulated_eval",
+          "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/prevent-ssr-hydration-mismatches --provider claude (solo los casos nuevos)",
+          "result": "passed",
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: hermes-session-route-blocked: ruta con sesión, sin credenciales de prueba ni consentimiento para computer_use: reporta BLOCKED con Agent limitations y nunca PASS."
         }
       ],
       "pending_verification": [
         "Ejecutar la skill en Claude Code con un caso real.",
         "Ejecutar la skill en Codex CLI con un caso real.",
         "Ejecutar la skill en Hermes Agent con un caso real.",
-        "Dependencia implícita detectada en esta revisión: verificación en navegador con la automatización disponible de cada agente (Codex: plugins Chrome/Browser; Hermes: browser_exec headless, que sirve para verificar pero no para capturas publicadas)."
+        "Claude Code: verificación en navegador con Claude in Chrome conectado (camino nativo).",
+        "Hermes: pantallas que requieren la sesión del usuario con computer_use (con consentimiento) o browser_exec con perfil real."
       ]
     },
     {
@@ -7316,7 +7697,7 @@
     {
       "id": "ui-ux-flow-patterns",
       "name": "UI/UX por flujo: componentes, estados y feedback",
-      "version": "1.0.0",
+      "version": "1.2.0",
       "path": "plugins/golfo-kit/skills/ui-ux-flow-patterns/SKILL.md",
       "purpose": "Define componentes, estados y feedback por flujo de UI.",
       "main_features": [
@@ -7326,7 +7707,7 @@
       "declared_agents": null,
       "dependencies": [
         {
-          "name": "Automatización de navegador para verificar el flujo (Playwright/Chrome DevTools MCP, plugins Chrome/Browser de Codex, browser_exec de Hermes)",
+          "name": "Verificación en navegador: Claude in Chrome o MCP de navegador / plugin chrome@openai-bundled (clics y consola) / browser_exec o Playwright por terminal",
           "kind": "tool",
           "required": false,
           "agents": [
@@ -7339,7 +7720,7 @@
       "agents": {
         "claude_code": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Claude Code durante esta auditoría, así que su funcionamiento no está verificado.",
+          "summary": "Sin dependencias obligatorias de agente. La verificación en navegador usa Claude in Chrome o un MCP de navegador (no conectados en la auditoría); el fallback por terminal sí corrió. La skill completa no se ejecutó en Claude Code.",
           "missing_capabilities": [],
           "alternatives_investigated": [],
           "features": [
@@ -7363,14 +7744,41 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "unverified",
+              "resolution": "native",
+              "required": false,
+              "adaptation": false,
+              "required_capabilities": [
+                "Claude in Chrome (mcp__claude-in-chrome__*) o un MCP de navegador"
+              ],
+              "implementation": "Claude in Chrome o un MCP de navegador para recorrer cada estado de la UI en el browser (paso 5); si no están, el fallback por terminal de agent-capabilities.md.",
+              "fallback": "Lighthouse, Chrome headless con log y Playwright por terminal (verificados desde Claude Code).",
+              "reason": "Claude in Chrome no estaba conectado en la sesión de esta auditoría: el camino nativo no se ejecutó. El fallback por terminal sí corrió desde Claude Code.",
+              "alternatives_investigated": [],
+              "evidence": [
+                "Corrida real claude-real-terminal-browser (fallback por terminal)"
+              ],
+              "tests": [
+                "claude-real-terminal-browser"
+              ]
             }
           ]
         },
         "codex": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Codex CLI durante esta auditoría, así que su funcionamiento no está verificado.",
-          "missing_capabilities": [],
-          "alternatives_investigated": [],
+          "summary": "Verificación en navegador adaptada y verificada: Clics por estado con tab.playwright.getByRole(...).click() y consola con tab.dev.logs del plugin Chrome; en la app de escritorio también el navegador in-app. La skill completa no se ejecutó en Codex CLI.",
+          "missing_capabilities": [
+            "Claude in Chrome"
+          ],
+          "alternatives_investigated": [
+            "Plugin chrome@openai-bundled (viable)",
+            "Lighthouse, Chrome headless con log y Playwright por terminal (viable)",
+            "Plugin browser@openai-bundled / browser-use (iab) (viable)",
+            "computer-use@openai-bundled (descartado)"
+          ],
           "features": [
             {
               "id": "core-workflow",
@@ -7392,14 +7800,70 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "adapted",
+              "resolution": "alternative",
+              "required": false,
+              "adaptation": true,
+              "required_capabilities": [
+                "plugin chrome@openai-bundled (runtime mcp__cua_repl.js)",
+                "o npx + Chrome instalado (terminal)"
+              ],
+              "implementation": "Clics por estado con tab.playwright.getByRole(...).click() y consola con tab.dev.logs del plugin Chrome; en la app de escritorio también el navegador in-app.",
+              "fallback": "Sin ningún mecanismo, la verificación queda BLOCKED (nunca PASS) y se reporta en Limitaciones del agente.",
+              "reason": "El plugin Chrome hace clic y lee la consola en el Chrome real del usuario, igual que Claude in Chrome.",
+              "alternatives_investigated": [
+                {
+                  "name": "Plugin chrome@openai-bundled",
+                  "source": "docs/api.json del plugin + corrida real codex-real-chrome-console-states",
+                  "viable": true,
+                  "reason": "Chrome real del usuario: tab.dev.logs lee la consola de la carga y getByRole().click() recorre estados."
+                },
+                {
+                  "name": "Lighthouse, Chrome headless con log y Playwright por terminal",
+                  "source": "plugins/golfo-kit/references/agent-capabilities.md#verificación-en-navegador-por-terminal + corridas reales",
+                  "viable": true,
+                  "reason": "Agnóstico del agente; verificado desde los tres agentes. Sin sesión del usuario: solo localhost/staging sin login o con credenciales de prueba."
+                },
+                {
+                  "name": "Plugin browser@openai-bundled / browser-use (iab)",
+                  "source": "plugin.json y docs del plugin",
+                  "viable": true,
+                  "reason": "Navegador in-app para localhost; solo en la app de escritorio, no probado desde el CLI."
+                },
+                {
+                  "name": "computer-use@openai-bundled",
+                  "source": "plugin.json",
+                  "viable": false,
+                  "reason": "Toma el escritorio; el plugin Chrome cubre el mismo caso sin hacerlo."
+                }
+              ],
+              "evidence": [
+                "Corrida real codex-real-chrome-console-states",
+                "Corrida real codex-real-terminal-metrics",
+                "Eval simulada eval-sim-codex-walk-states-with-chrome-plugin"
+              ],
+              "tests": [
+                "codex-real-chrome-console-states",
+                "codex-real-terminal-metrics",
+                "eval-sim-codex-walk-states-with-chrome-plugin"
+              ]
             }
           ]
         },
         "hermes": {
           "status": "unverified",
-          "summary": "Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Hermes Agent durante esta auditoría, así que su funcionamiento no está verificado.",
-          "missing_capabilities": [],
-          "alternatives_investigated": [],
+          "summary": "Verificación en navegador adaptada y verificada por terminal: browser_exec para localhost sin login; si falla dos veces, Playwright por terminal con el Chrome instalado. computer_use solo con sesión requerida y consentimiento. La skill completa no se ejecutó en Hermes Agent.",
+          "missing_capabilities": [
+            "Claude in Chrome"
+          ],
+          "alternatives_investigated": [
+            "browser_exec (Chromium headless, perfil descartable) (viable)",
+            "Lighthouse, Chrome headless con log y Playwright por terminal (viable)",
+            "computer_use sobre el Chrome real (viable)"
+          ],
           "features": [
             {
               "id": "core-workflow",
@@ -7421,17 +7885,84 @@
               "tests": [
                 "static-inspection"
               ]
+            },
+            {
+              "id": "browser-verification",
+              "status": "adapted",
+              "resolution": "alternative",
+              "required": false,
+              "adaptation": true,
+              "required_capabilities": [
+                "terminal + npx + Chrome instalado",
+                "o browser_exec"
+              ],
+              "implementation": "browser_exec para localhost sin login; si falla dos veces, Playwright por terminal con el Chrome instalado. computer_use solo con sesión requerida y consentimiento.",
+              "fallback": "Sin ningún mecanismo, la verificación queda BLOCKED (nunca PASS) y se reporta en Limitaciones del agente.",
+              "reason": "browser_exec es inestable en esta máquina; Lighthouse, Chrome headless con log y Playwright por terminal logran la misma verificación y corrieron desde Hermes.",
+              "alternatives_investigated": [
+                {
+                  "name": "browser_exec (Chromium headless, perfil descartable)",
+                  "source": "corrida real hermes-real-browser-exec-probe + doc browser",
+                  "viable": true,
+                  "reason": "Sirve para localhost sin login cuando arranca; en esta máquina falló 7 de 9 veces, así que la skill pasa a terminal tras dos fallos."
+                },
+                {
+                  "name": "Lighthouse, Chrome headless con log y Playwright por terminal",
+                  "source": "plugins/golfo-kit/references/agent-capabilities.md#verificación-en-navegador-por-terminal + corridas reales",
+                  "viable": true,
+                  "reason": "Agnóstico del agente; verificado desde los tres agentes. Sin sesión del usuario: solo localhost/staging sin login o con credenciales de prueba."
+                },
+                {
+                  "name": "computer_use sobre el Chrome real",
+                  "source": "lista de herramientas + doc computer-use",
+                  "viable": true,
+                  "reason": "Único camino para pantallas que necesitan la sesión del usuario; requiere aviso y consentimiento. No ejecutado."
+                }
+              ],
+              "evidence": [
+                "Corrida real hermes-real-playwright-states",
+                "Corrida real hermes-real-browser-exec-probe",
+                "Eval simulada eval-sim-hermes-browser-exec-unstable-playwright-fallback"
+              ],
+              "tests": [
+                "hermes-real-playwright-states",
+                "hermes-real-browser-exec-probe",
+                "eval-sim-hermes-browser-exec-unstable-playwright-fallback"
+              ]
             }
           ]
         }
       },
       "implementation": {
-        "adaptations": [],
-        "files_modified": [],
-        "fallback": "",
-        "behavior_changes": ""
+        "adaptations": [
+          "Sección «Compatibilidad entre agentes»: navegador según agent-capabilities.md por herramienta presente, aclaración de que headless no reemplaza el lector de pantalla, y Limitaciones del agente en el reporte",
+          "Fila «Verificar en un navegador» y sección «Verificación en navegador por terminal» en plugins/golfo-kit/references/agent-capabilities.md (fuente única compartida)"
+        ],
+        "files_modified": [
+          "plugins/golfo-kit/skills/ui-ux-flow-patterns/SKILL.md",
+          "plugins/golfo-kit/skills/ui-ux-flow-patterns/evals/eval-config.json",
+          "plugins/golfo-kit/references/agent-capabilities.md"
+        ],
+        "fallback": "Sin ningún mecanismo de navegador, la verificación queda BLOCKED y se reporta en Limitaciones del agente.",
+        "behavior_changes": "Codex recorre los estados con el plugin Chrome; Hermes con Playwright por terminal si browser_exec no arranca. La sección Verificación dice con qué herramienta se recorrió."
       },
-      "issues": [],
+      "issues": [
+        {
+          "id": "INC-ui-ux-flow-patterns--hermes--browser-verification",
+          "skill": "ui-ux-flow-patterns",
+          "agent": "hermes",
+          "feature": "browser-verification",
+          "missing_dependency": "browser_exec estable",
+          "technical_reason": "browser_exec falló al arrancar 7 de 9 veces (DevToolsActivePort) con Chromium huérfanos de corridas previas.",
+          "alternatives_investigated": [
+            "Lighthouse, Chrome headless con log y Playwright por terminal",
+            "computer_use"
+          ],
+          "resolution": "Mitigado: la skill pasa a la terminal tras dos fallos; la causa de la inestabilidad sigue abierta (ACT-006).",
+          "severity": "low",
+          "status": "mitigated"
+        }
+      ],
       "tests": [
         {
           "id": "static-inspection",
@@ -7440,13 +7971,78 @@
           "command": "grep -rE \"AskUserQuestion|request_user_input|Monitor|Cron(Create|List|Delete)|PushNotification|TaskStop|Agent|subagent|mcp__|claude -p|codex exec|~/.claude|~/.codex|apply_patch|update_plan\" plugins/golfo-kit/skills/<skill>",
           "result": "passed",
           "evidence": "Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de \"hook\" son hooks de React o de git, no hooks de agente."
+        },
+        {
+          "id": "claude-real-terminal-browser",
+          "agent": "claude_code",
+          "kind": "real_run",
+          "command": "npx -y lighthouse@12 http://127.0.0.1:8793/ --output=json --only-categories=performance --chrome-flags=--headless=new; chrome.exe --headless=new --enable-logging --log-file=<log> --v=0 --virtual-time-budget=3000 --dump-dom http://127.0.0.1:8793/ (Start-Process -Wait); node walk-states.mjs (playwright-core 1.64.1, channel chrome)",
+          "result": "passed",
+          "evidence": "Desde la Bash de Claude Code sobre una página local servida con python -m http.server: Lighthouse 12.8.2 devolvió LCP 1.1 s, CLS 0, TBT 0 ms, FCP 1.1 s; el log de Chrome headless tuvo la línea CONSOLE con el warning de hidratación simulado; Playwright con el Chrome instalado capturó el console.error, la navegación (169 ms) y los cuatro estados (loading, empty, data, error). Claude in Chrome no estaba conectado en la sesión, así que el camino nativo no se ejecutó."
+        },
+        {
+          "id": "codex-real-chrome-console-states",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<abrir http://127.0.0.1:8793/ en una pestaña nueva del Chrome real con el plugin Chrome, tab.reload(), tab.dev.logs, tab.playwright.evaluate de performance y clic en cada estado>\"",
+          "result": "passed",
+          "evidence": "agent.browsers.list() → {type: extension, family: chrome, profileName: Guido}; tab.dev.logs devolvió el console.error de hidratación simulado (una entrada por carga); getByRole(...).click() recorrió Carga, Vacío, Con datos y Error con data-current loading/empty/data/error; la pestaña propia se cerró. tab.playwright.evaluate no expone performance ni PerformanceObserver (scope de solo lectura): las métricas no salen del plugin."
+        },
+        {
+          "id": "codex-real-terminal-metrics",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<npx -y lighthouse@12 … y node walk-states.mjs por exec_command>\"",
+          "result": "passed",
+          "evidence": "Lighthouse 12.8.2 desde Codex: LCP 1125 ms, CLS 0, TBT 0, FCP 1125 ms. Playwright con el Chrome instalado: console.error de hidratación, navegación 176 ms y los cuatro estados recorridos."
+        },
+        {
+          "id": "hermes-real-browser-exec-probe",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<browser_exec: listener de consola antes de navegar, recarga, performance y clic en cada estado de http://127.0.0.1:8793/>\"",
+          "result": "failed",
+          "evidence": "browser_exec falló al arrancar 7 de 9 veces ('Chrome exited early … without writing DevToolsActivePort'); las dos que arrancaron eran HeadlessChrome/145 sobre about:blank. Había unos 24 Chromium huérfanos con user-data-dir agent-browser-chrome-<uuid> en Temp, que no se mataron. Ninguna verificación de la página se completó con browser_exec."
+        },
+        {
+          "id": "hermes-real-terminal-console-metrics",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<solo terminal: Chrome headless con --enable-logging --log-file y npx -y lighthouse@12 sobre http://127.0.0.1:8793/>\"",
+          "result": "passed",
+          "evidence": "Hermes encontró Chrome y npx; el log tuvo la línea CONSOLE del warning de hidratación simulado; Lighthouse 12.8.2: LCP 1.1 s, CLS 0, TBT 0 ms, FCP 1.1 s (hermes-lh.json de 192 KB)."
+        },
+        {
+          "id": "hermes-real-playwright-states",
+          "agent": "hermes",
+          "kind": "real_run",
+          "command": "hermes chat -Q -q \"<solo terminal: node walk-states.mjs http://127.0.0.1:8793/ (playwright-core, channel chrome, headless)>\"",
+          "result": "passed",
+          "evidence": "Salida del script desde Hermes: console.error de hidratación simulado, navegación 175 ms y data-current loading/empty/data/error tras cada clic; exitCode 0."
+        },
+        {
+          "id": "eval-sim-codex-walk-states-with-chrome-plugin",
+          "agent": "codex",
+          "kind": "simulated_eval",
+          "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/ui-ux-flow-patterns --provider claude (solo los casos nuevos)",
+          "result": "passed",
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: codex-walk-states-with-chrome-plugin: recorre cada estado con clics del plugin Chrome, revisa la consola y aclara que no hubo lector de pantalla."
+        },
+        {
+          "id": "eval-sim-hermes-browser-exec-unstable-playwright-fallback",
+          "agent": "hermes",
+          "kind": "simulated_eval",
+          "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/ui-ux-flow-patterns --provider claude (solo los casos nuevos)",
+          "result": "passed",
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: hermes-browser-exec-unstable-playwright-fallback: tras dos fallos de browser_exec recorre los estados con Playwright por terminal, descarta computer_use (no hace falta sesión) y verifica el doble clic."
         }
       ],
       "pending_verification": [
         "Ejecutar la skill en Claude Code con un caso real.",
         "Ejecutar la skill en Codex CLI con un caso real.",
         "Ejecutar la skill en Hermes Agent con un caso real.",
-        "Dependencia implícita detectada en esta revisión: verificación en navegador con la automatización disponible de cada agente (Codex: plugins Chrome/Browser; Hermes: browser_exec headless, que sirve para verificar pero no para capturas publicadas)."
+        "Claude Code: verificación en navegador con Claude in Chrome conectado (camino nativo).",
+        "Hermes: pantallas que requieren la sesión del usuario con computer_use (con consentimiento) o browser_exec con perfil real."
       ]
     },
     {
@@ -8266,8 +8862,20 @@
       "id": "ACT-006",
       "priority": 6,
       "impact": "low",
-      "action": "Investigar por qué browser_exec de Hermes no arranca de forma estable en esta máquina (Chromium 1208, gateway elevado).",
+      "action": "Investigar por qué browser_exec de Hermes no arranca de forma estable en esta máquina (Chromium 145, gateway elevado; falló 4 de 5 y 7 de 9 veces, con unos 24 Chromium huérfanos agent-browser-chrome-<uuid> en Temp).",
       "done_when": "browser_exec abre y captura una página local en 5 de 5 intentos.",
+      "related_issues": [
+        "INC-measured-performance-optimization--hermes--browser-verification",
+        "INC-prevent-ssr-hydration-mismatches--hermes--browser-verification",
+        "INC-ui-ux-flow-patterns--hermes--browser-verification"
+      ]
+    },
+    {
+      "id": "ACT-007",
+      "priority": 7,
+      "impact": "low",
+      "action": "Verificar el camino nativo de browser-verification en Claude Code con Claude in Chrome conectado, y en Hermes las pantallas con sesión del usuario con computer_use (con consentimiento) en measured-performance-optimization, prevent-ssr-hydration-mismatches y ui-ux-flow-patterns.",
+      "done_when": "Prueba real_run aprobada en Claude Code con Claude in Chrome y en Hermes con computer_use; browser-verification de Claude Code pasa a enabled.",
       "related_issues": []
     }
   ]

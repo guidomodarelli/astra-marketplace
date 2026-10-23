@@ -3,7 +3,7 @@ name: measured-performance-optimization
 description: 'Mide y optimiza rendimiento web: app lenta, Core Web Vitals, bundle, renders, caching, N+1 o jobs periódicos que releen toda una ventana en cada corrida. Usar también sin pedido explícito al crear un flujo nuevo o sumarle a uno existente requests, llamadas, queries o pasos nuevos; no en refactors, fixes ni cambios de copy o estilos que no agregan carga.'
 license: MIT
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   author: "Guido Modarelli"
   category: "performance"
   tags: "performance, web-vitals, bundle, caching, n+1, incremental-sweep, cron, lazy-loading, chrome-devtools, playwright, sentry"
@@ -19,6 +19,16 @@ Optimiza una aplicación web de punta a punta (frontend, red, backend y base de 
 - Revisar un diff buscando riesgos de performance sin optimizar ni medir: `review-performance`.
 - Detalle de patrones de render en React (`startTransition`, `useMemo`, `React.memo`, equality guards): `react-render-performance-patterns`. Esta skill decide *si* el render es el cuello de botella y mide; esa define *cómo* arreglarlo.
 - Arquitectura de fetching SSR/BFF: `refactor-ssr-data-fetching`.
+
+## Compatibilidad entre agentes
+
+Las mediciones en navegador (pasos 3 y 6) y el recorrido del flujo (paso 5) usan el mecanismo que exista en la sesión, según la fila «Verificar en un navegador» de [`agent-capabilities.md`](../../references/agent-capabilities.md): buscá la herramienta concreta en la sesión o en `PATH`, no te guíes por el nombre del agente. Lo propio de esta skill:
+
+- **Web Vitals de carga**: Lighthouse por terminal sirve en cualquier agente ([comando](../../references/agent-capabilities.md#verificación-en-navegador-por-terminal)); un MCP de Chrome DevTools conectado también.
+- **Interacciones, renders y requests**: hace falta evaluar JavaScript con `performance` en la página: Claude in Chrome, un MCP de Playwright o DevTools, `browser_exec` de Hermes o Playwright por terminal. El plugin Chrome de Codex **no mide**: su `evaluate` no expone `performance`; usalo solo para confirmar el flujo (paso 5) y medí por terminal.
+- Medí antes y después **con el mismo mecanismo y las mismas condiciones**: cambiar de herramienta entre mediciones invalida el delta.
+
+Si no hay ningún mecanismo, aplican la detención del paso 3 y **Sin medir**. Si usaste un fallback o algo quedó sin verificar, sumá **Limitaciones del agente** al reporte.
 
 ## Invocación automática por funcionalidad nueva
 
@@ -102,6 +112,7 @@ Cerrar con este formato:
 **Descartadas:** <cambios probados que no mejoraron y se revirtieron, con su medición>
 **Sin medir:** <qué no se pudo medir y por qué>
 **Próximos pasos:** <hallazgos pendientes ordenados por impacto>
+**Limitaciones del agente:** <solo si faltó una herramienta: qué se usó en su lugar o qué quedó sin medir y cómo obtenerlo>
 ```
 
 Los valores de "Antes" y "Después" tienen que venir de mediciones reales hechas en la sesión. Cuando el usuario pidió solo un plan o diagnóstico sin editar código, haya o no herramientas de medición, dejar la tabla con la métrica y la herramienta planeadas y "Después" como pendiente, porque no existe una revisión optimizada que medir; "Antes" puede venir de una medición real si hay herramientas y el usuario no prohibió ejecutar, y si no, queda pendiente. Si pidió una optimización real, aplica la detención del paso 3.

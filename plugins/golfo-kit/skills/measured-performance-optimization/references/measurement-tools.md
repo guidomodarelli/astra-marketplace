@@ -36,7 +36,8 @@ Los datos de producción complementan al laboratorio: el laboratorio atribuye un
 
 | Necesidad | Alternativa |
 |---|---|
-| Web Vitals de laboratorio | `npx lighthouse <url> --output=json`, con las repeticiones y la agregación del [paso 3 del flujo](../SKILL.md#3-medir-la-línea-base) |
+| Web Vitals de laboratorio | `npx lighthouse <url> --output=json`, con las repeticiones y la agregación del [paso 3 del flujo](../SKILL.md#3-medir-la-línea-base). Comando completo y flags verificados en [Verificación en navegador por terminal](../../../references/agent-capabilities.md#verificación-en-navegador-por-terminal) |
+| Interacciones y recorrido del flujo sin MCP | Playwright por terminal con el Chrome instalado (misma sección): `performance.mark()`/`measure()` y `PerformanceObserver` dentro de `page.evaluate` |
 | Tamaño de bundle | Output del build del framework, `source-map-explorer`, `@next/bundle-analyzer`, `rollup-plugin-visualizer`, `webpack-bundle-analyzer` |
 | Renders | Ver [Renders innecesarios → Detectar](unnecessary-renders.md#detectar) |
 | Queries | Ver [Queries lentas y N+1 → Detectar](database-queries-n-plus-one.md#detectar), [Queries lentas que no son N+1](database-queries-n-plus-one.md#queries-lentas-que-no-son-n1) y [Métricas antes/después](database-queries-n-plus-one.md#métricas-antesdespués) |
