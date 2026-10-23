@@ -12,7 +12,7 @@ description: >-
   ready", o pida pasar Agent Ready Score.
 license: MIT
 metadata:
-  version: "1.3.2"
+  version: "1.4.0"
   author: "guponce"
   category: "developer-experience"
   tags: "agent-ready, multi-provider, claude-code, codex, bootstrap, setup, scaffold, context-optimized-v1.20.1"
@@ -76,6 +76,10 @@ se reemplaza sin seguirlo. Solo quedan como conflicto los directorios en un path
 gestionado y los padres que son symlink. Instrucciones del proyecto
 (`AGENTS.md` fuera del bloque gestionado), personalizaciones en `settings.json`
 y `.codex/hooks.json` (merge), y assets desconocidos se preservan.
+
+## Compatibilidad entre agentes
+
+La configuración que genera esta skill es para **Claude Code y Codex**; Hermes no es un provider de destino (excepción explícita a la paridad de providers). `resolve-provider.sh` infiere el provider por la ruta de instalación (`~/.claude`, `$CODEX_HOME` o `CLAUDE_PLUGIN_ROOT`) y, fuera de ellas (por ejemplo, desde `$HERMES_HOME/skills`), termina con error. En ese caso, ejecutar la skill desde otro agente solo con `AGENT_READY_SETUP_ACTIVE_PROVIDER=claude|codex` elegido por el usuario, nunca adivinado, y reportar en `Limitaciones del agente` que no se generó configuración para Hermes. Ver [`agent-capabilities.md`](../../references/agent-capabilities.md) para las rutas de cada agente.
 
 ## Step 1 — Locate SKILL_DIR
 

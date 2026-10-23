@@ -12,7 +12,7 @@ description: >
 metadata:
   tags: "context-optimized-v1.20.1"
   author: "Guido Modarelli"
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 # User Manual Generator
@@ -32,11 +32,14 @@ Helpers live in `scripts/` (see "Helpers" at the end). Use them instead of rewri
 
 ---
 
+## Agent compatibility
+
+Every question in this skill (device, languages, repo location, glossary terms) uses the question tool that is actually present in the session, per [`agent-capabilities.md`](../../references/agent-capabilities.md): `AskUserQuestion` in Claude Code, `clarify` in Hermes (up to 4 `choices` per question), `request_user_input` only when Codex is in Plan mode. With none of them, or when `clarify` returns `undelivered`, `timed_out` or `cancelled`, ask the same question in chat with numbered options and **stop** until the user answers; never pick a default device, language or repo on their behalf. Report the fallback under `Limitaciones del agente` in the final message.
+
 ## Step 0 — Ask the device and the languages
 
-Before reading code or opening the app, ask the user with the question tool of the agent
-(`AskUserQuestion` in Claude Code, `request_user_input` in Codex; if neither exists, ask in chat and
-wait):
+Before reading code or opening the app, ask the user with the question tool of the agent (see
+"Agent compatibility" above; with none, ask in chat and wait):
 
 > ¿Este flujo se usa principalmente en celular, en escritorio o en ambos?
 
@@ -97,7 +100,7 @@ echo "${WORK_REPOS_DIR:-}"; grep -h '^export WORK_REPOS_DIR=' ~/.zshrc ~/.bashrc
   name), including the sibling repos of the same team.
 
 When the repo is not there, **never guess and never search the whole disk at length: ask**, with the
-question tool (`AskUserQuestion` / `request_user_input`), offering:
+question tool of the session (see "Agent compatibility"), offering:
 
 | Option | What you do |
 |---|---|

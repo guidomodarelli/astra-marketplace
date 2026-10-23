@@ -35,10 +35,13 @@ jobs:
           LC_ALL=C.UTF-8 BATS_TEST_TIMEOUT=30 node_modules/.bin/bats
           tests/create-version.bats
           tests/check-version-bump.bats
+          tests/validate-compatibility-report.bats
+          plugins/golfo-kit/skills/codex-autofix-loop/tests/wait-for-pr-event.bats
           plugins/golfo-kit/skills/user-manual/tests/check-design-tokens.bats
           plugins/golfo-kit/skills/agent-ready-setup/tests/merge-instructions.bats
           skill-eval-runner/tests/run-evals-env-contract.bats
           skill-eval-runner/tests/run-evals-assertions.bats
+      - run: pnpm run compat:validate
       - run: pnpm run test:review-fix-loop
       - run: pnpm run test:sibling-worktree
 

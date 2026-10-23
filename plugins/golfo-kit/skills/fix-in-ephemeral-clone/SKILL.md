@@ -3,7 +3,7 @@ name: fix-in-ephemeral-clone
 description: "Ejecuta fixes en clone efímero depth-1 y publica branch autorizada. En URLs de review delega una vez a `inline-thread-autofix`; en handoff implementa, valida, commitea y pushea sin mutar GitHub ni realizar closeout. Usar para fixes aislados con necesidad de preservar checkout, revalidar cambios concurrentes y limpiar únicamente recursos propios."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "git-workflow"
   tags: "git, ephemeral-clone, fix, push, isolation"
@@ -25,6 +25,10 @@ El backend nunca hace GitHub closeout: no publica replies, reviews, reactions, i
 Una llamada `Skill(fix-in-ephemeral-clone)` es carga síncrona de estas instrucciones; no crea agente, task handle, clone ni proceso background automáticamente. Cuando el handoff llega por `Skill`, ejecutar el workflow en contexto actual (`executor_mode: in_context`) y devolver `HANDOFF_RESULT` solo después de crear clone, validar, commitear, pushear y verificar. No anunciar executor iniciado ni esperar notificaciones.
 
 Modo `background` solo existe cuando `Agent`/job devuelve handle real. Sin handle y sin capacidad de continuar in-context, devolver `HANDOFF_EXECUTOR_MISSING` inmediatamente; nunca inventar path, branch, HEAD, commit o progreso.
+
+## Compatibilidad entre agentes
+
+El modo `background` depende de un subagente o job con handle real: `Agent` en Claude Code, `spawn_agent`/`wait_agent` en Codex, `delegate_task` en Hermes (ver [`agent-capabilities.md`](../../references/agent-capabilities.md)). Verificar la herramienta en la sesión antes de elegirlo; si no está, ejecutar `in_context` y, si tampoco se puede, devolver `HANDOFF_EXECUTOR_MISSING`. Clone, validación, commit y push usan solo `git` y la shell, así que no cambian entre agentes.
 
 ## Modos y routing
 

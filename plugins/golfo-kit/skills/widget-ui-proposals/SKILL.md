@@ -3,7 +3,7 @@ name: widget-ui-proposals
 description: "Show UI/UX proposals, variants and previews as interactive Claude visual widgets (mcp__visualize__show_widget) instead of — or before — writing code, and let the user pick-and-apply options to build the final solution. Use when the user wants to try several variants/options/alternatives for an interface, compare design or UX approaches, see how a change would look before applying it, or iterate by choosing improvements. Triggers (es/en): 'probar variantes', 'varias propuestas', 'varias opciones', 'mostrame opciones', 'opciones de UI/UX', 'alternativas de diseño', 'cómo quedaría', 'mostrame cómo queda', 'preview del cambio', 'mejorar la interfaz', 'rediseñá esto', 'qué mejorarías', 'mostrame un widget', 'try several variants', 'show me options/proposals', 'compare UI options', 'how would it look'."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "ui, ux, design, widgets, previews, proposals"
@@ -20,6 +20,14 @@ decides from something they can see — not a wall of prose. Two recurring shape
 
 Always render the visual with the `mcp__visualize__show_widget` tool. Explanatory text,
 recommendations and trade-offs go in the chat response, **never inside the widget**.
+
+## Agent compatibility
+
+This skill exists to render visuals with `mcp__visualize__show_widget`, which only Claude sessions with the visualize connector expose (it is absent from Codex, Hermes and headless Claude Code sessions; see [`agent-capabilities.md`](../../references/agent-capabilities.md)). Check the session tool list first. If the tool is missing:
+
+- Do not simulate it: no fake widget markup in chat, no claim that a widget was shown, and no static HTML presented as the widget.
+- Stop before step 1 and tell the user, under `Limitaciones del agente`, that visual proposals need a Claude session with the visualize connector.
+- Only if the user then explicitly asks for proposals without visuals, list them as plain text; that is a different deliverable, so say so.
 
 ## When to use
 

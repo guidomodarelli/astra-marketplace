@@ -4,7 +4,7 @@ description: "Optimiza skills existentes de Claude Code de forma segura y medibl
 allowed-tools: Read Write Edit Bash Agent Skill
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "skills"
   tags: "skills, optimization, evals, benchmark"
@@ -59,6 +59,15 @@ Usar estados explícitos:
 - `BLOCKED`: falta target, eval, evidencia, permisos o decisión.
 - `NEEDS_APPROVAL`: el gate held-out encontró solo un intercambio no crítico y espera la decisión del usuario sobre ese candidato (ver Fase 5).
 - `TARGET_AMBIGUOUS`, `TARGET_CHANGED_DURING_RUN`, `CONTRACT_REGRESSION`, `EVAL_REGRESSION`, `VALIDATION_FAILED`, `WORKSPACE_UNSAFE`.
+
+## Compatibilidad entre agentes
+
+`audit` no usa herramientas específicas de agente y corre igual en todos. `quick` y `full` necesitan dos capacidades, verificadas en la sesión según [`agent-capabilities.md`](../../references/agent-capabilities.md):
+
+- **Evaluador held-out aislado**: un subagente con contexto propio (`Agent` en Claude Code, `spawn_agent` en Codex, `delegate_task` en Hermes). Si no hay ninguno, aplica el fallback ya definido en «Split de optimización y held-out»: ningún candidato se aplica.
+- **Runner de evals**: `run-evals` ejecuta las evals con los CLIs `claude` o `codex` (`command -v`); no tiene provider Hermes. Sin ninguno de los dos CLIs no hay medición y la ejecución termina sin aplicar cambios.
+
+La pregunta de permiso para el subagente usa la herramienta de preguntas de la sesión o, sin ella, texto y espera. Reportar lo que falte en `Limitaciones`.
 
 ## Fase 1: preflight read-only
 

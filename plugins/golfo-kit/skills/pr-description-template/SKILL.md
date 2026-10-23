@@ -4,7 +4,7 @@ description: "Provides the standard PR title and concise description template (c
 allowed-tools: Bash(gh:*) Bash(git:*) Bash(bash:*) Bash(jq:*)
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "git-workflow"
   tags: "pull-request, template, description, screenshots"
@@ -84,6 +84,10 @@ Run [scripts/count-reviewable-files.sh](scripts/count-reviewable-files.sh) from 
 - If the range cannot be determined or the fetch fails, stop and report the concrete blocker instead of inventing or estimating a number.
 
 Place exactly one line, `<div align="right"><sup>📄 Archivos de código modificados: N</sup></div>`, as the first body content, followed by one blank line and `## 📝 Descripción`. Replace `N` with the script output; never leave placeholder text. Do not add this line in `traceability-only`.
+
+## Agent compatibility
+
+Screenshots need the user's own browser through Claude in Chrome (`mcp__claude-in-chrome__*`), which only Claude sessions with that extension expose (see [`agent-capabilities.md`](../../references/agent-capabilities.md)). When those tools are not in the session, skip the capture (never fall back to a headless or built-in browser), keep the rest of the body, and state under the reviewer notes that captures were skipped because the agent lacks access to the user's browser. Title, template and traceability-only mode work the same in every agent.
 
 ## UI screenshots
 

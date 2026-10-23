@@ -254,6 +254,63 @@
           "description": "Ubica las secciones de dominio en la estructura"
         }
       ]
+    },
+    {
+      "id": "no-question-tool-asks-in-text-and-stops",
+      "description": "Sin herramienta de preguntas en la sesión, pregunta en texto con opciones numeradas y se detiene sin generar ni guardar el spec.",
+      "input": "Con improve-spec: estoy en un agente que no tiene `AskUserQuestion`, `clarify` ni `request_user_input`. Invoqué `/improve-spec` sin argumento y en `docs/specs/` hay tres archivos: `checkout.md`, `refunds.md` y `search.md`. No ejecutes herramientas: escribí exactamente el mensaje que le mostrarías al usuario ahora y decime en una línea qué hacés después de mostrarlo.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "checkout.md",
+          "description": "Ofrece el primer spec como opción"
+        },
+        {
+          "type": "contains",
+          "value": "refunds.md",
+          "description": "Ofrece el segundo spec como opción"
+        },
+        {
+          "type": "regex",
+          "pattern": "^\\s*(>\\s*)?(1[.)]|- 1|\\*\\*1)",
+          "description": "Presenta opciones numeradas"
+        },
+        {
+          "type": "regex",
+          "pattern": "(me detengo|detenerme|detengo|espero|esperar|aguardo)[^.]{0,60}(respuesta|elij|elecci|que (elijas|respondas|me digas))",
+          "description": "Se detiene a esperar la respuesta"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "Spec mejorado y guardado",
+            "Mejoras encontradas en"
+          ],
+          "description": "No avanza a generar ni guardar el spec"
+        }
+      ]
+    },
+    {
+      "id": "hermes-clarify-undelivered-falls-back-to-text",
+      "description": "En Hermes, si `clarify` devuelve `undelivered` en la aprobación del paso 7, repite la pregunta en texto y no sobrescribe el spec.",
+      "input": "Con improve-spec en Hermes Agent: llegué al paso 7 con las mejoras de `docs/specs/checkout.md` y llamé a `clarify` para pedir la aprobación con las cuatro opciones, pero devolvió `outcome: undelivered`. No ejecutes nada: ¿qué hacés ahora? Respondé en máximo 6 líneas.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "texto|chat|mensaje",
+          "description": "Repite la pregunta en texto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca)[^.]{0,50}(guard|sobrescrib|escrib|aprob)",
+          "description": "No guarda ni da por aprobado el spec"
+        },
+        {
+          "type": "regex",
+          "pattern": "limitaci",
+          "description": "Reporta la limitación del agente"
+        }
+      ]
     }
   ]
 }

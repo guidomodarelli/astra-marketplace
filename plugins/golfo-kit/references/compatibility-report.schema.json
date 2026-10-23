@@ -1,0 +1,631 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/guidomodarelli/golfo-marketplace/plugins/golfo-kit/references/compatibility-report.schema.json",
+  "title": "golfo-kit agent compatibility report",
+  "description": "Describes per-skill, per-agent compatibility. It is not the runtime source of truth: skills still verify the tools available in each session (see agent-capabilities.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "audit_date",
+    "agents",
+    "summary",
+    "skills",
+    "pending_actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "audit_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/agent"
+      }
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "skills": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/skill"
+      }
+    },
+    "pending_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pendingAction"
+      }
+    }
+  },
+  "$defs": {
+    "agentId": {
+      "enum": [
+        "claude_code",
+        "codex",
+        "hermes"
+      ]
+    },
+    "skillStatus": {
+      "enum": [
+        "compatible",
+        "adapted",
+        "partial",
+        "incompatible",
+        "unverified"
+      ]
+    },
+    "featureStatus": {
+      "enum": [
+        "enabled",
+        "adapted",
+        "disabled",
+        "unverified"
+      ]
+    },
+    "skillId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "featureId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "testId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "issueId": {
+      "type": "string",
+      "pattern": "^INC-[a-z0-9]+(-[a-z0-9]+)*--(claude_code|codex|hermes)--[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "version",
+        "version_command",
+        "detection_signals"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/agentId"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "version": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "version_command": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "detection_signals": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "statusCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compatible",
+        "adapted",
+        "partial",
+        "incompatible",
+        "unverified"
+      ],
+      "properties": {
+        "compatible": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adapted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incompatible": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unverified": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_skills",
+        "agents",
+        "by_agent",
+        "disabled_features",
+        "adaptations",
+        "critical_pending"
+      ],
+      "properties": {
+        "total_skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentId"
+          },
+          "minItems": 3,
+          "uniqueItems": true
+        },
+        "by_agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "claude_code",
+            "codex",
+            "hermes"
+          ],
+          "properties": {
+            "claude_code": {
+              "$ref": "#/$defs/statusCounts"
+            },
+            "codex": {
+              "$ref": "#/$defs/statusCounts"
+            },
+            "hermes": {
+              "$ref": "#/$defs/statusCounts"
+            }
+          }
+        },
+        "disabled_features": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adaptations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implemented",
+            "verified"
+          ],
+          "properties": {
+            "implemented": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "verified": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "critical_pending": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issueId"
+          }
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "required",
+        "agents"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "enum": [
+            "tool",
+            "command",
+            "hook",
+            "monitor",
+            "api",
+            "mcp",
+            "path",
+            "skill",
+            "subagent",
+            "scheduler"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentId"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "required",
+        "adaptation",
+        "required_capabilities",
+        "implementation",
+        "fallback",
+        "reason",
+        "evidence",
+        "tests"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/featureId"
+        },
+        "status": {
+          "$ref": "#/$defs/featureStatus"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "adaptation": {
+          "description": "True when the feature runs through an alternative to the original implementation (a native equivalent or a fallback).",
+          "type": "boolean"
+        },
+        "required_capabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "implementation": {
+          "type": "string"
+        },
+        "fallback": {
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "evidence": {
+          "$ref": "#/$defs/stringList"
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testId"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "agentCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "summary",
+        "missing_capabilities",
+        "alternatives_investigated",
+        "features"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/skillStatus"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "missing_capabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "alternatives_investigated": {
+          "$ref": "#/$defs/stringList"
+        },
+        "features": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/feature"
+          }
+        }
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "agent",
+        "kind",
+        "command",
+        "result",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/testId"
+        },
+        "agent": {
+          "enum": [
+            "claude_code",
+            "codex",
+            "hermes",
+            "any"
+          ]
+        },
+        "kind": {
+          "description": "eval and real_run count as execution evidence for the agent; simulated_eval runs in another agent; static is inspection only; bats checks bundled scripts independently of the agent.",
+          "enum": [
+            "eval",
+            "real_run",
+            "simulated_eval",
+            "bats",
+            "static"
+          ]
+        },
+        "command": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "result": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked",
+            "not_run"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "skill",
+        "agent",
+        "feature",
+        "missing_dependency",
+        "technical_reason",
+        "alternatives_investigated",
+        "resolution",
+        "severity",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/issueId"
+        },
+        "skill": {
+          "$ref": "#/$defs/skillId"
+        },
+        "agent": {
+          "$ref": "#/$defs/agentId"
+        },
+        "feature": {
+          "$ref": "#/$defs/featureId"
+        },
+        "missing_dependency": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "technical_reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "alternatives_investigated": {
+          "$ref": "#/$defs/stringList"
+        },
+        "resolution": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "status": {
+          "enum": [
+            "resolved",
+            "mitigated",
+            "pending",
+            "not_applicable"
+          ]
+        }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "version",
+        "path",
+        "purpose",
+        "main_features",
+        "declared_agents",
+        "dependencies",
+        "agents",
+        "implementation",
+        "issues",
+        "tests",
+        "pending_verification"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/skillId"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^plugins/golfo-kit/skills/[a-z0-9-]+/SKILL\\.md$"
+        },
+        "purpose": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "main_features": {
+          "$ref": "#/$defs/stringList"
+        },
+        "declared_agents": {
+          "description": "Agents the skill declares as supported, or null when it declares none.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/agentId"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dependency"
+          }
+        },
+        "agents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "claude_code",
+            "codex",
+            "hermes"
+          ],
+          "properties": {
+            "claude_code": {
+              "$ref": "#/$defs/agentCompatibility"
+            },
+            "codex": {
+              "$ref": "#/$defs/agentCompatibility"
+            },
+            "hermes": {
+              "$ref": "#/$defs/agentCompatibility"
+            }
+          }
+        },
+        "implementation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adaptations",
+            "files_modified",
+            "fallback",
+            "behavior_changes"
+          ],
+          "properties": {
+            "adaptations": {
+              "$ref": "#/$defs/stringList"
+            },
+            "files_modified": {
+              "$ref": "#/$defs/stringList"
+            },
+            "fallback": {
+              "type": "string"
+            },
+            "behavior_changes": {
+              "type": "string"
+            }
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issue"
+          }
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/test"
+          }
+        },
+        "pending_verification": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "pendingAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "priority",
+        "impact",
+        "action",
+        "done_when",
+        "related_issues"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ACT-[0-9]{3}$"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "impact": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "action": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "done_when": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "related_issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issueId"
+          }
+        }
+      }
+    }
+  }
+}
