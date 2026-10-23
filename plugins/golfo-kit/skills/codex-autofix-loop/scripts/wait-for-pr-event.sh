@@ -95,12 +95,52 @@ require_positive_integer --max-polls "$max_polls"
 require_positive_integer --max-failures "$max_failures"
 command -v gh >/dev/null 2>&1 || fail_usage "gh CLI not found in PATH"
 
-# Bound every GitHub call so a hung request cannot stall the watcher.
+# The whole run, baseline included, must fit in --timeout-seconds.
+deadline_epoch=$(( $(date +%s) + timeout_seconds ))
+
+remaining_budget_seconds() { printf '%s
+' "$(( deadline_epoch - $(date +%s) ))"; }
+
+deadline_reached() { (( $(remaining_budget_seconds) <= 0 )); }
+
+# Portable stand-in for `timeout` (macOS and minimal images lack it). Output goes
+# through temp files so a process left behind by the killed command cannot keep
+# the caller's command substitution open.
+run_with_time_limit() {
+  local limit_seconds="$1" output_file error_file command_pid watchdog_pid command_status=0
+  shift
+  output_file=$(mktemp)
+  error_file=$(mktemp)
+  "$@" >"$output_file" 2>"$error_file" &
+  command_pid=$!
+  (
+    sleep "$limit_seconds" &
+    sleeper_pid=$!
+    trap 'kill "$sleeper_pid" 2>/dev/null; exit 0' TERM
+    wait "$sleeper_pid"
+    kill -TERM "$command_pid" 2>/dev/null
+  ) >/dev/null 2>&1 &
+  watchdog_pid=$!
+  wait "$command_pid" || command_status=$?
+  kill -TERM "$watchdog_pid" 2>/dev/null || true
+  wait "$watchdog_pid" 2>/dev/null || true
+  cat "$output_file"
+  cat "$error_file" >&2
+  rm -f "$output_file" "$error_file"
+  return "$command_status"
+}
+
+# Bound every GitHub call by min(GH_CALL_TIMEOUT_SECONDS, remaining budget) so
+# a slow or hung request cannot stretch the watcher past --timeout-seconds.
 run_gh() {
+  local remaining_seconds limit_seconds
+  remaining_seconds=$(remaining_budget_seconds)
+  (( remaining_seconds > 0 )) || return 124
+  limit_seconds=$(( remaining_seconds < GH_CALL_TIMEOUT_SECONDS ? remaining_seconds : GH_CALL_TIMEOUT_SECONDS ))
   if command -v timeout >/dev/null 2>&1; then
-    timeout "$GH_CALL_TIMEOUT_SECONDS" gh "$@"
+    timeout "$limit_seconds" gh "$@"
   else
-    gh "$@"
+    run_with_time_limit "$limit_seconds" gh "$@"
   fi
 }
 
@@ -131,7 +171,14 @@ list_new_bot_comments() {
 
 utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+report_baseline_timeout() {
+  printf 'TIMEOUT budget of %ss exhausted while reading the baseline of PR #%s
+' "$timeout_seconds" "$pull_request"
+  exit "$EXIT_TIMEOUT"
+}
+
 if ! baseline_snapshot=$(read_pull_request_snapshot); then
+  deadline_reached && report_baseline_timeout
   printf 'GH_UNAVAILABLE could not read PR #%s of %s\n' "$pull_request" "$repository"
   exit "$EXIT_GH_UNAVAILABLE"
 fi
@@ -143,19 +190,20 @@ if [[ "$baseline_state" != "OPEN" ]]; then
 fi
 baseline_reviews=$(count_bot_reviews || printf '0')
 baseline_checks=$(read_checks_signature)
+deadline_reached && report_baseline_timeout
 since_timestamp=$(utc_now)
-deadline_epoch=$(( $(date +%s) + timeout_seconds ))
 consecutive_failures=0
 poll_count=0
 
 while (( poll_count < max_polls )); do
-  remaining_seconds=$(( deadline_epoch - $(date +%s) ))
+  remaining_seconds=$(remaining_budget_seconds)
   (( remaining_seconds > 0 )) || break
   sleep "$(( poll_seconds < remaining_seconds ? poll_seconds : remaining_seconds ))"
   poll_count=$(( poll_count + 1 ))
   poll_started_at=$(utc_now)
 
   if ! snapshot=$(read_pull_request_snapshot); then
+    deadline_reached && break
     consecutive_failures=$(( consecutive_failures + 1 ))
     if (( consecutive_failures >= max_failures )); then
       printf 'GH_UNAVAILABLE %s consecutive failed polls on PR #%s\n' "$consecutive_failures" "$pull_request"

@@ -21,6 +21,8 @@ case "$*" in
   *"pulls/"*"/comments"*) kind=pull-comments ;;
   *) echo "fake gh: unexpected call: $*" >&2; exit 64 ;;
 esac
+# An optional "<kind>.delay" file holds the seconds each call of that kind takes.
+[[ -f "$FAKE_GH_DIR/$kind.delay" ]] && sleep "$(cat "$FAKE_GH_DIR/$kind.delay")"
 answers="$FAKE_GH_DIR/$kind"
 counter="$FAKE_GH_DIR/$kind.calls"
 calls=$(( $(cat "$counter" 2>/dev/null || echo 0) + 1 ))
@@ -36,6 +38,7 @@ esac
 FAKE_GH
   chmod +x "$fake_bin/gh"
   export PATH="$fake_bin:$PATH"
+  bash_path="$(command -v bash)"
   printf 'OPEN aaaaaaa1111111\n' > "$FAKE_GH_DIR/pr-view"
   printf '1\n' > "$FAKE_GH_DIR/reviews"
   printf 'pass=2\n' > "$FAKE_GH_DIR/checks"
@@ -47,6 +50,27 @@ teardown() {
 
 run_watcher() {
   run bash "$watcher" --repo acme/widgets --pr 42 --poll-seconds 1 "$@"
+}
+
+# PATH holding only the fake gh plus wrappers for the tools the watcher and the
+# fake gh need, so `timeout` is absent as on macOS and the portable fallback runs.
+use_path_without_timeout() {
+  local tools_bin="$test_root/tools" tool_name tool_path
+  mkdir -p "$tools_bin"
+  for tool_name in awk bash cat date mktemp rm sed sleep wc; do
+    tool_path="$(command -v "$tool_name")"
+    printf '#!%s
+exec "%s" "$@"
+' "$bash_path" "$tool_path" > "$tools_bin/$tool_name"
+    chmod +x "$tools_bin/$tool_name"
+  done
+  restricted_path="$fake_bin:$tools_bin"
+  PATH="$restricted_path" "$bash_path" -c 'command -v timeout' >/dev/null && skip "timeout is still reachable"
+  return 0
+}
+
+run_watcher_without_timeout() {
+  run env PATH="$restricted_path" "$bash_path" "$watcher" --repo acme/widgets --pr 42 --poll-seconds 1 "$@"
 }
 
 @test "exits 0 and reports the new head when the PR head changes" {
@@ -93,6 +117,57 @@ run_watcher() {
   [ "$status" -eq 3 ]
   [[ "$output" == *"TIMEOUT"* ]]
   [ "$SECONDS" -lt 10 ]
+}
+
+@test "exits 3 within the budget when GitHub answers slower than the timeout" {
+  printf '3
+' > "$FAKE_GH_DIR/pr-view.delay"
+  SECONDS=0
+
+  run_watcher --timeout-seconds 1 --max-polls 100
+
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"TIMEOUT budget of 1s exhausted while reading the baseline of PR #42"* ]]
+  [ "$SECONDS" -lt 3 ]
+}
+
+@test "exits 3 when slow baseline reads exhaust the budget before polling" {
+  printf '1
+' > "$FAKE_GH_DIR/reviews.delay"
+  printf '1
+' > "$FAKE_GH_DIR/checks.delay"
+  SECONDS=0
+
+  run_watcher --timeout-seconds 1 --max-polls 100
+
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"TIMEOUT budget of 1s exhausted while reading the baseline"* ]]
+  [ "$SECONDS" -lt 4 ]
+}
+
+@test "without the timeout executable a slow GitHub call is still cut at the budget" {
+  use_path_without_timeout
+  printf '3
+' > "$FAKE_GH_DIR/pr-view.delay"
+  SECONDS=0
+
+  run_watcher_without_timeout --timeout-seconds 1 --max-polls 100
+
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"TIMEOUT budget of 1s exhausted while reading the baseline of PR #42"* ]]
+  [ "$SECONDS" -lt 3 ]
+}
+
+@test "without the timeout executable the watcher still reports events" {
+  use_path_without_timeout
+  printf 'OPEN aaaaaaa1111111
+OPEN bbbbbbb2222222
+' > "$FAKE_GH_DIR/pr-view"
+
+  run_watcher_without_timeout --timeout-seconds 10 --max-polls 3
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"EVENT head bbbbbbb"* ]]
 }
 
 @test "exits 5 when the PR is no longer open" {
