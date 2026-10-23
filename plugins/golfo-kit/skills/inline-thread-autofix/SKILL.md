@@ -3,7 +3,7 @@ name: inline-thread-autofix
 description: "Orquesta feedback accionable de un PR GitHub desde URL `#discussion_r...` o `#pullrequestreview-...`: al activarse pregunta primero si el usuario quiere checkout actual, worktree hermano (`/sibling-worktree`) o clone efímero (`/fix-in-ephemeral-clone`), y recién después inspecciona PR, código, stack y referencias explícitas a issues. Ejecuta solo el entorno elegido. Para inline comments responde y resuelve el thread (si el comentario fue eliminado, permite closeout sin reply); si referencia inequívocamente una issue del mismo repo, la responde y cierra. Si el PR fuente está cerrado/mergeado, trabaja en el PR abierto de branch relacionada solo con ownership verificable. Para review-bodies preserva body o usa fallback. Usar siempre al recibir estos links; detener ante ambigüedad, precondiciones inseguras o closeout no verificable."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, pull-request, inline-comment, autofix"
@@ -34,6 +34,15 @@ Pregunta sugerida:
 ```
 
 Usar `AskUserQuestion` con header `Entorno` y opciones single-select. Si usuario elige `Worktree hermano` o `Clone efímero`, informar inmediatamente después de crear o seleccionar el entorno: `Entorno elegido`, `Path absoluto`, `Branch`, `HEAD`; repetir esos datos en resultado final. No ocultar path detrás de un alias ni esperar al cierre para informarlo.
+
+## Compatibilidad entre agentes
+
+Aplicar el protocolo de [`agent-capabilities.md`](../../references/agent-capabilities.md) a dos capacidades:
+
+- **Pregunta del entorno**: `AskUserQuestion` en Claude Code, `clarify` en Hermes (una pregunta, tres `choices`) o `request_user_input` si Codex está en modo Plan. Sin ninguna, o si `clarify` devuelve `undelivered`, `timed_out` o `cancelled`, mostrar la pregunta sugerida en texto y **detenerse** hasta recibir la respuesta; la regla de no analizar ni actuar antes de la respuesta no cambia.
+- **Modo `background` del handoff**: requiere un subagente o job que devuelva handle real (`Agent` en Claude Code, `spawn_agent` en Codex, `delegate_task` en Hermes). Sin esa herramienta, usar `in_context`; nunca anunciar un executor que no existe.
+
+Reportar cualquier fallback en `Limitaciones del agente` dentro del resultado final.
 
 ## Objetivo y ownership
 
