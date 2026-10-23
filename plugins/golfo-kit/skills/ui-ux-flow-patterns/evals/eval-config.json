@@ -300,6 +300,88 @@
           "description": "Limpia el error cuando el usuario corrige el valor"
         }
       ]
+    },
+    {
+      "id": "nextjs-client-container-ux-redesign",
+      "description": "Ante un pedido de mejorar la UI/UX de una pantalla Next.js que solo toca un contenedor cliente y componentes, diseña los estados y el feedback (error con reintento, confirmar la desconexión, skeleton) y además aplica el criterio de boundaries de Next (datos iniciales en server, \"use client\" en la hoja).",
+      "input": "Repo Next.js 16 con App Router. Mejorá la UI/UX de la pantalla de conexión de mensajería del líder. La página `app/(platform)/[slug]/settings/messaging/page.tsx` ya existe y no hay que tocarla; monta `messaging-connection-container.tsx` (\"use client\", en la misma carpeta), que hace `useEffect` + `fetch('/api/messaging/connection')` y renderiza `components/messaging/connection-card` con un botón 'Desconectar' que borra la conexión sin preguntar y un texto 'Cargando...' mientras espera. Si falla el fetch no se muestra nada. No ejecutes nada: decime qué cambiarías y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(reintentar|volver a intentar|retry)",
+          "description": "El error de carga tiene salida con reintento en vez de no mostrar nada"
+        },
+        {
+          "type": "regex",
+          "pattern": "(confirm|deshacer|undo|AlertDialog|di(a|á)logo)",
+          "description": "La desconexión destructiva pasa por confirmar o deshacer"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "skeleton",
+            "Skeleton"
+          ],
+          "description": "Reemplaza el texto 'Cargando...' por un skeleton"
+        },
+        {
+          "type": "regex",
+          "pattern": "(Server Component|en (el )?server|server component|loading\\.tsx|<Suspense)",
+          "description": "Aplica también el criterio de Next: datos iniciales en server o boundary del segmento"
+        },
+        {
+          "type": "regex",
+          "pattern": "\"use client\".{0,160}(hoja|bot(o|ó)n|interactiv)|(hoja|isla|interactiv).{0,160}\"use client\"",
+          "description": "Baja \"use client\" a la hoja interactiva en vez del contenedor entero"
+        }
+      ]
+    },
+    {
+      "id": "inline-destructive-confirmation-active-resource",
+      "description": "En un proyecto que confirma acciones destructivas con una casilla junto al botón, diseña suspender y retirar sobre recursos con rol (activo y candidato): etiqueta con recurso e impacto, consentimiento que se desmarca al cambiar de selección, aviso fijo con texto para el recurso en uso, diferencia entre conservar y liberar el lugar, sin preselección destructiva, foco tras el éxito y toast de progreso.",
+      "input": "En mi app React, la pantalla de conexiones de mensajería del líder tiene una conexión activa («Soporte») y, a veces, una candidata que la va a reemplazar. Quiero un panel de 'Suspender' y 'Retirar' con un selector de conexión. El `DESIGN.md` del proyecto dice que toda acción destructiva se confirma con una casilla junto al botón, no con un diálogo, y que las escrituras usan `toast.promise`. Suspender deja la conexión pausada en su lugar; retirar la libera. Mostrame el componente y explicá las decisiones.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(checkbox|casilla|Checkbox)",
+          "description": "Usa la casilla de consentimiento del proyecto en vez de un diálogo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(desmarc|resetea|reinicia|vuelve a false|setConfirmed\\(false\\)|setAcknowledged\\(false\\)|setChecked\\(false\\))",
+          "description": "El consentimiento se desmarca al cambiar de conexión, de acción o tras la escritura"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no solo (el )?color|con texto|role=\"(status|note|alert)\"|aviso (fijo|persistente)|banner)",
+          "description": "Muestra un aviso fijo con texto cuando la acción afecta a la conexión activa"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserva|mantiene|pausad|reanudar).{0,200}(libera|reemplaz)|(libera|reemplaz).{0,200}(conserva|mantiene|pausad|reanudar)",
+          "description": "Distingue suspender (conserva el lugar) de retirar (lo libera)"
+        },
+        {
+          "type": "regex",
+          "pattern": "(rol|activa|candidata).{0,80}(estado|suspendida|pausada)|(estado).{0,80}(activa|candidata)",
+          "description": "El selector muestra el rol y el estado de cada conexión"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no (se )?preselecc|sin preselecc|no (arranca|empieza) seleccionad|selecci(o|ó)n vac(i|í)a)",
+          "description": "No preselecciona una acción destructiva sobre la conexión activa"
+        },
+        {
+          "type": "regex",
+          "pattern": "(\\.focus\\(|foco)",
+          "description": "Mueve el foco al siguiente control lógico cuando el control enfocado desaparece"
+        },
+        {
+          "type": "contains",
+          "value": "toast.promise",
+          "description": "El resultado de la escritura va por toast.promise"
+        }
+      ]
     }
   ]
 }

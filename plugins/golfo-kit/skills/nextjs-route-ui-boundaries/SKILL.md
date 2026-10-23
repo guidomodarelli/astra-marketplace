@@ -1,9 +1,9 @@
 ---
 name: nextjs-route-ui-boundaries
-description: 'Next.js App Router: decide loading.tsx con skeleton, error.tsx, layouts compartidos, Suspense, server vs client (sidebar, header, tablas) y las APIs de Next.js que conviene usar. Usar siempre, sin pedido explícito, al crear o modificar código de un proyecto Next.js con App Router (app/, page, layout, componentes que monta una ruta, next.config); no en Pages Router ni en repos sin Next.js.'
+description: 'Next.js App Router: decide loading.tsx con skeleton, error.tsx, layouts compartidos, Suspense, server vs client (sidebar, header, tablas, contenedores) y las APIs de Next.js que conviene usar. Usar siempre, sin pedido explícito, al crear o modificar cualquier código de un proyecto Next.js con App Router: archivos de app/ (page, layout, route), contenedores y componentes cliente que monta una ruta (app/**, components/**), hooks, formularios, server actions o next.config, aunque el cambio no toque page.tsx, loading.tsx ni error.tsx y el pedido solo diga mejorar la UI/UX, rediseñar una pantalla o agregar un botón. En un cambio de UI, cargarla junto con ui-ux-flow-patterns: esta decide boundaries y qué es server o cliente; aquella, qué muestra cada estado. No en Pages Router ni en repos sin Next.js.'
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "nextjs, app-router, loading, error-boundary, layout, suspense, skeleton, server-components"
@@ -17,6 +17,16 @@ Esta skill decide **qué archivo especial o boundary corresponde a cada segmento
 ## Invocación automática en cada cambio de Next.js
 
 Usar esta skill por iniciativa propia cada vez que se crea o modifica código de un proyecto Next.js con App Router, aunque el pedido no hable de rutas ni de loading: un componente nuevo puede ser la razón de que una página entera pase a `"use client"`, un `await` nuevo en un layout puede congelar todas las navegaciones, y es mucho más barato decidir el boundary al escribir el código que descubrirlo después.
+
+Disparadores concretos, aunque el diff no toque `page.tsx`, `loading.tsx` ni `error.tsx`:
+
+- Un contenedor o componente cliente que monta una ruta (`app/**/<algo>-container.tsx`, `components/**`), sus hooks o sus estilos.
+- Un rediseño o "mejorá la UI/UX de la pantalla X": la pantalla vive en un segmento de `app/`, así que el reparto server/cliente y los estados de carga del segmento entran en el alcance.
+- Un formulario, una server action, un route handler, un `fetch` nuevo o un cambio de `next.config.*`.
+
+Que el cambio parezca "solo de componentes" no la deja afuera: esos componentes son los que deciden dónde cae `"use client"` y qué espera la ruta.
+
+**Complementaria de `ui-ux-flow-patterns`.** En cualquier cambio de UI dentro de un proyecto Next.js, cargar las dos antes de diseñar: esta decide **dónde** van los boundaries y qué renderiza el server; `ui-ux-flow-patterns` decide **qué muestra** cada estado y qué feedback recibe el usuario. Cargar una no reemplaza a la otra.
 
 Detectar el proyecto: `next` en `package.json` y un directorio `app/` (o `src/app/`). Con solo `pages/`, la skill no aplica.
 
@@ -108,6 +118,7 @@ Un `loading.tsx` o un fallback de `<Suspense>` que devuelve texto ("Cargando..."
 
 - `refactor-ssr-data-fetching`: desde dónde se piden los datos (SSR, BFF o upstream) y qué DTO cruza al browser.
 - `prevent-ssr-hydration-mismatches`: que el HTML de server y el primer render cliente coincidan (por ejemplo, el estado colapsado del sidebar leído de cookie y no de `localStorage`).
-- `async-operation-error-handling` y `ui-ux-flow-patterns`: errores de mutations y validaciones dentro de una pantalla, no de la ruta.
+- `ui-ux-flow-patterns`: complementaria en todo cambio de UI; decide qué muestra cada estado (vacío, error, confirmación, toasts) y el feedback de cada acción. Cargar las dos juntas.
+- `async-operation-error-handling`: errores de mutations y validaciones dentro de una pantalla, no de la ruta.
 - `measured-performance-optimization`: medir el impacto (LCP, CLS, bundle) cuando el pedido es de rendimiento.
 - `mobile-first-responsive-layout`: el comportamiento responsive del sidebar y la chrome.

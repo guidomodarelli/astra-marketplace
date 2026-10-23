@@ -1,9 +1,9 @@
 ---
 name: ui-ux-flow-patterns
-description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa a la acción con error junto al campo, limpieza de errores viejos (stale errors) al cambiar de recurso o reintentar, cuándo usar el feedback de reporte a soporte y qué feedback recibe el usuario. Usar siempre, sin pedido explícito, al crear o modificar pantallas, listas, tablas, formularios, búsquedas, uploads, wizards o acciones de UI en cualquier stack; no en código sin interfaz.'
+description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "ux, ui, empty-state, loading, error-state, toast, feedback, components, flows"
@@ -16,12 +16,18 @@ Una pantalla no tiene un solo diseño: tiene uno por **estado**. La versión "co
 
 ## Invocación automática
 
-Usar esta skill por iniciativa propia cada vez que se crea o modifica código que el usuario ve o con el que interactúa (páginas, componentes, listas, tablas, formularios, diálogos, acciones), aunque el pedido solo hable de "agregar un botón" o "mostrar los pagos". Elegir el modo según el alcance:
+Usar esta skill por iniciativa propia cada vez que se crea o modifica código que el usuario ve o con el que interactúa (páginas, componentes, listas, tablas, formularios, diálogos, acciones), aunque el pedido solo hable de "agregar un botón" o "mostrar los pagos".
+
+Disparadores concretos: "mejorá la UX/UI de…", "rediseñá la pantalla…", "pulí este paso", un paso nuevo o cambiado de un wizard, una confirmación o una acción destructiva, copy visible, feedback con toasts, banners o avisos, estados de carga, vacío o error. Cargarla **antes de diseñar**, no al revisar: los estados y el canal de feedback cambian qué componentes se eligen.
+
+**Complementaria de `nextjs-route-ui-boundaries`.** Si el proyecto usa Next.js con App Router (`next` en `package.json` y `app/` o `src/app/`), cargar también esa skill en el mismo cambio, aunque solo se toquen contenedores cliente o componentes bajo `components/`: esta decide **qué muestra** cada estado; aquella, **dónde** van los boundaries y qué parte renderiza el server.
+
+Elegir el modo según el alcance:
 
 - **Modo liviano** (cambio puntual: un botón, una columna, un campo, copy). Revisar solo lo que el cambio toca con este checklist y corregir en el mismo trabajo lo que el cambio introduzca:
   1. Si el cambio **trae datos**: ¿tiene estado de carga con la forma del contenido, estado vacío y estado de error con reintento? ([state-matrix.md](references/state-matrix.md))
   2. Si el cambio **ejecuta una acción**: ¿el control muestra pending, evita el doble envío y el resultado llega por el canal correcto? ([feedback-channels.md](references/feedback-channels.md#tabla-de-decisión))
-  3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)?
+  3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)? Si el proyecto confirma con una casilla junto al botón, aplicar la [confirmación inline](references/feedback-channels.md#confirmación-inline): etiqueta con recurso e impacto, consentimiento que se desmarca al cambiar de selección y aviso fijo si afecta al recurso en uso.
   4. Si el cambio **valida input o muestra errores**: ¿la acción se bloquea antes del request, el error queda junto al campo y el error viejo se limpia al cambiar de recurso o reintentar? ([validation-feedback.md](references/validation-feedback.md))
   5. ¿El feedback nuevo es accesible (live region, foco, no solo color)? ([accesibilidad](references/feedback-channels.md#accesibilidad-del-feedback))
 
@@ -76,7 +82,7 @@ Solo en modo completo:
 
 ## Límites con otras skills
 
-- `nextjs-route-ui-boundaries`: en Next.js, **dónde** van `loading.tsx`, `error.tsx` y los `<Suspense>`; esta skill decide **qué muestran**.
+- `nextjs-route-ui-boundaries`: en Next.js, **dónde** van `loading.tsx`, `error.tsx` y los `<Suspense>` y qué parte renderiza el server; esta skill decide **qué muestran**. En un proyecto Next.js con App Router, cargar las dos juntas.
 - `optimistic-action-mutations`: implementación de toggles y acciones optimistas con rollback.
 - `async-operation-error-handling`: errores de jobs, batches, polling y éxito parcial a través de las capas.
 - `semantic-html-a11y`: semántica, roles y foco de los controles.

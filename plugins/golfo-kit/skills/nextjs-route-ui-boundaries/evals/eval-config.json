@@ -347,6 +347,41 @@
           "description": "Dice explícitamente que crear esos archivos en pages/ no tiene efecto"
         }
       ]
+    },
+    {
+      "id": "nextjs-client-container-ux-redesign",
+      "description": "Aunque el pedido sea de UI/UX y no toque page.tsx, loading.tsx ni error.tsx, revisa el contenedor cliente que monta la ruta: mueve los datos iniciales del useEffect+fetch al server, deja \"use client\" en la hoja interactiva, cubre la espera con skeleton y sigue diseñando los estados de UX.",
+      "input": "Repo Next.js 16 con App Router. Mejorá la UI/UX de la pantalla de conexión de mensajería del líder. La página `app/(platform)/[slug]/settings/messaging/page.tsx` ya existe y no hay que tocarla; monta `messaging-connection-container.tsx` (\"use client\", en la misma carpeta), que hace `useEffect` + `fetch('/api/messaging/connection')` y renderiza `components/messaging/connection-card` con un botón 'Desconectar' que borra la conexión sin preguntar y un texto 'Cargando...' mientras espera. Si falla el fetch no se muestra nada. No ejecutes nada: decime qué cambiarías y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "useEffect.{0,200}(server|Server Component|await)|(server|Server Component).{0,200}useEffect",
+          "description": "Señala el useEffect + fetch de datos iniciales y lo mueve al server"
+        },
+        {
+          "type": "regex",
+          "pattern": "\"use client\".{0,160}(hoja|bot(o|ó)n|interactiv)|(hoja|isla|interactiv).{0,160}\"use client\"",
+          "description": "Deja \"use client\" solo en la hoja interactiva"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "skeleton",
+            "Skeleton"
+          ],
+          "description": "La espera se cubre con un skeleton con la forma de la tarjeta"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reintentar|retry|error\\.tsx|catchError)",
+          "description": "El fallo de carga queda contenido y con salida"
+        },
+        {
+          "type": "regex",
+          "pattern": "(confirm|deshacer|undo|di(a|á)logo)",
+          "description": "No ignora la UX de la acción destructiva (complementa con ui-ux-flow-patterns)"
+        }
+      ]
     }
   ]
 }

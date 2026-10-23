@@ -78,6 +78,18 @@ Reglas:
 
 Nunca confirmar con "¿Estás seguro?" + "Sí / No": el diálogo tiene que poder entenderse leyendo solo el botón.
 
+### Confirmación inline
+
+Si el proyecto ya usa confirmación inline para acciones destructivas (su `DESIGN.md` o el resto de la pantalla lo hacen), usarla en lugar del diálogo, con las mismas exigencias de contenido. Si no la usa, quedarse con el diálogo de la tabla anterior: mezclar dos patrones de confirmación en un mismo producto obliga a aprender los dos.
+
+- **Casilla de consentimiento junto al botón destructivo.** El botón queda deshabilitado hasta marcarla, y su texto dice por qué (no solo el estado gris). La etiqueta nombra el recurso afectado y su impacto concreto: "Entiendo que mientras «Soporte» esté suspendida no se envían avisos ni códigos", no "Confirmo la acción".
+- **El consentimiento vale para una sola decisión.** Atarlo al id y la versión del recurso, a la acción y a su motivo. Cambiar de recurso, de acción o de motivo, recibir una lectura nueva del recurso o terminar la acción lo desmarca: un consentimiento dado para otro estado no autoriza este.
+- **Aviso fijo cuando la acción afecta al recurso en uso** (el activo, el seleccionado, el que hoy atiende a los usuarios). Va en la sección, antes del botón, con texto y no solo color, porque hay que leerlo antes de confirmar. Distinguir explícitamente las acciones que **conservan el lugar** del recurso (suspender, pausar: se puede reanudar y nada lo reemplaza) de las que **lo liberan** (retirar, eliminar: otro recurso o ninguno ocupa su lugar), y decir cuál es.
+- **Varios recursos con roles distintos** (activo y candidato, principal y respaldo): el selector muestra el rol y el estado de cada uno. No preseleccionar una acción destructiva sobre el recurso en uso. Si el usuario llega al panel desde una próxima acción ("Retirá la candidata vencida"), preseleccionar el recurso que esa acción nombra.
+- **Roles que coinciden en un mismo recurso** (el candidato también es el seleccionado): el texto no promete que "el otro no cambia"; describe el efecto sobre los dos roles.
+- **Foco después del éxito.** Si el control que tenía el foco desaparece (la fila retirada, el botón del recurso eliminado), mover el foco al siguiente control lógico, por ejemplo el campo del formulario que lo reemplaza, y no dejarlo caer en el `body`.
+- **Resultado de la escritura** por el canal async del proyecto (toast de progreso que pasa a éxito o error, por ejemplo `toast.promise`), salvo que el proyecto defina otro. El aviso fijo describe la condición; el toast, el resultado.
+
 ## Formularios
 
 - Validar al salir del campo (blur) o al enviar, no mientras se escribe; si se valida en vivo, esperar a que el usuario deje de tipear (~500 ms) y nunca marcar error en un campo que todavía no tocó.
