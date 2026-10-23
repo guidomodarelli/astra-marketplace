@@ -68,9 +68,28 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   const visited = new Set();
   const visitedShells = new Set();
   const queue = [];
+  const expandedContexts = new Map();
   const via = {};
   let truncated = false;
   let inputCount = 0;
+
+  /**
+   * Whether an equivalent or broader expansion of the same module reference
+   * already ran. Re-exports do not add parts, so without this guard a
+   * circular barrel graph (`a` re-exports `b`, `b` re-exports `a`) would
+   * re-queue the same references forever. An earlier expansion covers this
+   * one when it had no more depth spent and followed at least as much.
+   *
+   * @param {any} context Queue item about to be expanded.
+   * @returns {boolean}
+   */
+  const isAlreadyExpanded = (context) => {
+    const key = `${context.path}\0${context.reference}\0${context.role}`;
+    const previousExpansions = expandedContexts.get(key) ?? [];
+    if (previousExpansions.some((previous) => previous.depth <= context.depth && (previous.follow || !context.follow))) return true;
+    expandedContexts.set(key, [...previousExpansions, { depth: context.depth, follow: context.follow }]);
+    return false;
+  };
 
   const addInput = (key, hash, partSignals, from) => {
     if (!(key in inputs) && inputCount >= MAX_UNIT_INPUT_ENTRIES) {
@@ -236,6 +255,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   while (queue.length && !truncated) {
     const context = queue.shift();
     if (!context.explicit && (index.isIgnored(context.path) || policy.excludesFile?.(context.path))) continue;
+    if (isAlreadyExpanded(context)) continue;
     const analysis = index.analyze(context.path);
     if (!analysis) {
       addInput(`${context.path}#*`, MISSING_HASH);
