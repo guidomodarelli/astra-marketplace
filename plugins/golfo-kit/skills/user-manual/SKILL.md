@@ -36,15 +36,12 @@ Helpers live in `scripts/` (see "Helpers" at the end). Use them instead of rewri
 
 Every question in this skill (device, languages, repo location, glossary terms) uses the question tool that is actually present in the session, per [`agent-capabilities.md`](../../references/agent-capabilities.md): `AskUserQuestion` in Claude Code, `clarify` in Hermes (up to 4 `choices` per question), `request_user_input` only when Codex is in Plan mode. With none of them, or when `clarify` returns `undelivered`, `timed_out` or `cancelled`, ask the same question in chat with numbered options and **stop** until the user answers; never pick a default device, language or repo on their behalf. Report the fallback under `Limitaciones del agente` in the final message.
 
-The real-app captures ([references/real-app-mockups.md](references/real-app-mockups.md)) need a browser where you can **evaluate JavaScript in the app's page**; they clone DOM and CSS, so they do not depend on pixel screenshots. Use the first one present in the session (row «Navegador real del usuario y capturas» of `agent-capabilities.md`):
+The real-app captures ([references/real-app-mockups.md](references/real-app-mockups.md)) need a browser where you can **evaluate JavaScript in the app's page**; they clone DOM and CSS, so they do not depend on pixel screenshots. Each agent's browsers, how to recognise them and which ones are the user's own are listed only in row «Navegador real del usuario y capturas» of `agent-capabilities.md`. Pick from that row by what the screen needs:
 
-| Agent | "Browser JavaScript tool" of this skill |
-|---|---|
-| Claude Code | Claude in Chrome (`mcp__claude-in-chrome__javascript_tool` and its navigation tools) |
-| Codex | The browser runtime of the Chrome or Browser plugins (`mcp__cua_repl.js` or `node_repl`): prefer the `extension`/`chrome` entry of `agent.browsers.list()` when the app needs the user's session; the in-app browser (`iab`) is enough for a local dev server without sign-in. Evaluate the snippet in the claimed tab and close only the tabs you opened |
-| Hermes | `browser_exec` with its `js(...)` helper. With the default config it is a headless Chromium with a throwaway profile: fine for a local dev server or test credentials the project provides; for screens that need the user's own session it requires `browser.use_real_profile: true` |
+- **The screen needs the user's session** (an internal app with sign-in): use a browser that row accepts as the user's own and that can evaluate page scripts.
+- **A local dev server or test credentials the project provides**: any browser of that row that evaluates page scripts is enough, headless and app-embedded ones included, because nothing is published as an image.
 
-`computer_use` (Hermes, Codex) can drive the desktop but cannot evaluate page scripts, so it does not replace this tool. If no browser can evaluate scripts in the app, or the one available keeps failing to start, fall back to hand-drawn mockups as described in Step 4 and report it under `Limitaciones del agente`.
+Evaluate the snippet in the tab you opened or claimed, and close only the tabs you opened. A tool that only drives the desktop (`computer_use`) cannot evaluate page scripts, so it does not replace this tool. If no browser can evaluate scripts in the app, or the one available keeps failing to start, fall back to hand-drawn mockups as described in Step 4 and report it under `Limitaciones del agente`.
 
 ## Step 0 — Ask the device and the languages
 

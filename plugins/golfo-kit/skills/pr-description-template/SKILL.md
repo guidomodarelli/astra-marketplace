@@ -107,16 +107,10 @@ Apply only during `full composition`. When the diff changes what a user sees (co
 
 ### Capture browser
 
-Use the first one whose tools are actually in the session:
+Which browsers count as the user's own, how to recognise each one and which are never accepted lives only in row «Navegador real del usuario y capturas» of [`agent-capabilities.md`](../../references/agent-capabilities.md). Use the first accepted one whose tools are actually in the session; a browser that row rejects (headless, app-embedded, throwaway profile) may check that a page loads, never produce the image the reviewer sees. What this skill adds for published captures:
 
-| Agent | Accepted browser | How to recognise and use it |
-|---|---|---|
-| Claude Code | Claude in Chrome | `mcp__claude-in-chrome__*` tools |
-| Codex | Chrome plugin (`chrome@openai-bundled`): the user's Chrome through the ChatGPT extension | In the browser runtime (`mcp__cua_repl.js` or `node_repl`), `agent.browsers.list()` returns an entry with `type: "extension"` and `family: "chrome"`. Open a **new** tab there, capture with the tab's screenshot API, and close only the tabs you opened |
-| Hermes | `computer_use` on the user's already open Chrome window | It drives the real desktop (mouse and keyboard), so tell the user before starting and only proceed if they agreed to the capture; crop the desktop screenshot to the page area |
-| Hermes | `browser_exec` **only** when `$HERMES_HOME/config.yaml` has `browser.use_real_profile: true` and `browser.headed: true` | Real Chrome binary on a copy of the user's profile; with the default config it is a headless Chromium with a throwaway profile and is **not** accepted |
-
-Not accepted for published captures, in any agent: Codex's in-app browser (`iab` backend of the Browser plugin), Hermes' default `browser_exec`, Playwright or any `--headless` browser, and Claude's built-in browser pane. They are fine for checking that a page loads, never for the image the reviewer sees.
+- Open a **new** tab for the captures and close only the tabs you opened; never navigate or close the user's own tabs.
+- A tool that drives the real desktop (for example Hermes `computer_use`) moves the user's mouse and keyboard: tell the user before starting and capture only if they agree. Crop the desktop screenshot to the page area.
 
 When the change affects the UI but no image could be captured from the real app, delete **Capturas** and add one line to **Notas para el Revisor** with the concrete reason (`Sin captura: <motivo>`). Do not block the PR on a screenshot.
 

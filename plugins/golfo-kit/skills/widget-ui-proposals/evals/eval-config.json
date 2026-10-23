@@ -91,8 +91,8 @@
     },
     {
       "id": "codex-visualize-mode-without-show-widget",
-      "description": "En Codex, sin mcp__visualize__show_widget pero con el plugin visualize habilitado, usa el modo Codex: fragmento HTML en un archivo, referencia visualize{...} en línea propia, carrusel de variantes y sendFollowUpMessage para Aplicar, sin llamar a show_widget ni bloquear.",
-      "input": "Usando widget-ui-proposals: estás en Codex. En esta sesión no existe la herramienta mcp__visualize__show_widget, pero el plugin `visualize@openai-bundled` está habilitado y su skill `visualize` se puede cargar. Quiero ver dos variantes del botón primario \"Guardar cambios\" de `SettingsForm.tsx`. No ejecutes ni edites nada: describí paso a paso qué harías, qué archivo escribirías, cómo estructurarías las variantes, cómo funcionaría Aplicar y qué pondrías en la respuesta final.",
+      "description": "En la app de escritorio de Codex (herramientas codex_app en la sesión), sin show_widget pero con el plugin visualize, usa el modo Codex: fragmento HTML, referencia visualize{...} en línea propia, carrusel de variantes y sendFollowUpMessage para Aplicar.",
+      "input": "Usando widget-ui-proposals: estás en la app de escritorio de Codex; la sesión tiene las herramientas de `codex_app` (por ejemplo `create_thread`). En esta sesión no existe la herramienta mcp__visualize__show_widget, pero el plugin `visualize@openai-bundled` está habilitado y su skill `visualize` se puede cargar. Quiero ver dos variantes del botón primario \"Guardar cambios\" de `SettingsForm.tsx`. No ejecutes ni edites nada: describí paso a paso qué harías, qué archivo escribirías, cómo estructurarías las variantes, cómo funcionaría Aplicar y qué pondrías en la respuesta final.",
       "assertions": [
         {
           "type": "contains",
@@ -155,7 +155,7 @@
       "assertions": [
         {
           "type": "contains_any",
-          "values": ["--screenshot", "capture_screenshot"],
+          "values": ["screenshot=", "capture_screenshot"],
           "description": "Renderiza el HTML a una imagen con un navegador headless o el helper de captura"
         },
         {
@@ -180,8 +180,35 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|sin|not|without|nunca|never)[^.]{0,60}show_widget",
+          "pattern": "(no|sin|not|without|nunca|never)[^.]{0,60}show_widget|show_widget[^.]{0,30}(no existe|no está|no hay|not available|is missing)",
           "description": "Dice explícitamente que no usa show_widget"
+        }
+      ]
+    },
+    {
+      "id": "codex-cli-falls-back-to-static-preview",
+      "description": "En Codex CLI (codex exec, CODEX_CI=1, sin herramientas codex_app) con el plugin visualize habilitado, no elige el modo Codex porque la terminal no renderiza visualize{...}: usa el preview estático (HTML a PNG).",
+      "input": "Usando widget-ui-proposals: estás en `codex exec` (CODEX_CI=1). La sesión no tiene mcp__visualize__show_widget ni herramientas `codex_app`, pero el plugin `visualize@openai-bundled` está habilitado, tenés `exec_command` y Google Chrome instalado. Mostrame dos variantes del botón \"Guardar cambios\" de `SettingsForm.tsx`. No ejecutes ni edites nada: describí qué modo usarías, qué archivos generarías y cómo los verías.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": ["PNG", "png"],
+          "description": "Genera una imagen PNG del preview"
+        },
+        {
+          "type": "contains_any",
+          "values": ["screenshot=", "headless"],
+          "description": "Renderiza con un navegador headless"
+        },
+        {
+          "type": "regex",
+          "pattern": "(texto|plain text|no (se )?renderiza|no renderiza|terminal)",
+          "description": "Explica que en la terminal la referencia visualize queda como texto"
+        },
+        {
+          "type": "contains",
+          "value": "Limitaciones del agente",
+          "description": "Reporta la pérdida de interactividad"
         }
       ]
     }

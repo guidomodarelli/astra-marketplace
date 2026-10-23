@@ -331,7 +331,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca|not|never)[^.]{0,80}(in-app|iab|headless)|(in-app|iab|headless)[^.]{0,80}(exclu|descart|no se acepta|no sirve|no lo us|not accepted)",
+          "pattern": "(no|nunca|not|never)[^.]{0,80}(in-app|iab|headless)|(in-app|iab|headless)[^.]{0,80}(exclu|descart|no se acepta|no sirve|no lo us|not accepted|rechaz)|(descart|exclu|rechaz)[^.]{0,60}(in-app|iab|headless)",
           "description": "Descarta el navegador in-app o headless para las capturas publicadas"
         },
         {

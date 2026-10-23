@@ -216,7 +216,10 @@ Providers are external CLIs (`claude`, `codex`), so this loop runs from any agen
 
 1. **Native read-only subagent** — `Agent` in Claude Code.
 2. **External read-only CLI** — any agent with `claude` in `PATH` (Codex, Hermes, headless Claude Code): run the filter prompt as a separate process that can only read, from the repository root, with a timeout and no stdin:
-   `timeout 600 claude -p "<filter prompt>" --tools "Read,Grep,Glob" --permission-mode dontAsk < /dev/null`.
+   `<timeout> 600 claude -p "<filter prompt>" --tools "Read,Grep,Glob" --permission-mode dontAsk < /dev/null`,
+   where `<timeout>` is the first of `timeout` or `gtimeout` (macOS with coreutils) found with `command -v`. Without either, bound it with Python instead, as the bundled helper does:
+   `python3 -c 'import subprocess, sys; sys.exit(subprocess.run(sys.argv[1:], stdin=subprocess.DEVNULL, timeout=600).returncode)' claude -p "<filter prompt>" --tools "Read,Grep,Glob" --permission-mode dontAsk`
+   (`python` when `python3` is not in `PATH`). With no timeout mechanism at all, this runner does not apply: go to the next one.
    `--tools` limits the built-in tools to those three, so the filter cannot edit, write or run commands. Wait for the process to exit, as with providers.
 3. **`codex exec -s read-only`** — only on hosts where a trivial read in that sandbox works (check once with `codex exec -s read-only "<print the first line of README.md>"`). On Windows the read-only sandbox blocks every process the agent starts, reads included, so skip it there.
 4. **Inline** — none of the above: evaluate provider output directly in the main context and list `read-only isolated filter` under `Limitaciones del agente`, with the runners checked.

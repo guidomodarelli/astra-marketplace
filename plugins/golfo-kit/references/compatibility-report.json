@@ -4552,7 +4552,7 @@
       },
       "implementation": {
         "adaptations": [
-          "Tabla «Capture browser»: Claude in Chrome, plugin Chrome de Codex, computer_use o browser_exec con perfil real en Hermes; navegadores headless o embebidos no aceptados"
+          "Sección «Capture browser»: los navegadores aceptados viven en agent-capabilities.md (fuente única); la skill solo agrega las reglas propias de las capturas publicadas (pestaña nueva, aviso antes de tomar el escritorio)"
         ],
         "files_modified": [
           "plugins/golfo-kit/skills/pr-description-template/SKILL.md",
@@ -5535,7 +5535,7 @@
               "required_capabilities": [
                 "claude en PATH"
               ],
-              "implementation": "Proceso externo timeout 600 claude -p \"<prompt del filtro>\" --tools \"Read,Grep,Glob\" --permission-mode dontAsk < /dev/null desde la raíz del repo.",
+              "implementation": "Proceso externo claude -p \"<prompt del filtro>\" --tools \"Read,Grep,Glob\" --permission-mode dontAsk < /dev/null acotado con timeout/gtimeout o, sin ellos, con un wrapper de Python (verificado en Windows).",
               "fallback": "Filtro inline con Limitaciones del agente.",
               "reason": "Codex no tiene subagentes de solo lectura, pero un proceso claude -p limitado a lectura da el mismo aislamiento.",
               "alternatives_investigated": [
@@ -5611,7 +5611,7 @@
               "required_capabilities": [
                 "claude en PATH"
               ],
-              "implementation": "Proceso externo timeout 600 claude -p \"<prompt del filtro>\" --tools \"Read,Grep,Glob\" --permission-mode dontAsk < /dev/null desde la raíz del repo.",
+              "implementation": "Proceso externo claude -p \"<prompt del filtro>\" --tools \"Read,Grep,Glob\" --permission-mode dontAsk < /dev/null acotado con timeout/gtimeout o, sin ellos, con un wrapper de Python (verificado en Windows).",
               "fallback": "Filtro inline con Limitaciones del agente.",
               "reason": "Hermes no tiene subagentes de solo lectura, pero un proceso claude -p limitado a lectura da el mismo aislamiento.",
               "alternatives_investigated": [
@@ -7895,7 +7895,7 @@
         },
         "codex": {
           "status": "adapted",
-          "summary": "Adaptada con el plugin visualize de Codex: fragmento HTML + referencia visualize{…}, carrusel de variantes y Aplicar con sendFollowUpMessage. Verificada la generación en codex exec; el render en la app y el clic quedan sin observar.",
+          "summary": "En la app de escritorio, modo Codex con el plugin visualize (generación verificada; render no observado). En el CLI y codex exec, preview estático HTML → PNG (verificado en codex exec).",
           "missing_capabilities": [
             "mcp__visualize__show_widget"
           ],
@@ -7914,8 +7914,8 @@
               "required_capabilities": [
                 "skill visualize (plugin visualize@openai-bundled)"
               ],
-              "implementation": "Modo Codex: fragmento HTML en un archivo + visualize{\"path\":…} en la respuesta final, variantes en .viz-carousel.",
-              "fallback": "Si el visual no aparece (por ejemplo en la terminal), modo de preview estático; sin ninguno, detenerse y reportar.",
+              "implementation": "App de escritorio (herramientas codex_app en la sesión): modo Codex con el plugin visualize (fragmento + visualize{…}, .viz-carousel). CLI o codex exec: preview estático HTML → PNG con Chrome headless.",
+              "fallback": "Sin ninguna vía de render, detenerse y reportar.",
               "reason": "Codex no tiene show_widget, pero su plugin visualize logra el mismo resultado (visual interactivo en la conversación) con otro mecanismo.",
               "alternatives_investigated": [
                 {
@@ -7939,10 +7939,12 @@
               ],
               "evidence": [
                 "$CODEX_HOME/plugins/cache/openai-bundled/visualize/1.0.50/skills/visualize/SKILL.md y tweak.md",
-                "La skill visualize:visualize aparece en codex exec"
+                "La skill visualize:visualize aparece en codex exec",
+                "En codex exec la referencia visualize{…} queda como texto: por eso el CLI usa el preview estático (hallazgo de Codex en el PR #23)."
               ],
               "tests": [
                 "codex-real-visualize-fragment",
+                "codex-real-cli-static-preview",
                 "eval-sim-codex-visualize"
               ]
             },
@@ -8186,7 +8188,7 @@
           "kind": "simulated_eval",
           "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/widget-ui-proposals --provider claude (solo los casos nuevos o modificados)",
           "result": "passed",
-          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: codex-visualize-mode-without-show-widget: modo Codex con visualize{…}, .viz-carousel, sendFollowUpMessage y sin show_widget."
+          "evidence": "Claude (claude-sonnet-5-5) simulando el agente: codex-visualize-mode-without-show-widget: modo Codex con visualize{…}, .viz-carousel, sendFollowUpMessage y sin show_widget. codex-cli-falls-back-to-static-preview: en codex exec usa el preview estático."
         },
         {
           "id": "eval-sim-hermes-static-preview",
@@ -8195,6 +8197,14 @@
           "command": "run-evals <copia filtrada>/plugins/golfo-kit/skills/widget-ui-proposals --provider claude (solo los casos nuevos o modificados)",
           "result": "passed",
           "evidence": "Claude (claude-sonnet-5-5) simulando el agente: hermes-static-preview-with-clarify: PNG con --screenshot, clarify multi_select y Limitaciones del agente; no-visual-capability-blocks-with-limitations: sin vía de render se detiene sin simular."
+        },
+        {
+          "id": "codex-real-cli-static-preview",
+          "agent": "codex",
+          "kind": "real_run",
+          "command": "codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check \"<leer y seguir widget-ui-proposals/SKILL.md; dos variantes del botón Guardar cambios>\" (en un directorio temporal)",
+          "result": "passed",
+          "evidence": "Tras exigir un frontend que renderice: en codex exec (sin herramientas codex_app) eligió el modo de preview estático, escribió guardar-cambios-variantes.html, lo renderizó con Chrome headless y un perfil temporal a guardar-cambios-variantes.png, revisó la imagen, dio la recomendación y reportó la imagen estática en Limitaciones del agente."
         }
       ],
       "pending_verification": [
