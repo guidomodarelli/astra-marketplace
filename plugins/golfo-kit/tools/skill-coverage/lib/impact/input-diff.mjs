@@ -6,6 +6,8 @@
  * same content is reported as relocated, not as a change.
  */
 
+import { PACKAGE_METADATA_FILES } from '../constants.mjs';
+
 /**
  * @param {string} key Input key (`path#Part`, `pkg:name`, ...).
  * @returns {{ path: string | null, part: string }}
@@ -20,13 +22,17 @@ export function splitInputKey(key) {
  * Lists the project paths an input snapshot depends on: the files read when
  * it was computed and the paths of its inputs, including the ones recorded as
  * missing (`path#*`), so a deleted dependency still belongs to the snapshot.
+ * A snapshot with package inputs (`pkg:<name>`) also depends on the package
+ * metadata files their versions are read from.
  *
  * @param {{ files: Record<string, string>, inputs: Record<string, string> }} snapshot Current inputs or an attempt baseline.
  * @returns {string[]} Sorted unique paths.
  */
 export function snapshotPaths(snapshot) {
-  const inputPaths = Object.keys(snapshot.inputs).map((key) => splitInputKey(key).path).filter(Boolean);
-  return [...new Set([...Object.keys(snapshot.files), ...inputPaths])].sort();
+  const inputKeys = Object.keys(snapshot.inputs);
+  const inputPaths = inputKeys.map((key) => splitInputKey(key).path).filter(Boolean);
+  const packageMetadataPaths = inputKeys.some((key) => key.startsWith('pkg:')) ? Object.values(PACKAGE_METADATA_FILES) : [];
+  return [...new Set([...Object.keys(snapshot.files), ...inputPaths, ...packageMetadataPaths])].sort();
 }
 
 /**

@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import { builtinModules } from 'node:module';
 import path from 'node:path';
 
-import { RESOLUTION_EXTENSIONS } from '../constants.mjs';
+import { PACKAGE_METADATA_FILES, RESOLUTION_EXTENSIONS } from '../constants.mjs';
 import { entryHash } from '../support.mjs';
 
 const BUILTINS = new Set(builtinModules);
@@ -81,7 +81,7 @@ function createPackageVersionLookup(projectRoot) {
   const versions = new Map();
   const declared = new Map();
   try {
-    const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+    const manifest = JSON.parse(fs.readFileSync(path.join(projectRoot, PACKAGE_METADATA_FILES.manifest), 'utf8'));
     for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
       for (const [name, range] of Object.entries(manifest[field] ?? {})) declared.set(name, `range:${range}`);
     }
@@ -89,7 +89,7 @@ function createPackageVersionLookup(projectRoot) {
     // No manifest: packages are tracked by name only.
   }
   try {
-    const lockfile = fs.readFileSync(path.join(projectRoot, 'pnpm-lock.yaml'), 'utf8').replace(/\r\n?/g, '\n');
+    const lockfile = fs.readFileSync(path.join(projectRoot, PACKAGE_METADATA_FILES.pnpmLockfile), 'utf8').replace(/\r\n?/g, '\n');
     const rootImporter = /\n {2}\.:\n([\s\S]*?)(?=\n {2}\S|\n\S|$)/.exec(lockfile.slice(lockfile.indexOf('\nimporters:')));
     if (rootImporter) {
       const entryPattern = /\n {6}'?([^'\n:]+)'?:\n {8}specifier: [^\n]*\n {8}version: ([^\n]+)/g;
@@ -100,7 +100,7 @@ function createPackageVersionLookup(projectRoot) {
   }
   if (!versions.size) {
     try {
-      const lockfile = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package-lock.json'), 'utf8'));
+      const lockfile = JSON.parse(fs.readFileSync(path.join(projectRoot, PACKAGE_METADATA_FILES.npmLockfile), 'utf8'));
       for (const [key, value] of Object.entries(lockfile.packages ?? {})) {
         if (key.startsWith('node_modules/') && !key.slice('node_modules/'.length).includes('node_modules/')) versions.set(key.slice('node_modules/'.length), value.version);
       }

@@ -53,6 +53,13 @@ export const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', 
 /** Extensions probed, in order, when an import specifier has none. */
 export const RESOLUTION_EXTENSIONS = ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.cjs', '.json'];
 
+/**
+ * Package metadata files, relative to the project root, that the module
+ * resolver reads package versions from. A change to any of them can change
+ * every `pkg:` input, so units with package inputs depend on all of them.
+ */
+export const PACKAGE_METADATA_FILES = { manifest: 'package.json', npmLockfile: 'package-lock.json', pnpmLockfile: 'pnpm-lock.yaml' };
+
 /** Paths never read as inputs: the registry itself and generated or vendored trees. */
 export const ALWAYS_IGNORED_PREFIXES = ['.golfo/', '.git/', 'node_modules/', '.next/', '.open-next/', '.wrangler/', 'coverage/', 'dist/', 'build/'];
 
