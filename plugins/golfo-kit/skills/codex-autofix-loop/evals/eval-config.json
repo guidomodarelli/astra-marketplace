@@ -384,6 +384,132 @@
           "description": "No corta el loop por tope de rondas"
         }
       ]
+    },
+    {
+      "id": "hermes-without-monitor-uses-background-watcher",
+      "description": "En Hermes, sin `Monitor` ni `CronCreate`, elige el modo B: `wait-for-pr-event.sh` en background con aviso, rearmado con tope de ciclos, sin cron de respaldo.",
+      "input": "Usando codex-autofix-loop: estoy en Hermes Agent. Mi sesión tiene `terminal` (con `background`, `notify` y `timeout`), `process_manage` (`wait`, `poll`, `kill`), `delegate_task`, `clarify` y `cronjob_manage`. No tiene `Monitor`, `CronCreate`, `CronList`, `CronDelete`, `TaskStop` ni `PushNotification`. Relanzá el loop para el PR #42 de `acme/widgets`. No ejecutes nada: describí en pocas líneas qué modo usás, con qué herramienta esperás los eventos del PR, qué hacés según el código de salida y cómo cancelás el loop.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "wait-for-pr-event",
+          "description": "Usa el script portable de espera acotada"
+        },
+        {
+          "type": "regex",
+          "pattern": "background",
+          "description": "Lo lanza en background"
+        },
+        {
+          "type": "regex",
+          "pattern": "notify|aviso|notific",
+          "description": "Pide aviso al terminar el proceso"
+        },
+        {
+          "type": "regex",
+          "pattern": "MAX_WATCH_CYCLES|72|tope de ciclos|ciclos",
+          "description": "Acota los rearmados con un tope de ciclos"
+        },
+        {
+          "type": "regex",
+          "pattern": "kill|matar|mat[áa]",
+          "description": "Cancela matando el watcher"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "armo el Monitor",
+            "armar el Monitor",
+            "uso Monitor",
+            "usar Monitor con",
+            "llamo a Monitor",
+            "llamar a CronCreate",
+            "uso CronCreate",
+            "con CronCreate creo"
+          ],
+          "description": "No planea invocar `Monitor` ni `CronCreate`"
+        }
+      ]
+    },
+    {
+      "id": "codex-runs-single-round-without-waiting",
+      "description": "En Codex CLI, sin herramienta de espera supervisada, corre una sola ronda, no se queda esperando y termina indicando cómo relanzar.",
+      "input": "Usando codex-autofix-loop: estoy en Codex CLI. Mi sesión tiene `exec_command`, `write_stdin`, `apply_patch`, `spawn_agent` y `wait_agent`; no hay `Monitor`, cron ni procesos en background que avisen al terminar. Ya fixeé y pusheé el único hallazgo nuevo del PR #42 de `acme/widgets` y posteé `@codex review` (reviewRounds pasó de 0 a 1). No ejecutes nada: describí cómo sigue y cómo termina esta invocación.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "una (sola )?(ronda|vuelta)|single.round|modo c",
+          "description": "Identifica el modo de una ronda por invocación"
+        },
+        {
+          "type": "regex",
+          "pattern": "relanz|volv[eé] a invocar|invoc[aá] (de nuevo|otra vez)",
+          "description": "Termina indicando cómo relanzar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca)[^.]{0,60}(esper|escuch|monitor|cron|sleep|background)",
+          "description": "Declara que no se queda esperando ni arma monitores"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "sigo escuchando el PR",
+            "quedo escuchando el PR",
+            "armo un cron",
+            "armo el Monitor"
+          ],
+          "description": "No promete escucha continua"
+        }
+      ]
+    },
+    {
+      "id": "codex-single-round-keeps-merge-gates",
+      "description": "En modo de una ronda, con review limpia del head pero CI pendiente, no mergea ni espera: deja el merge para la próxima invocación.",
+      "input": "Usando codex-autofix-loop en Codex CLI (modo de una ronda por invocación, sin Monitor ni cron). PR #42 de `acme/widgets`: el resumen de Codex marca `code_review.status` = `completed` sin hallazgos para el head actual, no hay pendientes ni `inFlight`, y `gh pr checks` devuelve exit 8 (checks pendientes). No ejecutes nada: ¿mergeás ahora, esperás a que terminen los checks o qué hacés?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|sin) (mergeo|mergear|merge|hago (el )?merge)|no (lo )?mergeo",
+          "description": "No mergea con checks pendientes"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin)[^.]{0,40}(esper|sleep|quedo)",
+          "description": "No se queda esperando dentro de la invocación"
+        },
+        {
+          "type": "regex",
+          "pattern": "pr[oó]xima (invocaci|vuelta|ronda|corrida)|relanz",
+          "description": "Deja el merge para la próxima invocación"
+        }
+      ]
+    },
+    {
+      "id": "claude-with-monitor-keeps-original-mode",
+      "description": "En Claude Code con `Monitor` y cron disponibles, usa el modo original (Monitor + /loop) sin el watcher portable.",
+      "input": "Usando codex-autofix-loop: estoy en Claude Code y mi sesión tiene `Monitor`, `CronCreate`, `CronList`, `CronDelete`, `TaskStop`, `Agent` y `PushNotification`. Relanzá el loop para el PR #42 de `acme/widgets`. No ejecutes nada: decime en pocas líneas qué modo usás y con qué herramientas esperás los eventos y el respaldo.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "Monitor",
+          "description": "Usa `Monitor` como disparador"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "/loop",
+            "CronCreate",
+            "cron"
+          ],
+          "description": "Mantiene el cron de respaldo"
+        },
+        {
+          "type": "regex",
+          "pattern": "modo a|original|monitor \\+ cron",
+          "description": "Identifica el modo original"
+        }
+      ]
     }
   ]
 }

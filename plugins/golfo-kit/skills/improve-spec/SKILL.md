@@ -7,7 +7,7 @@ description: >-
   listo un spec o requirement para implementar, aunque no se nombre la skill.
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "spec-driven-development"
   tags: "spec, requirements, tasks, constraints, current-state, planning, context-optimized-v1.20.1"
@@ -30,6 +30,10 @@ Un spec mejorado no es un spec más largo: es uno donde cada afirmación tiene u
 - **Orden y fallos explícitos.** Cuando un flujo encadena llamadas, dejar escrito el orden, qué pasa si una falla (se propaga, se compensa, se reintenta) y qué no debe ejecutarse después del fallo.
 - **Límites de validación.** Validar input no confiable del consumer una sola vez en el boundary de entrada; no inferir constraints que revaliden por completo respuestas de backends/upstream: consumirlas según contrato con el narrowing mínimo que el flujo necesite (status, discriminadores como `FINISHED`).
 - **Idioma.** Mantener el idioma del spec original salvo que el usuario pida otro. Código, paths, identificadores y literales quedan tal cual.
+
+## Compatibilidad entre agentes
+
+Las preguntas de los pasos 1, 5 y 7 usan la herramienta de preguntas con opciones que exista en la sesión, según [`agent-capabilities.md`](../../references/agent-capabilities.md): `AskUserQuestion` en Claude Code, `clarify` en Hermes (hasta 4 `choices` por pregunta) o `request_user_input` solo si Codex está en modo Plan. Si no hay ninguna, o `clarify` devuelve `undelivered`, `timed_out` o `cancelled`, hacé la misma pregunta en texto con opciones numeradas y **detenete**: no generes, apruebes ni guardes el spec hasta recibir la respuesta, porque el paso 8 sobrescribe el archivo del usuario. En el cierre, reportá el fallback en `Limitaciones del agente`.
 
 ## Flujo
 

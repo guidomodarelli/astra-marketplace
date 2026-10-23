@@ -3,7 +3,7 @@ name: review-fix-loop
 description: "Multi-provider review and fix loop: Claude Code, then Codex fallback; local or PR targets; reruns after accepted findings. Use when the user asks for a Codex review, autoreview, second-model review or review-and-fix loop, after non-trivial code edits as a closeout check before final/commit/ship, or when reviewing a local branch or PR branch after fixes."
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, review-loop, codex, claude, convergence"
@@ -209,6 +209,10 @@ Format first if formatting can change line locations. Then tests and review may 
 The review side may perform sequential provider fallbacks while tests run once. Failed tests do not trigger provider fallback. If tests or review lead to edits, rerun affected tests and review the updated target.
 
 When exact target already has relevant passing test evidence from current task and no files changed afterward, reuse that evidence instead of rerunning tests in parallel. Record command and result in final report.
+
+## Agent compatibility
+
+Providers are external CLIs (`claude`, `codex`), so this loop runs from any agent that has them in `PATH`; check with `command -v` before choosing one, per [`agent-capabilities.md`](../../references/agent-capabilities.md). The adversarial filter needs an isolated **read-only** subagent: `Agent` in Claude Code. Hermes `delegate_task` children inherit the parent's toolsets and Codex `spawn_agent` has no verified read-only mode, so in those agents run the filter inline (as when subagents are unavailable) and list `read-only isolated filter` under `Limitaciones del agente` in the final report.
 
 ## Context Efficiency
 
