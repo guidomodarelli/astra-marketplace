@@ -38,11 +38,16 @@ Una transacción fija el timestamp de una fila (`created_at = now()`) y confirma
 
 Opciones, de mejor a peor:
 
-1. **Fence de lock.** Elegir una fila de lock que todo escritor y el lector compartan (por ejemplo, la fila padre o una fila de control por partición). Todo escritor toma `FOR SHARE` sobre ella **antes** de fijar el timestamp; el lector toma `FOR UPDATE` sobre la misma fila **antes** de leer el reloj para fijar el horizonte, en `READ COMMITTED`. El `FOR UPDATE` espera a que confirmen o aborten los escritores en curso, así que cualquier fila con timestamp ≤ horizonte ya es visible cuando el lector la busca, y los escritores que empiezan después obtienen un timestamp posterior al horizonte. En `REPEATABLE READ` o superior el snapshot puede ser anterior al lock y el fence no protege. Ojo con el reloj: en Postgres `now()` devuelve el inicio de la transacción, que puede ser anterior al lock; ambos lados tienen que tomar el timestamp después del lock (`clock_timestamp()` o el lock como primera sentencia de la transacción).
+1. **Fence de lock.** Elegir una fila de lock que todo escritor y el lector compartan (por ejemplo, la fila padre o una fila de control por partición). Todo escritor toma `FOR SHARE` sobre ella **antes** de fijar el timestamp; el lector toma `FOR UPDATE` sobre la misma fila **antes** de leer el reloj para fijar el horizonte, en `READ COMMITTED`. El `FOR UPDATE` espera a que confirmen o aborten los escritores en curso, así que cualquier fila con timestamp ≤ horizonte ya es visible cuando el lector la busca, y los escritores que empiezan después obtienen un timestamp posterior al horizonte. En `REPEATABLE READ` o superior el snapshot puede ser anterior al lock y el fence no protege. Ojo con el reloj: en Postgres `now()` devuelve el inicio de la transacción y queda fijo aunque el lock se obtenga mucho después. Poner el lock como primera sentencia no alcanza: esa sentencia puede quedar bloqueada hasta después de que el lector fije el horizonte, y `now()` seguiría devolviendo un instante anterior. Ambos lados tienen que leer el reloj después de obtener el lock, con `clock_timestamp()` (o pasando ese valor como parámetro), nunca con `now()` ni `CURRENT_TIMESTAMP`.
 2. **xmin del snapshot.** Limitar el horizonte con la transacción activa más antigua (`pg_snapshot_xmin(pg_current_snapshot())` en Postgres, o el equivalente del motor) y registrar el xid de cada fila. Funciona sin tocar a los escritores, pero es más complejo, depende del motor y una transacción larga no relacionada frena todo el barrido.
 3. **Margen de tiempo** (leer hasta `now - margen`). Solo es correcto si existe un límite real de duración de transacción que garantice que nada confirma más tarde que el margen. `idle_in_transaction_session_timeout` no lo garantiza: corta sesiones ociosas, no transacciones activas ni largas. `statement_timeout` tampoco acota la transacción completa. Sin ese límite, el margen solo baja la probabilidad de perder filas y agrega demora fija.
 
-**Red de seguridad.** Sumar, con cualquiera de las opciones, un trigger `AFTER INSERT` (y `UPDATE` de las columnas de la tupla, si pueden cambiar) que encole como reintento toda fila con timestamp ≤ horizonte ya leído (la frontera persistida). Si el fence o el xmin tienen un hueco, la fila tardía se procesa en el siguiente barrido en lugar de perderse, y el contador del trigger sirve como alerta de que el mecanismo principal falló.
+**Red de seguridad.** Sumar, con cualquiera de las opciones, un mecanismo que recupere las filas tardías si el fence o el xmin tienen un hueco. Un trigger que solo compara contra la frontera leída al insertar tiene una carrera: con frontera 10, un escritor inserta con timestamp 15, el trigger ve 10 y no encola nada, y la transacción sigue abierta; el lector no ve la fila, barre hasta 20 y avanza la frontera antes de que el escritor confirme. La fila se pierde sin reintento. Dos formas correctas:
+
+- **Trigger serializado con el avance de la frontera.** El trigger `AFTER INSERT` (y `UPDATE` de las columnas de la tupla, si pueden cambiar) toma `FOR SHARE` sobre la fila que guarda la frontera antes de compararla, y encola como reintento la fila si su timestamp ≤ frontera. El avance de la frontera toma `FOR UPDATE` sobre esa misma fila y, ya con el lock, vuelve a leer el rango entre la frontera anterior y el horizonte nuevo antes de escribirla: el `FOR UPDATE` esperó a que confirmaran los escritores que compararon contra la frontera vieja, así que sus filas son visibles en esa relectura, y los que llegan después comparan contra la frontera nueva.
+- **Outbox transaccional incondicional.** Cada inserción encola su id en una tabla outbox en la misma transacción, sin comparar timestamps, y el barrido consume el outbox. No depende del reloj ni de la frontera; cuesta una escritura extra por fila.
+
+En los dos casos, contar las filas que entran por la red de seguridad: si es distinto de cero, el mecanismo principal tiene un hueco.
 
 ## Migración desde barrido completo
 
@@ -55,14 +60,17 @@ Leer varias páginas por corrida (o todas las que entren en el presupuesto) acot
 ## Métricas antes/después
 
 - Filas examinadas por corrida: O(ventana) → O(filas nuevas + reintentos pendientes).
-- Demora de punta a punta: de S+1 a 2S ticks → acotada por uno o dos ticks, independiente del tamaño de la ventana.
+- Demora de punta a punta: de S+1 a 2S ticks → independiente del tamaño de la ventana. Separar dos demoras:
+  - **Procesamiento:** con capacidad suficiente (filas nuevas por tick ≤ filas que entran en el presupuesto de un tick), una fila nueva se procesa en uno o dos ticks. Una ráfaga de N filas por encima de esa capacidad necesita al menos ⌈N / capacidad por tick⌉ ticks: el incremental quita las lecturas redundantes, no el presupuesto de procesamiento.
+  - **Certificación:** además depende de los reintentos, porque no avanza más allá del reintento pendiente más antiguo. Mientras una fuente siga sin responder, la certificación queda bloqueada; medir y alertar la antigüedad del reintento más viejo.
 - Queries y tiempo por corrida con la misma data.
 
 ## Validar
 
-- Un test que reproduzca la demora con el modelo anterior (por ejemplo, una ventana de más de 50 filas con página de 25 y una fila nueva que necesita más de un barrido) y pruebe con el modelo incremental que la misma fila se certifica dentro de la cota.
+- Un test que reproduzca la demora con el modelo anterior (por ejemplo, una ventana de más de 50 filas con página de 25 y una fila nueva que necesita más de un barrido) y pruebe con el modelo incremental que, sin reintentos pendientes y dentro de la capacidad por tick, la misma fila se certifica dentro de la cota.
+- Un test con una ráfaga mayor que la capacidad de un tick que pruebe que se drena en ⌈N / capacidad por tick⌉ ticks sin saltear filas.
 - Tests contra la base real (Postgres u otro motor real, no mocks del driver) para:
-  - el fence: un escritor que fijó el timestamp y confirma después de que el lector pidió el lock no queda detrás de la frontera;
+  - el fence: un escritor que fijó el timestamp y confirma después de que el lector pidió el lock no queda detrás de la frontera, incluido un escritor cuya primera sentencia queda bloqueada por el `FOR UPDATE` del lector;
   - los reintentos: una fila no disponible se reintenta, bloquea la certificación hasta procesarse y no se examina dos veces en el mismo barrido;
-  - la fila tardía: una inserción con timestamp ≤ frontera la encola el trigger y el siguiente barrido la procesa;
+  - la fila tardía: una inserción con timestamp ≤ frontera la recupera la red de seguridad y el siguiente barrido la procesa, incluida la intercalación en la que el escritor inserta con timestamp > frontera y confirma después de que el lector avanzó la frontera;
   - la monotonía: un intento de retroceder la frontera no la modifica.
