@@ -1,7 +1,7 @@
 # 🛒 Golfo Marketplace
 
 > Multi-provider marketplace de skills y plugins para agentes AI.  
-> Soporta **Claude Code** y **Codex** 🤖
+> Soporta **Claude Code**, **Codex** y **Hermes** 🤖
 
 ---
 
@@ -18,6 +18,7 @@
 │       │   └── plugin.json     # Manifiesto del plugin para Claude Code
 │       ├── .codex-plugin/
 │       │   └── plugin.json     # Manifiesto del plugin para Codex (si es compatible)
+│       ├── plugin.json         # Manifiesto portable Agent Plugins v1 (Hermes)
 │       └── skills/
 │           └── <skill-name>/
 │               ├── SKILL.md    # Definición del skill — requerido para cada skill
@@ -79,7 +80,16 @@ claude plugin install --scope user <plugin-name>@golfo-marketplace
 # Codex, desde la raíz de un clone local de este repo
 codex plugin marketplace add "$PWD"
 codex plugin add <plugin-name>@golfo-marketplace
+
+# Hermes, desde GitHub (paquete portable Agent Plugins v1 en plugins/<plugin-name>)
+hermes plugins install guidomodarelli/golfo-marketplace#plugins/<plugin-name> --enable
+hermes plugins update <plugin-name>   # traer una versión nueva
 ```
+
+Hermes no usa `marketplace.json`: instala el directorio del plugin como paquete portable
+y toma su `plugin.json` raíz y sus `skills/`. Las skills que no cumplen las restricciones de
+Agent Skills (por ejemplo, una `description` de más de 1024 caracteres) se descartan sin
+error, por eso `pnpm validate-portable-plugins` las valida en la CI.
 
 ---
 
@@ -212,7 +222,9 @@ el repositorio no cambia.
 
 > 📌 Un plugin debe aparecer en al menos un registro. Un plugin solo se instala para un proveedor si está listado en el `marketplace.json` de ese proveedor.
 >
-> 🔒 Todos los archivos `plugin.json` dentro del mismo plugin (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`) deben compartir la misma versión. Si cambia cualquier skill, todos los manifiestos de proveedor deben hacer bump juntos.
+> 🔒 Todos los archivos `plugin.json` dentro del mismo plugin (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` y el `plugin.json` portable de la raíz) deben compartir la misma versión. Si cambia cualquier skill, todos los manifiestos deben hacer bump juntos.
+>
+> 🧳 Cada plugin necesita un `plugin.json` portable en su raíz (Agent Plugins v1: `$schema` `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json`, `name` igual al directorio y solo campos del spec) para poder instalarse en Hermes. `pnpm validate-portable-plugins` lo verifica.
 
 **Formato de commit:** `feat(marketplace): add <name>`
 
@@ -220,7 +232,7 @@ el repositorio no cambia.
 
 ## 🔖 Bumping de versión de un plugin
 
-Usá el script `create-version` para hacer bump a la versión de un plugin. Actualiza el campo `version` en **ambos** manifiestos de proveedor (`.claude-plugin/plugin.json` y `.codex-plugin/plugin.json`) a la vez, manteniéndolos sincronizados. `pnpm cv` es un alias corto con los mismos argumentos (`pnpm cv --dry-run`).
+Usá el script `create-version` para hacer bump a la versión de un plugin. Actualiza el campo `version` en **todos** los manifiestos (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` y, si existe, el `plugin.json` portable de la raíz) a la vez, manteniéndolos sincronizados. `pnpm cv` es un alias corto con los mismos argumentos (`pnpm cv --dry-run`).
 
 ```bash
 pnpm create-version              # auto-detecta el único plugin cambiado sin bump en la branch; si no, muestra menú
@@ -231,13 +243,21 @@ pnpm create-version --set 2.0.0  # versión exacta sin prompts
 pnpm create-version --help     # ayuda (shorthand: -h)
 ```
 
-El script compara branch actual contra primera base remota disponible (`origin/develop`, `origin/master` u `origin/main`) y suma cambios locales y los commits hechos en cada plugin después del último cambio de su versión (así detecta un plugin mergeado a la rama default sin bump) para detectar qué plugin cambió. Si el repo tiene un solo plugin, lo selecciona sin mostrar el menú. Ignora archivos fuera de `plugins/` para esa decisión. Luego pregunta cómo establecer la nueva versión — un semver bump (`patch` / `minor` / `major`) calculado desde la versión actual, o una versión exacta personalizada — crea un commit que incluye **solo** los dos `plugin.json` actualizados (el resto de cambios staged, unstaged o untracked queda intacto) y hace `push` automático de la rama (con `-u origin HEAD` si todavía no tiene upstream). Nunca hace force-push y también pushea las ramas default (`develop`, `master`, `main`); si el push falla, el commit local se conserva y el script termina con error. Con `--dry-run` (o `-n`) recorre los mismos prompts y muestra qué archivos actualizaría, el commit y el push planeados, sin modificar nada. `--bump <kind>` o `--set <version>` evitan el prompt de versión (no se pueden combinar) y `--help` (`-h`) muestra el uso.
+El script compara branch actual contra primera base remota disponible (`origin/develop`, `origin/master` u `origin/main`) y suma cambios locales y los commits hechos en cada plugin después del último cambio de su versión (así detecta un plugin mergeado a la rama default sin bump) para detectar qué plugin cambió. Si el repo tiene un solo plugin, lo selecciona sin mostrar el menú. Ignora archivos fuera de `plugins/` para esa decisión. Luego pregunta cómo establecer la nueva versión — un semver bump (`patch` / `minor` / `major`) calculado desde la versión actual, o una versión exacta personalizada — crea un commit que incluye **solo** los `plugin.json` actualizados (el resto de cambios staged, unstaged o untracked queda intacto) y hace `push` automático de la rama (con `-u origin HEAD` si todavía no tiene upstream). Nunca hace force-push y también pushea las ramas default (`develop`, `master`, `main`); si el push falla, el commit local se conserva y el script termina con error. Con `--dry-run` (o `-n`) recorre los mismos prompts y muestra qué archivos actualizaría, el commit y el push planeados, sin modificar nada. `--bump <kind>` o `--set <version>` evitan el prompt de versión (no se pueden combinar) y `--help` (`-h`) muestra el uso.
 
-> ⚠️ Antes de escribir, valida que ambos manifiestos ya compartan la misma versión y aborta si difieren — nunca vas a hacer bump desde un estado inconsistente.
+> ⚠️ Antes de escribir, valida que todos los manifiestos ya compartan la misma versión y aborta si difieren — nunca vas a hacer bump desde un estado inconsistente.
 
 ### Check de versión en la CI
 
-El workflow `.github/workflows/version-bump.yml` corre en cada pull request el job `Version bump` (`pnpm check-version-bump <base>`). Falla si un plugin cambió respecto del merge base sin subir su versión, si los dos manifiestos quedaron en versiones distintas o si la versión no es `MAJOR.MINOR.PATCH`. Cuentan como cambio todos los archivos bajo `plugins/<plugin>/` salvo los que están dentro de carpetas `tests/` o `evals/`, que no cambian lo que el plugin entrega a los agentes. Un plugin nuevo pasa sin versión base. Para correrlo local: `pnpm check-version-bump` (compara contra `origin/main`).
+El workflow `.github/workflows/version-bump.yml` corre en cada pull request el job `Version bump` (`pnpm check-version-bump <base>`). Falla si un plugin cambió respecto del merge base sin subir su versión, si los manifiestos (Claude, Codex y portable) quedaron en versiones distintas o si la versión no es `MAJOR.MINOR.PATCH`. Cuentan como cambio todos los archivos bajo `plugins/<plugin>/` salvo los que están dentro de carpetas `tests/` o `evals/`, que no cambian lo que el plugin entrega a los agentes. Un plugin nuevo pasa sin versión base. Para correrlo local: `pnpm check-version-bump` (compara contra `origin/main`).
+
+### Validación del paquete portable (Hermes)
+
+El job `Shell suites` de `.github/workflows/tests.yml` corre `pnpm validate-portable-plugins`
+(`scripts/validate-portable-plugins.js`). Falla si un plugin no tiene `plugin.json` portable en su
+raíz, si ese manifest no declara el schema de Agent Plugins v1, usa otro `name`, agrega campos
+fuera del spec o difiere en versión del manifest de Claude, o si alguna `skills/*/SKILL.md` tiene
+un `name` distinto de su directorio o una `description` vacía o de más de 1024 caracteres.
 
 ---
 
@@ -281,7 +301,8 @@ lo que cubre el cambio y dejá la suite completa a la CI:
 | Solo rules `.md` bajo `assets/**/rules/` o el template de `AGENTS.md` | `pnpm exec bats plugins/golfo-kit/skills/agent-ready-setup/tests/merge-instructions.bats` y `pnpm exec bats --filter 'rules' plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
 | Un flujo puntual de `agent-ready-setup` | `pnpm exec bats --filter '<parte del nombre del test>' plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
 | Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `pnpm run test:bootstrap` completo |
-| `review-fix-loop`, `sibling-worktree`, `create-version`, `check-version-bump` o el eval runner | Su suite (`pnpm run test:review-fix-loop`, `pnpm run test:sibling-worktree`, `pnpm exec bats tests/create-version.bats tests/check-version-bump.bats`, `pnpm exec bats skill-eval-runner/tests/*.bats`) |
+| `review-fix-loop`, `sibling-worktree`, `create-version`, `check-version-bump`, `validate-portable-plugins` o el eval runner | Su suite (`pnpm run test:review-fix-loop`, `pnpm run test:sibling-worktree`, `pnpm exec bats tests/create-version.bats tests/check-version-bump.bats tests/validate-portable-plugins.bats`, `pnpm exec bats skill-eval-runner/tests/*.bats`) |
+| Frontmatter de una skill o `plugin.json` de un plugin | `pnpm validate-portable-plugins` |
 
 Anteponé `LC_ALL=C.UTF-8` a cada `bats` (ver más abajo). En Windows, `bats --jobs` no funciona:
 Git Bash no trae `flock` ni GNU `parallel`.

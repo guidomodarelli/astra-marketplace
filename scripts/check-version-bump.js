@@ -8,7 +8,8 @@
  * A plugin counts as changed when any file under `plugins/<name>/` changed,
  * except files inside `tests/` or `evals/` directories, which do not change
  * what the plugin ships to agents. A changed plugin must:
- * - keep `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` on the same version,
+ * - keep `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` and, when present,
+ *   the portable root `plugin.json` on the same version,
  * - use a MAJOR.MINOR.PATCH version,
  * - raise that version above the one it had at the merge base.
  * New plugins (no manifest at the merge base) only need the first two.
@@ -97,7 +98,7 @@ function readVersionAt(commit, plugin) {
 /**
  * Validates one changed plugin and returns its problems.
  *
- * @param {{ name: string, claudePath: string, codexPath: string }} plugin Plugin descriptor.
+ * @param {{ name: string, claudePath: string, codexPath: string, portablePath: string | null }} plugin Plugin descriptor.
  * @param {string} baseCommit Merge-base commit.
  * @returns {{ baseVersion: string, currentVersion: string, problems: string[] }} Validation result.
  */
@@ -111,6 +112,14 @@ function validatePlugin(plugin, baseCommit) {
     problems.push(
       `Claude manifest has ${currentVersion} but Codex manifest has ${codexVersion}; keep both on the same version.`
     );
+  }
+  if (plugin.portablePath) {
+    const portableVersion = readManifest(plugin.portablePath).version;
+    if (portableVersion !== currentVersion) {
+      problems.push(
+        `Claude manifest has ${currentVersion} but portable plugin.json has ${portableVersion}; keep them on the same version.`
+      );
+    }
   }
   if (!SEMVER_PATTERN.test(currentVersion)) {
     problems.push(`Version "${currentVersion}" is not MAJOR.MINOR.PATCH.`);
