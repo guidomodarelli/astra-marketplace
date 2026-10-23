@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "golfo-kit",
+  "version": "0.10.2",
+  "description": "Colección de skills de Golfo para agentes AI: setup Agent Ready con rules de plataforma y otros artefactos reutilizables.",
+  "author": {
+    "name": "Guido Modarelli"
+  },
+  "repository": "https://github.com/guidomodarelli/golfo-marketplace",
+  "license": "MIT",
+  "keywords": [
+    "golfo",
+    "skills",
+    "agent-ready",
+    "frontend",
+    "testing"
+  ]
+}

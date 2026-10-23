@@ -1,7 +1,8 @@
 name: Version bump
 
-# Every pull request that changes a plugin must raise its version in both
-# provider manifests. See scripts/check-version-bump.js for the rules.
+# Every pull request that changes a plugin must raise its version in every
+# plugin manifest (Claude, Codex and the portable root plugin.json).
+# See scripts/check-version-bump.js for the rules.
 on:
   pull_request:
 

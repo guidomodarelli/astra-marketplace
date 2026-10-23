@@ -137,3 +137,28 @@ run_check() {
   [ "$status" -eq 1 ]
   [[ "$output" == *'check-version-bump: "git merge-base origin/missing HEAD" failed'* ]]
 }
+
+# write_portable_manifest <plugin> <version>
+write_portable_manifest() {
+  printf '{\n  "name": "%s",\n  "version": "%s"\n}\n' "$1" "$2" > "$repo_dir/plugins/$1/plugin.json"
+}
+
+@test "passes when the portable root manifest was bumped with the provider manifests" {
+  write_manifests golfo-kit 1.13.0
+  write_portable_manifest golfo-kit 1.13.0
+  commit_all "Bump all manifests"
+
+  run_check
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"golfo-kit: 1.12.0 -> 1.13.0."* ]]
+}
+
+@test "fails when the portable root manifest is out of sync" {
+  write_manifests golfo-kit 1.13.0
+  write_portable_manifest golfo-kit 1.12.0
+  commit_all "Bump without portable manifest"
+
+  run_check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Claude manifest has 1.13.0 but portable plugin.json has 1.12.0"* ]]
+}

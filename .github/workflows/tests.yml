@@ -26,6 +26,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Validate portable plugin packages (Hermes)
+        run: pnpm run validate-portable-plugins
       - name: Configure git identity for test repositories
         run: |
           git config --global user.name "CI"
@@ -36,6 +38,7 @@ jobs:
           tests/create-version.bats
           tests/check-version-bump.bats
           tests/validate-compatibility-report.bats
+          tests/validate-portable-plugins.bats
           plugins/golfo-kit/skills/codex-autofix-loop/tests/wait-for-pr-event.bats
           plugins/golfo-kit/skills/user-manual/tests/check-design-tokens.bats
           plugins/golfo-kit/skills/agent-ready-setup/tests/merge-instructions.bats

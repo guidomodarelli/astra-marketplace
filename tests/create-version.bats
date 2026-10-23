@@ -53,7 +53,7 @@ assert_head_contains_only_manifests() {
   [ "$(git show --format= --name-only HEAD | wc -l | tr -d ' ')" = "2" ]
 }
 
-@test "auto-detects one changed plugin and commits only both manifests" {
+@test "auto-detects one changed plugin and commits only the plugin manifests" {
   mkdir -p plugins/golfo-kit/docs
   printf '%s\n' 'plugin change' > plugins/golfo-kit/docs/change.md
   printf '%s\n' 'staged change' > staged.txt
@@ -67,7 +67,7 @@ assert_head_contains_only_manifests() {
   [[ "$output" != *"Select a plugin by number"* ]]
   [ "$(node -p "require('./plugins/golfo-kit/.claude-plugin/plugin.json').version")" = "1.12.1" ]
   [ "$(node -p "require('./plugins/golfo-kit/.codex-plugin/plugin.json').version")" = "1.12.1" ]
-  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in both "plugin.json" files for the "golfo-kit" plugin' ]
+  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in all "plugin.json" files for the "golfo-kit" plugin' ]
   git log -1 --pretty=%B | grep -Fxq 'Co-Authored-By: Claude Code <noreply@anthropic.com>'
   assert_head_contains_only_manifests
   git status --porcelain | grep -Fxq 'A  staged.txt'
@@ -117,7 +117,7 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"Detected changed plugins:"* ]]
   [[ "$output" == *"Select a plugin by number"* ]]
-  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in both "plugin.json" files for the "golfo-kit" plugin' ]
+  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in all "plugin.json" files for the "golfo-kit" plugin' ]
   assert_head_contains_only_manifests
   git status --porcelain | grep -Fxq '?? plugins/other-plugin/'
 }
@@ -157,7 +157,7 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *'Pushed "main" to origin'* ]]
   [ "$(remote_head main)" = "$(git rev-parse HEAD)" ]
-  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in both "plugin.json" files for the "golfo-kit" plugin' ]
+  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in all "plugin.json" files for the "golfo-kit" plugin' ]
 }
 
 @test "reports push failure and keeps local commit" {
@@ -170,7 +170,7 @@ JSON
 
   [ "$status" -eq 1 ]
   [[ "$output" == *'Version bump commit was created but "git push -u origin HEAD" failed for branch "feature/golfo-kit-change"'* ]]
-  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in both "plugin.json" files for the "golfo-kit" plugin' ]
+  [ "$(git log -1 --pretty=%s)" = 'Bump the version number from 1.12.0 to 1.12.1 in all "plugin.json" files for the "golfo-kit" plugin' ]
   assert_head_contains_only_manifests
   [ "$(git status --porcelain)" = '?? plugins/golfo-kit/docs/' ]
 }
@@ -219,7 +219,7 @@ JSON
   [ "$status" -eq 0 ]
   [[ "$output" == *"🧪 DRY RUN"* ]]
   [[ "$output" == *"Would update plugins/golfo-kit/.claude-plugin/plugin.json"* ]]
-  [[ "$output" == *'Would commit only both manifests: Bump the version number from 1.12.0 to 1.12.1'* ]]
+  [[ "$output" == *'Would commit only the plugin manifests: Bump the version number from 1.12.0 to 1.12.1'* ]]
   [[ "$output" == *'Would push "feature/golfo-kit-change" to origin (git push -u origin HEAD)'* ]]
   [ "$(node -p "require('./plugins/golfo-kit/.claude-plugin/plugin.json').version")" = "1.12.0" ]
   [ "$(node -p "require('./plugins/golfo-kit/.codex-plugin/plugin.json').version")" = "1.12.0" ]
@@ -387,4 +387,43 @@ add_other_plugin_on_base() {
   [[ "$output" == *"Detected changed plugin: golfo-kit"* ]]
   [[ "$output" != *"Select a plugin by number"* ]]
   [[ "$output" == *"1.12.0 → 1.12.1"* ]]
+}
+
+@test "bumps the portable root manifest together with the provider manifests" {
+  cat > plugins/golfo-kit/plugin.json <<'JSON'
+{
+  "name": "golfo-kit",
+  "version": "1.12.0"
+}
+JSON
+  git add plugins/golfo-kit/plugin.json
+  git commit -qm "Add portable manifest"
+
+  run node scripts/create-version.js golfo-kit --bump patch
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Portable in sync"* ]]
+  [ "$(node -p "require('./plugins/golfo-kit/plugin.json').version")" = "1.12.1" ]
+  [ "$(node -p "require('./plugins/golfo-kit/.codex-plugin/plugin.json').version")" = "1.12.1" ]
+  git show --format= --name-only HEAD | grep -Fxq 'plugins/golfo-kit/plugin.json'
+  [ "$(git show --format= --name-only HEAD | wc -l | tr -d ' ')" = "3" ]
+}
+
+@test "rejects bumping when the portable root manifest is out of sync" {
+  cat > plugins/golfo-kit/plugin.json <<'JSON'
+{
+  "name": "golfo-kit",
+  "version": "1.11.0"
+}
+JSON
+  git add plugins/golfo-kit/plugin.json
+  git commit -qm "Add stale portable manifest"
+  local head_before
+  head_before="$(git rev-parse HEAD)"
+
+  run node scripts/create-version.js golfo-kit --bump patch
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"plugins/golfo-kit/plugin.json is 1.11.0"* ]]
+  [ "$(git rev-parse HEAD)" = "$head_before" ]
 }

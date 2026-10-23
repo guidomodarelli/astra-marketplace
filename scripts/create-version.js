@@ -5,9 +5,10 @@
 /**
  * Interactive plugin version bumper.
  *
- * Updates the `version` field in BOTH provider manifests of a plugin
- * (`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`), keeping
- * them in sync, then commits only those two manifests and pushes the branch.
+ * Updates the `version` field in every provider manifest of a plugin
+ * (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` and, when present,
+ * the portable root `plugin.json` used by Hermes), keeping them in sync, then
+ * commits only those manifests and pushes the branch.
  *
  * Usage:
  *   pnpm create-version            -> interactive plugin menu
@@ -24,6 +25,7 @@ const readline = require('readline');
 const {
   SEMVER_PATTERN,
   discoverPlugins,
+  listVersionedManifests,
   readManifest,
 } = require('./lib/plugin-manifests');
 
@@ -392,7 +394,7 @@ function writeManifestVersion(manifestPath, rawContents, newVersion) {
  */
 function buildCommitSubject(pluginName, currentVersion, newVersion) {
   return (
-    `Bump the version number from ${currentVersion} to ${newVersion} in both ` +
+    `Bump the version number from ${currentVersion} to ${newVersion} in all ` +
     `"plugin.json" files for the "${pluginName}" plugin`
   );
 }
@@ -813,18 +815,27 @@ async function main() {
     const bumpedPlugins = requestedName ? new Map() : detectBumpedPlugins(plugins, changedPluginNames);
     const plugin = await resolvePlugin(ask, plugins, requestedName, changedPluginNames, bumpedPlugins);
 
-    const claude = readManifest(plugin.claudePath);
-    const codex = readManifest(plugin.codexPath);
+    const versionedManifestPaths = listVersionedManifests(plugin);
+    const manifests = versionedManifestPaths.map((manifestPath) => ({
+      path: manifestPath,
+      ...readManifest(manifestPath),
+    }));
+    const [claude] = manifests;
+    const mismatchedManifests = manifests.filter((manifest) => manifest.version !== claude.version);
 
-    if (claude.version !== codex.version) {
+    if (mismatchedManifests.length > 0) {
+      const versionSummary = manifests
+        .map((manifest) => `${toRepositoryPath(manifest.path)} is ${manifest.version}`)
+        .join(', ');
       throw new Error(
-        `Version mismatch in "${plugin.name}": ` +
-          `Claude is ${claude.version} but Codex is ${codex.version}. ` +
-          'Sync them manually before bumping.'
+        `Version mismatch in "${plugin.name}": ${versionSummary}. Sync them manually before bumping.`
       );
     }
 
-    const syncedBadge = paint('green', '✔ Claude · ✔ Codex in sync');
+    const syncedBadge = paint(
+      'green',
+      plugin.portablePath ? '✔ Claude · ✔ Codex · ✔ Portable in sync' : '✔ Claude · ✔ Codex in sync'
+    );
     console.log(
       `\n${renderPanel('📦 Plugin', [
         `${paint('gray', 'Name     ')} ${paint('cyan', paint('bold', plugin.name))}`,
@@ -841,7 +852,7 @@ async function main() {
     const subject = buildCommitSubject(plugin.name, claude.version, newVersion);
     const versionHeadline =
       `${paint('cyan', paint('bold', plugin.name))}  ${formatVersionTransition(claude.version, newVersion)}`;
-    const manifestPaths = [plugin.claudePath, plugin.codexPath].map((manifestPath) =>
+    const manifestPaths = versionedManifestPaths.map((manifestPath) =>
       // Forward slashes keep the output identical on Windows, where path.sep is a backslash.
       paint('dim', path.relative(process.cwd(), manifestPath).split(path.sep).join('/'))
     );
@@ -859,7 +870,7 @@ async function main() {
             versionHeadline,
             '',
             ...manifestPaths.map((manifestPath) => `📝 Would update ${manifestPath}`),
-            `🔖 Would commit only both manifests: ${subject}`,
+            `🔖 Would commit only the plugin manifests: ${subject}`,
             pushLine,
           ],
           'yellow'
@@ -869,10 +880,9 @@ async function main() {
       return;
     }
 
-    writeManifestVersion(plugin.claudePath, claude.raw, newVersion);
-    writeManifestVersion(plugin.codexPath, codex.raw, newVersion);
+    manifests.forEach((manifest) => writeManifestVersion(manifest.path, manifest.raw, newVersion));
 
-    const commit = commitVersionBump(subject, [plugin.claudePath, plugin.codexPath]);
+    const commit = commitVersionBump(subject, versionedManifestPaths);
 
     console.log(
       `\n${renderPanel(
