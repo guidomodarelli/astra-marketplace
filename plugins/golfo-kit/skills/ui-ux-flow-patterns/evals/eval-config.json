@@ -300,6 +300,41 @@
           "description": "Limpia el error cuando el usuario corrige el valor"
         }
       ]
+    },
+    {
+      "id": "nextjs-client-container-ux-redesign",
+      "description": "Ante un pedido de mejorar la UI/UX de una pantalla Next.js que solo toca un contenedor cliente y componentes, diseña los estados y el feedback (error con reintento, confirmar la desconexión, skeleton) y además aplica el criterio de boundaries de Next (datos iniciales en server, \"use client\" en la hoja).",
+      "input": "Repo Next.js 16 con App Router. Mejorá la UI/UX de la pantalla de conexión de mensajería del líder. La página `app/(platform)/[slug]/settings/messaging/page.tsx` ya existe y no hay que tocarla; monta `messaging-connection-container.tsx` (\"use client\", en la misma carpeta), que hace `useEffect` + `fetch('/api/messaging/connection')` y renderiza `components/messaging/connection-card` con un botón 'Desconectar' que borra la conexión sin preguntar y un texto 'Cargando...' mientras espera. Si falla el fetch no se muestra nada. No ejecutes nada: decime qué cambiarías y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(reintentar|volver a intentar|retry)",
+          "description": "El error de carga tiene salida con reintento en vez de no mostrar nada"
+        },
+        {
+          "type": "regex",
+          "pattern": "(confirm|deshacer|undo|AlertDialog|di(a|á)logo)",
+          "description": "La desconexión destructiva pasa por confirmar o deshacer"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "skeleton",
+            "Skeleton"
+          ],
+          "description": "Reemplaza el texto 'Cargando...' por un skeleton"
+        },
+        {
+          "type": "regex",
+          "pattern": "(Server Component|en (el )?server|server component|loading\\.tsx|<Suspense)",
+          "description": "Aplica también el criterio de Next: datos iniciales en server o boundary del segmento"
+        },
+        {
+          "type": "regex",
+          "pattern": "\"use client\".{0,160}(hoja|bot(o|ó)n|interactiv)|(hoja|isla|interactiv).{0,160}\"use client\"",
+          "description": "Baja \"use client\" a la hoja interactiva en vez del contenedor entero"
+        }
+      ]
     }
   ]
 }

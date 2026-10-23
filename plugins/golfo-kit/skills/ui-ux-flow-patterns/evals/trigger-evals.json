@@ -1,0 +1,17 @@
+[
+  {"query": "en el repo de TuTribu (next 16, app router) mejorá la UI/UX de la pantalla de conexión de mensajería del líder, el container es app/(platform)/[slug]/settings/messaging/messaging-connection-container.tsx y la card está en components/messaging", "should_trigger": true},
+  {"query": "Rediseñá el paso 2 del wizard de admisiones en `components/academy-admissions/admission-policy-form/policy-rules-steps/index.tsx` (es un proyecto Next.js con App Router): quiero que se entienda mejor qué regla se está editando y que el error de validación quede junto al campo", "should_trigger": true},
+  {"query": "Next.js 15 app router: el botón 'Eliminar tribu' de `components/tribes/tribe-danger-zone` borra todo sin preguntar y después muestra un alert() feo. Arreglalo y poné un toast como corresponde", "should_trigger": true},
+  {"query": "En mi app Vite + React, la tabla de facturas de `src/pages/Invoices.tsx` queda en blanco cuando no hay facturas y cuando falla la API. Mejorá la UX de esos estados", "should_trigger": true},
+  {"query": "cambiá el copy del modal de 'Cancelar suscripción' en la app de Flutter, ahora dice 'Aceptar / Cancelar' y la gente se confunde", "should_trigger": true},
+  {"query": "Agregá un botón 'Reenviar invitación' a cada fila de la lista de invitaciones pendientes (Remix). Tiene que evitar el doble click y avisar si salió bien", "should_trigger": true},
+  {"query": "Quiero pulir el onboarding: el uploader de avatar no muestra progreso y si el archivo es muy grande falla en silencio. Es una SPA en Vue 3", "should_trigger": true},
+  {"query": "Escribí una migración SQL que agregue la columna archived_at a courses con su índice y la policy de RLS correspondiente", "should_trigger": false},
+  {"query": "El job de cron que manda el resumen diario de admisiones por mail tarda 40s; perfilalo y decime qué query es la lenta", "should_trigger": false},
+  {"query": "Refactorizá `scripts/dev-portless.mjs` para separar la verificación de DNS en un módulo propio, sin cambiar el comportamiento", "should_trigger": false},
+  {"query": "Revisá este PR de golfo-marketplace que solo cambia el script de create-version y decime si hay bugs", "should_trigger": false},
+  {"query": "Agregá tests de Vitest para el use case `archiveCourse` usando dobles de los puertos del dominio, sin UI", "should_trigger": false},
+  {"query": "Escribí un CLI en Node que liste los worktrees de git y los ordene por fecha de último commit", "should_trigger": false},
+  {"query": "Tengo que agregar una server action para archivar cursos en `src/modules/courses/...` y un route handler `app/api/courses/[id]/archive/route.ts`. Es Next.js App Router, armalo", "should_trigger": false},
+  {"query": "cambié next.config.ts para activar cacheComponents y ahora el build se queja de que una página lee cookies() fuera de Suspense, ayudame", "should_trigger": false}
+]
