@@ -10,8 +10,8 @@
 import { parseArgs } from 'node:util';
 
 import { EXIT_CODES } from './lib/constants.mjs';
-import { abortRun, addEvidence, beginRun, recordRun } from './lib/coverage/run-lifecycle.mjs';
-import { openProjectContext } from './lib/coverage/project-context.mjs';
+import { abortRun, addEvidence, beginRun, recordRun } from './lib/evaluation/run-lifecycle.mjs';
+import { openProjectContext } from './lib/evaluation/project-context.mjs';
 import { discoverUnits, writeDiscoveredUnits } from './lib/discovery/next-app-router.mjs';
 import { splitInputKey } from './lib/impact/input-diff.mjs';
 import { dependencyChain } from './lib/impact/unit-inputs.mjs';
