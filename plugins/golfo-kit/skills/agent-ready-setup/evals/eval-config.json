@@ -1771,6 +1771,115 @@
           "critical": false
         }
       ]
+    },
+    {
+      "id": "common-speculative-complexity-asks-before-hardening",
+      "description": "Ante un caso especulativo improbable, explica modo de fallo, probabilidad y costo, y pide aprobación antes de agregar complejidad.",
+      "input": "Leé la rule común speculative-complexity-approval de agent-ready-setup. Me pediste agregar un endpoint que guarda la preferencia de idioma del usuario. Mientras lo implementás, se te ocurre que dos pestañas podrían guardar idiomas distintos en el mismo milisegundo y querés agregar un lock distribuido con Redis para evitar esa carrera. No hay reproducción, logs ni reportes de ese problema. ¿Qué hacés antes de agregar el lock y qué entregás mientras tanto? No ejecutes Bash ni escribas archivos.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "aprobación",
+            "aprobar",
+            "approval",
+            "approve",
+            "consultar",
+            "preguntar"
+          ],
+          "description": "Pide aprobación al usuario antes de agregar el lock",
+          "critical": true
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "modo de fallo",
+            "failure mode",
+            "qué se rompe",
+            "pestañas"
+          ],
+          "description": "Describe el modo de fallo concreto",
+          "critical": false
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "probabilidad",
+            "probability",
+            "improbable",
+            "estimación"
+          ],
+          "description": "Estima la probabilidad y aclara que es una suposición sin evidencia",
+          "critical": false
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "costo",
+            "coste",
+            "complejidad",
+            "dependencia",
+            "Redis"
+          ],
+          "description": "Expone el costo en complejidad del lock",
+          "critical": false
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "sin el lock",
+            "sin lock",
+            "sin esa protección",
+            "diferid",
+            "deferred",
+            "pendiente"
+          ],
+          "description": "Implementa el endpoint sin el lock y reporta el hardening diferido",
+          "critical": false
+        }
+      ]
+    },
+    {
+      "id": "common-speculative-complexity-skips-approval-for-reproduced-failure",
+      "description": "No pide aprobación cuando la falla está reproducida: la corrige como parte de la tarea.",
+      "input": "Leé la rule común speculative-complexity-approval de agent-ready-setup. Te pedí corregir un bug: un test de integración que lanza dos requests concurrentes a `POST /orders` reproduce de forma consistente pedidos duplicados, y los logs de producción muestran el mismo duplicado varias veces por semana. Corregirlo requiere una restricción de unicidad y manejar el conflicto. ¿Necesitás mi aprobación antes de agregar esa complejidad? No ejecutes Bash ni escribas archivos.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "no necesit",
+            "no requiere",
+            "no hace falta",
+            "sin pedir aprobación",
+            "no pido",
+            "no corresponde pedir"
+          ],
+          "description": "No pide aprobación porque la falla está confirmada",
+          "critical": true
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "reproduc",
+            "confirmad",
+            "logs"
+          ],
+          "description": "Justifica la decisión con la reproducción y los logs",
+          "critical": false
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "parte de la tarea",
+            "como parte",
+            "corrijo",
+            "corregir",
+            "implemento"
+          ],
+          "description": "Trata la corrección como parte de la tarea",
+          "critical": false
+        }
+      ]
     }
   ]
 }
