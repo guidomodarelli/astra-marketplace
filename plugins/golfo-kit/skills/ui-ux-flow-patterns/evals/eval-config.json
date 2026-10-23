@@ -335,6 +335,53 @@
           "description": "Baja \"use client\" a la hoja interactiva en vez del contenedor entero"
         }
       ]
+    },
+    {
+      "id": "inline-destructive-confirmation-active-resource",
+      "description": "En un proyecto que confirma acciones destructivas con una casilla junto al botón, diseña suspender y retirar sobre recursos con rol (activo y candidato): etiqueta con recurso e impacto, consentimiento que se desmarca al cambiar de selección, aviso fijo con texto para el recurso en uso, diferencia entre conservar y liberar el lugar, sin preselección destructiva, foco tras el éxito y toast de progreso.",
+      "input": "En mi app React, la pantalla de conexiones de mensajería del líder tiene una conexión activa («Soporte») y, a veces, una candidata que la va a reemplazar. Quiero un panel de 'Suspender' y 'Retirar' con un selector de conexión. El `DESIGN.md` del proyecto dice que toda acción destructiva se confirma con una casilla junto al botón, no con un diálogo, y que las escrituras usan `toast.promise`. Suspender deja la conexión pausada en su lugar; retirar la libera. Mostrame el componente y explicá las decisiones.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(checkbox|casilla|Checkbox)",
+          "description": "Usa la casilla de consentimiento del proyecto en vez de un diálogo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(desmarc|resetea|reinicia|vuelve a false|setConfirmed\\(false\\)|setAcknowledged\\(false\\)|setChecked\\(false\\))",
+          "description": "El consentimiento se desmarca al cambiar de conexión, de acción o tras la escritura"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no solo (el )?color|con texto|role=\"(status|note|alert)\"|aviso (fijo|persistente)|banner)",
+          "description": "Muestra un aviso fijo con texto cuando la acción afecta a la conexión activa"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserva|mantiene|pausad|reanudar).{0,200}(libera|reemplaz)|(libera|reemplaz).{0,200}(conserva|mantiene|pausad|reanudar)",
+          "description": "Distingue suspender (conserva el lugar) de retirar (lo libera)"
+        },
+        {
+          "type": "regex",
+          "pattern": "(rol|activa|candidata).{0,80}(estado|suspendida|pausada)|(estado).{0,80}(activa|candidata)",
+          "description": "El selector muestra el rol y el estado de cada conexión"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no (se )?preselecc|sin preselecc|no (arranca|empieza) seleccionad|selecci(o|ó)n vac(i|í)a)",
+          "description": "No preselecciona una acción destructiva sobre la conexión activa"
+        },
+        {
+          "type": "regex",
+          "pattern": "(\\.focus\\(|foco)",
+          "description": "Mueve el foco al siguiente control lógico cuando el control enfocado desaparece"
+        },
+        {
+          "type": "contains",
+          "value": "toast.promise",
+          "description": "El resultado de la escritura va por toast.promise"
+        }
+      ]
     }
   ]
 }

@@ -27,7 +27,7 @@ Elegir el modo según el alcance:
 - **Modo liviano** (cambio puntual: un botón, una columna, un campo, copy). Revisar solo lo que el cambio toca con este checklist y corregir en el mismo trabajo lo que el cambio introduzca:
   1. Si el cambio **trae datos**: ¿tiene estado de carga con la forma del contenido, estado vacío y estado de error con reintento? ([state-matrix.md](references/state-matrix.md))
   2. Si el cambio **ejecuta una acción**: ¿el control muestra pending, evita el doble envío y el resultado llega por el canal correcto? ([feedback-channels.md](references/feedback-channels.md#tabla-de-decisión))
-  3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)?
+  3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)? Si el proyecto confirma con una casilla junto al botón, aplicar la [confirmación inline](references/feedback-channels.md#confirmación-inline): etiqueta con recurso e impacto, consentimiento que se desmarca al cambiar de selección y aviso fijo si afecta al recurso en uso.
   4. Si el cambio **valida input o muestra errores**: ¿la acción se bloquea antes del request, el error queda junto al campo y el error viejo se limpia al cambiar de recurso o reintentar? ([validation-feedback.md](references/validation-feedback.md))
   5. ¿El feedback nuevo es accesible (live region, foco, no solo color)? ([accesibilidad](references/feedback-channels.md#accesibilidad-del-feedback))
 
