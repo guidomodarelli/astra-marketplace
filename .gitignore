@@ -57,3 +57,6 @@ __pycache__/
 *.pyc
 *.pyo
 **/.in_use/
+
+# Estado local del loop codex-autofix-loop (processed-<PR>.json)
+.codex-autofix/

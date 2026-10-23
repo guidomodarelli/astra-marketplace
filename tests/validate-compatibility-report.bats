@@ -151,13 +151,20 @@ disable_hermes_filter() {
 }
 
 @test "rejects a reclassification whose target status differs from the feature" {
-  mutate_report 'report.revision.reclassified.find((entry) => entry.skill === "review-fix-loop" && entry.agent === "codex").to = "unverified";'
+  # Any reclassification whose target is not `unverified` works; the revision changes with every audit.
+  local reclassification
+  reclassification="$(node -e '
+    const report = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    const entry = report.revision.reclassified.find((candidate) => candidate.to !== "unverified");
+    console.log(`${entry.skill} / ${entry.agent} / ${entry.feature}: to is unverified but the feature is ${entry.to}`);
+  ' "$report")"
+  mutate_report 'report.revision.reclassified.find((entry) => entry.to !== "unverified").to = "unverified";'
   render_markdown
 
   validate
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"revision.reclassified review-fix-loop / codex / isolated-filter: to is unverified but the feature is adapted"* ]]
+  [[ "$output" == *"revision.reclassified $reclassification"* ]]
 }
 
 @test "rejects a reclassified-from-disabled count that does not match the revision" {

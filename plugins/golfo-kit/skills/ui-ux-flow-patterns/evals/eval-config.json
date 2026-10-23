@@ -382,6 +382,64 @@
           "description": "El resultado de la escritura va por toast.promise"
         }
       ]
+    },
+    {
+      "id": "codex-walk-states-with-chrome-plugin",
+      "description": "En Codex, recorre los estados de la UI con el plugin Chrome (clics por estado y consola) y no afirma haber probado con lector de pantalla.",
+      "input": "Usando ui-ux-flow-patterns en modo completo: estás en Codex CLI. No hay mcp__claude-in-chrome__*. Tenés `mcp__cua_repl.js` con el plugin Chrome (`agent.browsers.list()` devuelve `type: \"extension\"`, `family: \"chrome\"`) y el dev server corre en http://localhost:3000/pagos con un panel de debug que fuerza los estados carga, vacío, con datos y error. Ya implementaste la matriz de estados. Describí cómo harías la verificación del paso 5 con estas herramientas y qué pondrías en la sección Verificación del reporte. No ejecutes nada.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "plugin Chrome|chrome@openai-bundled|cua_repl",
+          "description": "Usa el plugin Chrome de Codex"
+        },
+        {
+          "type": "regex",
+          "pattern": "getByRole|click|clic",
+          "description": "Recorre cada estado con clics"
+        },
+        {
+          "type": "regex",
+          "pattern": "dev\\.logs|consola",
+          "description": "Revisa la consola"
+        },
+        {
+          "type": "regex",
+          "pattern": "lector de pantalla",
+          "description": "Aclara qué pasa con el lector de pantalla"
+        }
+      ]
+    },
+    {
+      "id": "hermes-browser-exec-unstable-playwright-fallback",
+      "description": "En Hermes, si browser_exec no arranca, recorre los estados con Playwright por terminal y no toma el escritorio con computer_use sin consentimiento.",
+      "input": "Usando ui-ux-flow-patterns en modo completo: estás en Hermes Agent. `browser_exec` falló dos veces al arrancar (\"Chrome exited early … DevToolsActivePort\"). También existe `computer_use`. En la terminal hay `npx` y Chrome instalado; el proyecto no tiene Playwright. La pantalla http://localhost:5173/clientes no requiere login. Describí cómo verificarías los estados vacío, error con reintento y doble clic en \"Guardar\", con qué herramienta y por qué, y qué reportarías al cierre. No ejecutes nada.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "playwright"
+          ],
+          "description": "Usa Playwright por terminal"
+        },
+        {
+          "type": "regex",
+          "pattern": "computer_use[^.]{0,200}(consentimiento|avis|permiso|no (lo )?(us|necesit)|innecesari|solo si|descart|reservad|no se us|no hac[ií]a falta)|no[^.]{0,20}computer_use",
+          "description": "No usa computer_use sin consentimiento o lo descarta"
+        },
+        {
+          "type": "regex",
+          "pattern": "doble clic|dos veces|double",
+          "description": "Verifica el doble clic"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "Limitaciones del agente"
+          ],
+          "description": "Declara Limitaciones del agente"
+        }
+      ]
     }
   ]
 }

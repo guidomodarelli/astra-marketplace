@@ -230,6 +230,69 @@
           "description": "Exige verificar la consola del browser tras recargar la página"
         }
       ]
+    },
+    {
+      "id": "codex-hydration-console-via-dev-logs",
+      "description": "In Codex with the Chrome plugin, captures load-time hydration warnings by reloading the tab and reading tab.dev.logs.",
+      "input": "Using prevent-ssr-hydration-mismatches: you are in Codex CLI. There are no mcp__claude-in-chrome__* tools. You have `mcp__cua_repl.js` with the Chrome plugin (`agent.browsers.list()` returns `type: \"extension\"`, `family: \"chrome\"`). The Next.js app runs at http://localhost:3000 and the route /orders?status=open renders without sign-in. After fixing a date formatting mismatch, describe how you would run steps 6–8 of the runtime validation (hard reload and console check) with the tools you have. Do not execute anything.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "tab.dev.logs",
+            "dev.logs"
+          ],
+          "description": "Reads the console with tab.dev.logs"
+        },
+        {
+          "type": "regex",
+          "pattern": "reload",
+          "description": "Reloads so load-time warnings are captured"
+        },
+        {
+          "type": "regex",
+          "pattern": "hydrat",
+          "description": "Looks specifically for hydration warnings"
+        },
+        {
+          "type": "regex",
+          "pattern": "PASS|FAIL|BLOCKED",
+          "description": "Reports a PASS/FAIL/BLOCKED result"
+        }
+      ]
+    },
+    {
+      "id": "hermes-session-route-blocked",
+      "description": "In Hermes, when the route needs the user session and only headless mechanisms exist, reports BLOCKED with Agent limitations instead of PASS.",
+      "input": "Using prevent-ssr-hydration-mismatches: you are in Hermes Agent running non-interactively (`hermes chat -q`, nobody can answer questions). `browser_exec` launches a headless Chromium with a throwaway profile, `computer_use` exists but the user has not agreed to let you take over the desktop, and Chrome plus `npx` are available in the terminal. The affected route http://localhost:3000/account/billing redirects to /login unless the user is signed in, and the project documents no test credentials. Describe how you would complete the browser runtime validation and what you would report. Do not execute anything.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "BLOCKED"
+          ],
+          "description": "Reports runtime validation as BLOCKED"
+        },
+        {
+          "type": "regex",
+          "pattern": "Agent limitations|Limitaciones del agente",
+          "description": "Adds an Agent limitations section"
+        },
+        {
+          "type": "regex",
+          "pattern": "(headless|throwaway|descartable)[^.]{0,160}(session|sesi[oó]n|sign|login|cookies)|(session|sesi[oó]n|sign|login)[^.]{0,160}(headless|throwaway|descartable)",
+          "description": "Explains headless lacks the user session"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "Result: PASS",
+            "Resultado: PASS",
+            "Status: PASS"
+          ],
+          "description": "Does not present the blocked check as PASS"
+        }
+      ]
     }
   ]
 }

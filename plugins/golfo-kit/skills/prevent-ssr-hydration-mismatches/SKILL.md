@@ -3,7 +3,7 @@ name: prevent-ssr-hydration-mismatches
 description: Prevents and diagnoses React SSR hydration mismatches in server-rendered routes and components (Next.js, Remix, custom Express/Node SSR, or any framework that hydrates server HTML) by keeping server HTML and first client render deterministic. Use whenever implementing, changing, reviewing, or debugging SSR or hydration, preloaded or query-derived initial UI, server-rendered code that touches browser-only APIs, feature flags, dates, randomness, locale, timezone, media queries, storage, invalid HTML nesting, client-only libraries, hydration warnings, or content changing during initial load—even when user does not mention hydration. Do not use for purely CSR components that never hydrate server HTML.
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "react, ssr, hydration, frontend"
@@ -286,6 +286,17 @@ Use test-only trusted `renderToString` output when constructing hydration contai
 9. Report `PASS`, `FAIL`, or `BLOCKED`; never present auth/environment block as success.
 
 Use the project's runtime-verification tooling or browser automation for browser runtime evidence.
+
+### Agent compatibility
+
+Steps 6–8 use whichever browser mechanism the session actually has, per row «Verificar en un navegador» of [`agent-capabilities.md`](../../references/agent-capabilities.md); look for the concrete tool in the session or in `PATH`, not for the agent's name. What matters here: hydration warnings are logged **while the page loads**, so the mechanism must capture console output from the first script, not only after you attach.
+
+- Claude in Chrome or a connected browser MCP: open the deep link, hard reload, then read the console.
+- Codex `chrome@openai-bundled` plugin: `tab.reload()` and then `tab.dev.logs({ levels: ["error", "warn"] })`.
+- Hermes `browser_exec`: register the listener before navigating (for example a CDP script added on new document), then reload. If it fails to start twice, use the terminal fallback.
+- Any agent with a shell: Chrome headless with `--enable-logging --log-file` or Playwright with `page.on("console")` before `page.goto` ([commands](../../references/agent-capabilities.md#verificación-en-navegador-por-terminal)). They have no user session: use them for routes that render without sign-in or with the project's test credentials.
+
+If the route needs the user's session and no real-browser tool is available, report runtime validation as `BLOCKED` and add an `Agent limitations` section to the final report with what was not checked and how to check it.
 
 ## Scope boundaries
 

@@ -205,6 +205,66 @@
           "description": "Plantea medir antes del cambio"
         }
       ]
+    },
+    {
+      "id": "codex-metrics-via-terminal-not-chrome-plugin",
+      "description": "En Codex, con el plugin Chrome pero sin MCP de DevTools, mide los Web Vitals con Lighthouse por terminal, no con el plugin Chrome (su evaluate no expone performance), y usa el mismo mecanismo antes y después.",
+      "input": "Usando measured-performance-optimization: estás en Codex CLI. No hay herramientas mcp__claude-in-chrome__* ni MCP de Chrome DevTools o Playwright. Tenés `mcp__cua_repl.js` con el plugin Chrome (`agent.browsers.list()` devuelve un navegador `type: \"extension\"`, `family: \"chrome\"`), `npx` en PATH y Chrome instalado. El proyecto no tiene Playwright. El usuario pide: \"la home (http://localhost:3000/) tarda en pintar el hero, optimizala\". No ejecutes nada todavía: decí con qué mecanismo medirías la línea base de LCP y el después, por qué, y para qué usarías el plugin Chrome.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "lighthouse"
+          ],
+          "description": "Mide LCP con Lighthouse por terminal"
+        },
+        {
+          "type": "regex",
+          "pattern": "(performance|PerformanceObserver)[^.]{0,160}(no (est[aá]|expone|tiene|disponible)|undefined|solo lectura|read-only)|(no (expone|tiene|da acceso a)|sin)[^a-z]{0,4}`?performance|solo lectura[^.]{0,80}performance",
+          "description": "Explica que el plugin Chrome no expone performance para medir"
+        },
+        {
+          "type": "regex",
+          "pattern": "mismo (mecanismo|comando|herramienta|condiciones)|mismas condiciones|misma herramienta|id[eé]ntic[ao]s? antes y despu[eé]s|el mismo en ambos|cambiar de herramienta",
+          "description": "Mantiene el mismo mecanismo y condiciones antes y después"
+        },
+        {
+          "type": "regex",
+          "pattern": "(plugin Chrome|chrome@openai-bundled|cua_repl)[^.]{0,200}(flujo|recorr|confirm|funciona|paso 5)",
+          "description": "Reserva el plugin Chrome para confirmar el flujo"
+        }
+      ]
+    },
+    {
+      "id": "hermes-browser-exec-fails-terminal-fallback",
+      "description": "En Hermes, si browser_exec no arranca dos veces, mide la interacción con Playwright por terminal usando el Chrome instalado y declara Limitaciones del agente; no inventa números.",
+      "input": "Usando measured-performance-optimization: estás en Hermes Agent. Tenés `terminal` y `browser_exec`, pero `browser_exec` falló dos veces seguidas con \"Chrome exited early … without writing DevToolsActivePort\". `npx` está en PATH, Chrome está instalado y el proyecto no tiene Playwright. El usuario pide optimizar el filtro de la tabla de pagos en http://localhost:5173/pagos (tipear en el buscador congela la UI). No ejecutes nada: explicá cómo medirías la línea base de la interacción, con qué herramienta, y qué dirías en el reporte sobre las herramientas.",
+      "assertions": [
+        {
+          "type": "contains_any",
+          "values": [
+            "playwright"
+          ],
+          "description": "Usa Playwright por terminal como alternativa"
+        },
+        {
+          "type": "regex",
+          "pattern": "channel[^a-z]{0,6}chrome|Chrome instalado|sin descargar navegadores",
+          "description": "Usa el Chrome instalado sin descargar navegadores"
+        },
+        {
+          "type": "regex",
+          "pattern": "performance\\.(mark|measure|now)|PerformanceObserver|INP",
+          "description": "Mide la interacción con APIs de performance"
+        },
+        {
+          "type": "contains_any",
+          "values": [
+            "Limitaciones del agente"
+          ],
+          "description": "Declara Limitaciones del agente"
+        }
+      ]
     }
   ]
 }
