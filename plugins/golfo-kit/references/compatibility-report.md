@@ -7,7 +7,7 @@
 
 ## A. Resumen ejecutivo
 
-- **Fecha de auditoría:** 2026-10-23 (generado 2026-10-23T16:59:41Z).
+- **Fecha de auditoría:** 2026-10-23 (generado 2026-10-23T17:25:10Z).
 - **Total de skills analizadas:** 43.
 - **Funcionalidades deshabilitadas:** 12.
 - **Adaptaciones implementadas:** 22; verificadas: 5.
@@ -25,11 +25,11 @@
 
 | Estado | `claude_code` | `codex` | `hermes` |
 |---|---|---|---|
-| `compatible` | 0 | 0 | 0 |
+| `compatible` | 4 | 0 | 0 |
 | `adapted` | 0 | 0 | 0 |
 | `partial` | 0 | 0 | 0 |
 | `incompatible` | 0 | 1 | 1 |
-| `unverified` | 43 | 42 | 42 |
+| `unverified` | 39 | 42 | 42 |
 
 ### Regla de derivación del estado
 
@@ -52,13 +52,13 @@ Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilid
 | `agent-ready-setup` | `unverified` | `unverified` | `unverified` |
 | `async-operation-error-handling` | `unverified` | `unverified` | `unverified` |
 | `codex-autofix-loop` | `unverified` | `unverified` | `unverified` |
-| `codex-comment-closeout` | `unverified` | `unverified` | `unverified` |
+| `codex-comment-closeout` | `compatible` | `unverified` | `unverified` |
 | `constants-refactor` | `unverified` | `unverified` | `unverified` |
 | `create-issue` | `unverified` | `unverified` | `unverified` |
 | `enforce-jsdoc-tsdoc` | `unverified` | `unverified` | `unverified` |
 | `error-observability-diagnostics` | `unverified` | `unverified` | `unverified` |
 | `feature-branch-pr` | `unverified` | `unverified` | `unverified` |
-| `fix-in-ephemeral-clone` | `unverified` | `unverified` | `unverified` |
+| `fix-in-ephemeral-clone` | `compatible` | `unverified` | `unverified` |
 | `fix-tests-intelligently` | `unverified` | `unverified` | `unverified` |
 | `functionality-check` | `unverified` | `unverified` | `unverified` |
 | `generate-commit-messages` | `unverified` | `unverified` | `unverified` |
@@ -70,7 +70,7 @@ Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilid
 | `nextjs-route-ui-boundaries` | `unverified` | `unverified` | `unverified` |
 | `node-runtime-debugging` | `unverified` | `unverified` | `unverified` |
 | `optimistic-action-mutations` | `unverified` | `unverified` | `unverified` |
-| `pr-description-template` | `unverified` | `unverified` | `unverified` |
+| `pr-description-template` | `compatible` | `unverified` | `unverified` |
 | `pr-inline-comment-template` | `unverified` | `unverified` | `unverified` |
 | `prevent-ssr-hydration-mismatches` | `unverified` | `unverified` | `unverified` |
 | `react-data-fetching-best-practices` | `unverified` | `unverified` | `unverified` |
@@ -84,7 +84,7 @@ Toda funcionalidad `disabled` tiene una entrada en el registro de incompatibilid
 | `semantic-html-a11y` | `unverified` | `unverified` | `unverified` |
 | `sibling-worktree` | `unverified` | `unverified` | `unverified` |
 | `simplify-code` | `unverified` | `unverified` | `unverified` |
-| `skill-optimizer` | `unverified` | `unverified` | `unverified` |
+| `skill-optimizer` | `compatible` | `unverified` | `unverified` |
 | `stacked-pr` | `unverified` | `unverified` | `unverified` |
 | `test-best-practices` | `unverified` | `unverified` | `unverified` |
 | `test-planning` | `unverified` | `unverified` | `unverified` |
@@ -269,10 +269,10 @@ Modo A, comportamiento original sin cambios. La elección del modo pasó un eval
 | Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
 |---|---|---|---|---|---|---|
 | `mode-selection` | sí | `enabled` | Elige el modo A cuando están Monitor, CronCreate/List/Delete y TaskStop. | — | Con las herramientas presentes, conserva el comportamiento original. | Eval en Claude Code.; prueba `eval-claude-mode-a` |
-| `pr-event-watch` | sí | `unverified` | `Monitor` del PR (paso 0 del prompt). | — | No ejecutada en Claude Code en esta auditoría. El eval solo confirma la elección del modo. | Instrucción original sin cambios.; prueba `eval-claude-mode-a` |
-| `backup-schedule` | no | `unverified` | Cron de sesión vía `/loop`. | — | No ejecutada en Claude Code en esta auditoría. | — |
-| `fix-round` | sí | `unverified` | Triage, agrupación, fix, closeout y dedup (pasos 1 a 6). | — | No ejecutada en Claude Code en esta auditoría. | — |
-| `parallel-subagents` | no | `unverified` | Subagentes `Agent` en background por grupo de archivo. | Fix en contexto, grupo por grupo. | No ejecutada en Claude Code en esta auditoría. | — |
+| `pr-event-watch` | sí | `enabled` | `Monitor` del PR (paso 0 del prompt). | — | El Monitor del PR detectó y entregó los eventos del PR #22 y se rearmó al vencer. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22`; prueba `eval-claude-mode-a` |
+| `backup-schedule` | no | `unverified` | Cron de sesión vía `/loop`. | — | CronCreate creó el job de respaldo, pero no se observó un disparo del cron durante la corrida porque los eventos del Monitor llegaron antes. | Job f5c08f73 creado.; prueba `claude-real-loop-pr22` |
+| `fix-round` | sí | `enabled` | Triage, agrupación, fix, closeout y dedup (pasos 1 a 6). | — | Triage, inFlight, fix, closeout y dedup ejecutados sobre un hallazgo real. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22` |
+| `parallel-subagents` | no | `enabled` | Subagentes `Agent` en background por grupo de archivo. | Fix en contexto, grupo por grupo. | Un subagente Agent en background resolvió el grupo y devolvió el sha. | Corrida real del loop en el PR #22.; prueba `claude-real-loop-pr22` |
 | `merge-gates` | sí | `unverified` | Review limpia del head + GATE DE CI antes de cualquier merge. | — | No ejecutada en Claude Code en esta auditoría. | — |
 | `round-caps` | sí | `unverified` | Topes de rondas y de rondas de solo tests persistidos. | — | No ejecutada en Claude Code en esta auditoría. | — |
 | `auto-cancel` | sí | `unverified` | Borra el cron y detiene el Monitor. | — | No ejecutada en Claude Code en esta auditoría. | — |
@@ -329,7 +329,7 @@ Modo B (watcher en background). El watcher y la elección del modo funcionaron e
 
 | Prueba | Agente | Tipo | Comando | Resultado | Evidencia |
 |---|---|---|---|---|---|
-| `watcher-bats` | `any` | bats | `bats plugins/golfo-kit/skills/codex-autofix-loop/tests/wait-for-pr-event.bats` | `passed` | 10/10: evento por head, comentario, review y checks (exit 0), tope de polls y timeout (exit 3), GitHub caído (exit 4), PR cerrado (exit 5), argumentos inválidos (exit 2). |
+| `watcher-bats` | `any` | bats | `bats plugins/golfo-kit/skills/codex-autofix-loop/tests/wait-for-pr-event.bats` | `passed` | 14/14: evento por head, comentario, review y checks (exit 0), tope de polls y timeout (exit 3), deadline respetado con gh lento, en el baseline y sin el ejecutable timeout (exit 3), GitHub caído (exit 4), PR cerrado (exit 5), argumentos inválidos (exit 2). |
 | `eval-claude-mode-a` | `claude_code` | eval | `run-evals <copia con solo claude-with-monitor-keeps-original-mode> --provider claude` | `passed` | Con Monitor y cron en la sesión elige el modo A: Monitor como disparador y /loop como respaldo (3/3 aserciones). |
 | `eval-sim-hermes-mode-b` | `hermes` | simulated_eval | `run-evals <copia con solo hermes-without-monitor-uses-background-watcher> --provider claude` | `passed` | Claude simulando una sesión Hermes: usa wait-for-pr-event.sh en background con aviso, tope de ciclos y kill; no planea Monitor ni CronCreate (6/6). No cuenta como evidencia en Hermes. |
 | `eval-sim-codex-single-round` | `codex` | simulated_eval | `run-evals <copia con solo codex-runs-single-round-without-waiting> --provider claude` | `passed` | Claude simulando Codex: una ronda, sin esperar y con instrucciones para relanzar (4/4). No cuenta como evidencia en Codex. |
@@ -338,10 +338,11 @@ Modo B (watcher en background). El watcher y la elección del modo funcionaron e
 | `codex-real-mode-selection` | `codex` | real_run | `codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "<leer SKILL.md y referencias; describir modo, herramientas y cierre sin tocar GitHub>"` | `passed` | Codex 0.162.1 leyó SKILL.md, agent-modes.md y agent-capabilities.md, eligió el modo C porque faltan Monitor/Cron/TaskStop y background con aviso, propuso collaboration.spawn_agent/wait_agent esperando dentro del turno, interrupt_agent para cancelar, notificación en el mensaje final y cierre con instrucción de relanzar. No ejecutó gh ni procesos. |
 | `hermes-real-watcher` | `hermes` | real_run | `hermes chat -Q -q "<terminal(background=true, notify=true) sobre wait-for-pr-event.sh --pr 20 --poll-seconds 10 --timeout-seconds 40; process_manage wait timeout=120>"` | `passed` | Hermes 0.22.4 lanzó el watcher con mcp__terminal background=true notify=true (session_id proc_49b329b77739, notify_on_complete: true) y process_manage wait devolvió status exited, exit_code 3, stdout «TIMEOUT no event on PR #20 after 3 polls». Solo lecturas a GitHub. |
 | `hermes-real-mode-selection` | `hermes` | real_run | `hermes chat -Q -q "<leer SKILL.md y referencias; describir modo y herramientas sin tocar GitHub>"` | `passed` | Hermes eligió el modo B (mcp__terminal background+notify, process_manage diferido), propuso delegate_task con tasks[], kill del watcher y delegate_task stop para cancelar, avisos en el chat, sin cronjob_manage; no mencionó invocar Monitor ni CronCreate. |
+| `claude-real-loop-pr22` | `claude_code` | real_run | `Loop en modo A sobre el PR #22 (Monitor + CronCreate */3 + Agent + codex-comment-closeout)` | `passed` | Claude Code 2.1.309 operó el loop sobre el PR #22: el Monitor entregó 8 eventos (checks, comentario y review de Codex, head nuevo) y se rearmó al vencer; CronCreate creó el job f5c08f73 (*/3); el inline 4362278361 (P2) se clasificó como realista, se registró en inFlight y lo fixeó un subagente Agent con fix-in-ephemeral-clone (commit f0bd513, 14/14 bats); el closeout publicó 👍, reply con plantilla (4362346998) verificado y resolvió el hilo; la review 5631925162 se minimizó como RESOLVED; processed-22.json registró el id y el outcome fixed. |
 
 Pendiente de verificar:
 
-- Claude Code: loop completo (Monitor, cron, subagentes, merge) sobre un PR real.
+- Claude Code: merge con gates, topes de rondas, auto-cancelación y disparo del cron de respaldo (ocurren después de congelar este reporte en el PR #22).
 - Codex: una ronda completa con fixes, closeout y merge gates.
 - Hermes: loop completo con delegate_task, kill del watcher y merge gates.
 
@@ -362,7 +363,7 @@ Pendiente de verificar:
 
 **Compatibilidad por agente**
 
-#### codex-comment-closeout / `claude_code`: `unverified`
+#### codex-comment-closeout / `claude_code`: `compatible`
 
 Sin dependencias específicas de agente detectadas por inspección. No se ejecutó en Claude Code durante esta auditoría, así que su funcionamiento no está verificado.
 
@@ -371,7 +372,7 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 
 | Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
 |---|---|---|---|---|---|---|
-| `core-workflow` | sí | `unverified` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Sin dependencias específicas detectadas por inspección; no ejecutada en Claude Code en esta auditoría. | Inspección estática (prueba static-inspection).; prueba `static-inspection` |
+| `core-workflow` | sí | `enabled` | Instrucciones de la skill; no usa herramientas específicas de agente. | — | Closeout real con plantilla, reacción, resolución y verificación. | Closeout del inline 4362278361.; prueba `claude-real-closeout-pr22` |
 
 #### codex-comment-closeout / `codex`: `unverified`
 
@@ -407,6 +408,7 @@ Sin dependencias específicas de agente detectadas por inspección. No se ejecut
 | Prueba | Agente | Tipo | Comando | Resultado | Evidencia |
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
+| `claude-real-closeout-pr22` | `claude_code` | real_run | `Closeout del inline 4362278361 del PR #22` | `passed` | Reacción +1, reply ✅ Resuelto con sha corto f0bd513 verificado contra el head remoto, pie de la plantilla y body releído; hilo resuelto (isResolved: true). |
 
 Pendiente de verificar:
 
@@ -770,7 +772,7 @@ Pendiente de verificar:
 
 **Compatibilidad por agente**
 
-#### fix-in-ephemeral-clone / `claude_code`: `unverified`
+#### fix-in-ephemeral-clone / `claude_code`: `compatible`
 
 Clone, validación y push usan solo git y shell; el modo background depende de un subagente con handle. No ejecutada en Claude Code en esta auditoría.
 
@@ -779,7 +781,7 @@ Clone, validación y push usan solo git y shell; el modo background depende de u
 
 | Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
 |---|---|---|---|---|---|---|
-| `in-context-fix` | sí | `unverified` | Workflow completo en el contexto actual. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `in-context-fix` | sí | `enabled` | Workflow completo en el contexto actual. | — | Fix real en clone efímero con push verificado y cleanup. | Commit f0bd513.; prueba `claude-real-fix-pr22` |
 | `background-mode` | no | `unverified` | `Agent` con handle. | in_context o HANDOFF_EXECUTOR_MISSING. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### fix-in-ephemeral-clone / `codex`: `unverified`
@@ -818,6 +820,7 @@ Clone, validación y push usan solo git y shell; el modo background depende de u
 | Prueba | Agente | Tipo | Comando | Resultado | Evidencia |
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
+| `claude-real-fix-pr22` | `claude_code` | real_run | `Subagente del loop con fix-in-ephemeral-clone en modo in_context sobre el PR #22` | `passed` | Clone efímero en un tempdir, fix del watcher, 14/14 bats, commit f0bd513 pusheado (verificado con git ls-remote y la API del PR), clone borrado y sin closeout en GitHub. |
 
 Pendiente de verificar:
 
@@ -1602,7 +1605,7 @@ Pendiente de verificar:
 
 **Compatibilidad por agente**
 
-#### pr-description-template / `claude_code`: `unverified`
+#### pr-description-template / `claude_code`: `compatible`
 
 Plantilla y body por gh; capturas con Claude in Chrome. No ejecutada todavía en esta auditoría.
 
@@ -1611,7 +1614,7 @@ Plantilla y body por gh; capturas con Claude in Chrome. No ejecutada todavía en
 
 | Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
 |---|---|---|---|---|---|---|
-| `pr-body` | sí | `unverified` | Plantilla y gh pr create/edit. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `pr-body` | sí | `enabled` | Plantilla y gh pr create/edit. | — | PR real creado con la plantilla y verificado. | PR #22.; prueba `claude-real-pr22` |
 | `ui-screenshots` | no | `unverified` | Capturas desde Claude in Chrome. | Omitir capturas. | Requiere un cambio de UI y la extensión conectada; no ejecutado. | — |
 
 #### pr-description-template / `codex`: `unverified`
@@ -1650,6 +1653,7 @@ Plantilla y body por gh; sin Claude in Chrome las capturas se omiten y se declar
 | Prueba | Agente | Tipo | Comando | Resultado | Evidencia |
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
+| `claude-real-pr22` | `claude_code` | real_run | `gh pr create --body-file <plantilla> (PR #22)` | `passed` | Conteo con count-reviewable-files.sh (4), plantilla completa en español, verificado con gh pr view (https://github.com/guidomodarelli/golfo-marketplace/pull/22). |
 
 Pendiente de verificar:
 
@@ -2565,7 +2569,7 @@ Pendiente de verificar:
 
 **Compatibilidad por agente**
 
-#### skill-optimizer / `claude_code`: `unverified`
+#### skill-optimizer / `claude_code`: `compatible`
 
 audit no depende del agente; quick/full requieren subagente aislado y run-evals.
 
@@ -2574,7 +2578,7 @@ audit no depende del agente; quick/full requieren subagente aislado y run-evals.
 
 | Funcionalidad | Obligatoria | Estado | Implementación | Fallback | Justificación | Evidencia |
 |---|---|---|---|---|---|---|
-| `audit` | sí | `unverified` | Fase 1 read-only y reporte. | — | No ejecutada en Claude Code en esta auditoría. | — |
+| `audit` | sí | `enabled` | Fase 1 read-only y reporte. | — | Audit real ejecutado sobre 10 skills. | Resultado AUDIT_ONLY.; prueba `claude-real-audit` |
 | `isolated-evaluation` | no | `unverified` | `Agent` con handle. | Sin evaluador aislado no se aplica ningún candidato. | No ejecutada en Claude Code en esta auditoría. | — |
 
 #### skill-optimizer / `codex`: `unverified`
@@ -2613,6 +2617,7 @@ audit no depende del agente; quick/full requieren subagente aislado y un CLI de 
 | Prueba | Agente | Tipo | Comando | Resultado | Evidencia |
 |---|---|---|---|---|---|
 | `static-inspection` | `any` | static | `grep -rE "AskUserQuestion\|request_user_input\|Monitor\|Cron(Create\|List\|Delete)\|PushNotification\|TaskStop\|Agent\|subagent\|mcp__\|claude -p\|codex exec\|~/.claude\|~/.codex\|apply_patch\|update_plan" plugins/golfo-kit/skills/<skill>` | `passed` | Inspección de SKILL.md, references y scripts del 2026-10-23; las coincidencias de "hook" son hooks de React o de git, no hooks de agente. |
+| `claude-real-audit` | `claude_code` | real_run | `/skill-optimizer mode=audit sobre las 10 skills modificadas` | `passed` | AUDIT_ONLY: quick_validate válido en 9 skills; el error de agent-ready-setup (SKILL.md anidados en assets/) también aparece en origin/main; links relativos resuelven; hallazgo menor en user-manual corregido. |
 
 Pendiente de verificar:
 
