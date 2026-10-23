@@ -391,8 +391,10 @@ function symbolLevelAnalysis(filePath, source, ast) {
   };
 
   /**
-   * Literal specifiers loaded with `import()` (`dynamic(() => import('./x'))`).
-   * A computed specifier cannot be resolved statically and is not listed.
+   * Literal specifiers loaded at run time, with `import()`
+   * (`dynamic(() => import('./x'))`) or with `require('./x')`, like the
+   * whole-file fallback of `scanImportSources`. A computed specifier cannot
+   * be resolved statically and is not listed.
    *
    * @param {any[]} nodes
    * @param {Set<any>} [skip]
@@ -402,8 +404,10 @@ function symbolLevelAnalysis(filePath, source, ast) {
     const sources = new Set();
     const visit = (node) => {
       if (skip?.has(node)) return false;
+      const isLoaderCall = node.type === 'CallExpression'
+        && (node.callee.type === 'Import' || (node.callee.type === 'Identifier' && node.callee.name === 'require'));
       const specifier = node.type === 'ImportExpression' ? node.source
-        : node.type === 'CallExpression' && node.callee.type === 'Import' ? node.arguments[0]
+        : isLoaderCall ? node.arguments[0]
           : undefined;
       if (specifier?.type === 'StringLiteral') sources.add(specifier.value);
       else if (specifier?.type === 'TemplateLiteral' && !specifier.expressions.length) sources.add(specifier.quasis[0].value.cooked);
