@@ -14,6 +14,9 @@
  * - `path#*`: a file hashed as a whole (non-JS file, parse failure, no parser).
  * - `pkg:<name>`: an npm package at the version in the lockfile.
  * - `unresolved:<specifier>`: an import nobody could resolve.
+ *
+ * A literal `import('./x')` is followed as a whole-module import from the
+ * part that contains it, like a static import of `* from './x'`.
  */
 import { ANALYZER_VERSION, FILE_LEVEL_ANALYZER, MAX_UNIT_INPUT_ENTRIES } from '../constants.mjs';
 import { fingerprintOf } from '../support.mjs';
@@ -159,6 +162,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
         followReference(analysis, reference, childContext);
       }
     }
+    for (const specifier of part.dynamicImportSources) followImport(childContext, specifier, '*');
   };
 
   /**
@@ -257,6 +261,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
         const shellContext = { ...context, from: shellKey };
         for (const reference of analysis.moduleShell.references) followReference(analysis, reference, shellContext);
         for (const source of analysis.sideEffectImports) followImport(shellContext, source, '*');
+        for (const specifier of analysis.moduleShell.dynamicImportSources) followImport(shellContext, specifier, '*');
       }
     }
     expandReference(analysis, context.reference, context);

@@ -18,7 +18,8 @@
  * Hashes cover the token stream, not the raw text: formatting and comments
  * never invalidate coverage. Each part also lists the identifiers it
  * references (`Name`, `Name.member`, or `/inner` for a sibling inner
- * function) and the load signals used by performance policies.
+ * function), the literal specifiers it loads with `import()` and the load
+ * signals used by performance policies.
  */
 import path from 'node:path';
 
@@ -390,6 +391,29 @@ function symbolLevelAnalysis(filePath, source, ast) {
   };
 
   /**
+   * Literal specifiers loaded with `import()` (`dynamic(() => import('./x'))`).
+   * A computed specifier cannot be resolved statically and is not listed.
+   *
+   * @param {any[]} nodes
+   * @param {Set<any>} [skip]
+   * @returns {string[]}
+   */
+  const collectDynamicImportSources = (nodes, skip) => {
+    const sources = new Set();
+    const visit = (node) => {
+      if (skip?.has(node)) return false;
+      const specifier = node.type === 'ImportExpression' ? node.source
+        : node.type === 'CallExpression' && node.callee.type === 'Import' ? node.arguments[0]
+          : undefined;
+      if (specifier?.type === 'StringLiteral') sources.add(specifier.value);
+      else if (specifier?.type === 'TemplateLiteral' && !specifier.expressions.length) sources.add(specifier.quasis[0].value.cooked);
+      return undefined;
+    };
+    for (const node of nodes) walk(node, visit);
+    return [...sources].sort();
+  };
+
+  /**
    * Load signals: work a part adds per render, request or run.
    *
    * @param {any[]} nodes
@@ -478,12 +502,14 @@ function symbolLevelAnalysis(filePath, source, ast) {
         for (const inner of inners) {
           parts.set(`${name}/${inner.name}`, {
             hash: hashRanges([rangeOf(inner.node)]),
+            dynamicImportSources: collectDynamicImportSources([inner.node]),
             references: collectReferences([inner.node], { innerNames }),
             signals: collectSignals([inner.node]),
           });
         }
         parts.set(`${name}~shell`, {
           hash: hashRanges([rangeOf(single.node)], inners.map((inner) => rangeOf(inner.node))),
+          dynamicImportSources: collectDynamicImportSources([single.node], innerNodes),
           references: collectReferences([single.node], { innerNames, skip: innerNodes }),
           signals: collectSignals([single.node], innerNodes),
         });
@@ -501,12 +527,14 @@ function symbolLevelAnalysis(filePath, source, ast) {
           const memberName = String(member.key.name ?? member.key.value);
           parts.set(`${name}.${memberName}`, {
             hash: hashRanges([rangeOf(member)]),
+            dynamicImportSources: collectDynamicImportSources([member]),
             references: collectReferences([member]),
             signals: collectSignals([member]),
           });
         }
         parts.set(`${name}~frame`, {
           hash: hashRanges([rangeOf(single.node)], members.map(rangeOf), { dropCommas: true }),
+          dynamicImportSources: collectDynamicImportSources([single.node], memberNodes),
           references: collectReferences([single.node], { skip: memberNodes }),
           signals: collectSignals([single.node], memberNodes),
         });
@@ -516,6 +544,7 @@ function symbolLevelAnalysis(filePath, source, ast) {
 
     parts.set(name, {
       hash: hashRanges(declarationNodes.map(rangeOf)),
+      dynamicImportSources: collectDynamicImportSources(declarationNodes),
       references: collectReferences(declarationNodes),
       signals: collectSignals(declarationNodes),
     });
@@ -524,6 +553,7 @@ function symbolLevelAnalysis(filePath, source, ast) {
   const shellRanges = [...ast.program.directives.map(rangeOf), ...shellNodes.map(rangeOf)];
   const moduleShell = {
     hash: entryHash(`${hashRanges(shellRanges)}\u0000${sideEffectImports.join('\u0000')}`),
+    dynamicImportSources: collectDynamicImportSources(shellNodes),
     references: collectReferences(shellNodes),
     signals: collectSignals(shellNodes),
   };
