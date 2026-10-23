@@ -1,9 +1,9 @@
 ---
 name: ui-ux-flow-patterns
-description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
+description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading y skeletons, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
 license: MIT
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "ux, ui, empty-state, loading, error-state, toast, feedback, components, flows"
@@ -25,16 +25,25 @@ Disparadores concretos: "mejorá la UX/UI de…", "rediseñá la pantalla…", "
 Elegir el modo según el alcance:
 
 - **Modo liviano** (cambio puntual: un botón, una columna, un campo, copy). Revisar solo lo que el cambio toca con este checklist y corregir en el mismo trabajo lo que el cambio introduzca:
-  1. Si el cambio **trae datos**: ¿tiene estado de carga con la forma del contenido, estado vacío y estado de error con reintento? ([state-matrix.md](references/state-matrix.md))
+  1. Si el cambio **trae datos**: ¿tiene estado de carga con la forma del contenido (un [skeleton](references/state-matrix.md#skeleton) si el layout se conoce y la espera supera ~300 ms; nunca en recargas ni acciones), estado vacío y estado de error con reintento? ([state-matrix.md](references/state-matrix.md))
   2. Si el cambio **ejecuta una acción**: ¿el control muestra pending, evita el doble envío y el resultado llega por el canal correcto? ([feedback-channels.md](references/feedback-channels.md#tabla-de-decisión))
   3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)? Si el proyecto confirma con una casilla junto al botón, aplicar la [confirmación inline](references/feedback-channels.md#confirmación-inline): etiqueta con recurso e impacto, consentimiento que se desmarca al cambiar de selección y aviso fijo si afecta al recurso en uso.
   4. Si el cambio **valida input o muestra errores**: ¿la acción se bloquea antes del request, el error queda junto al campo y el error viejo se limpia al cambiar de recurso o reintentar? ([validation-feedback.md](references/validation-feedback.md))
   5. ¿El feedback nuevo es accesible (live region, foco, no solo color)? ([accesibilidad](references/feedback-channels.md#accesibilidad-del-feedback))
 
-  Aplicar lo que salga del checklist directamente en el código. No producir la matriz de estados ni las tablas del [formato del reporte](#formato-del-reporte), que son del modo completo: un cambio puntual se entrega con el formato que pidió el usuario. Si nada aplica, seguir sin reportar nada extra; si algo aplica, sumar una línea por hallazgo al cierre de la tarea.
+  Aplicar lo que salga del checklist directamente en el código. No producir la matriz de estados ni las tablas del [formato del reporte](#formato-del-reporte), que son del modo completo: un cambio puntual se entrega con el formato que pidió el usuario. Si nada aplica, seguir sin reportar nada extra; si algo aplica, sumar una línea por hallazgo al cierre de la tarea. Con registro de cobertura, sumar también una línea con la unidad y el resultado registrado.
 - **Modo completo** (pantalla o flujo nuevo, rediseño, pedido explícito sobre UX, estados o feedback). Seguir los pasos 0 a 5.
 
 No rediseñar pantallas que el cambio no toca: los problemas fuera del alcance se listan como sugerencia al final.
+
+## Cobertura incremental
+
+Si el repositorio tiene `.golfo/skill-coverage/`, seguí el [protocolo de cobertura](../../references/skill-coverage.md#protocolo-de-una-skill) con `--skill ui-ux-flow-patterns` en cada unidad funcional que toque el trabajo: `affected` y `check` antes de diseñar, `begin`, `evidence` y `record` al cerrar. Sirve para no volver a revisar lo que ya está cubierto, no para dejar de cargar la skill: los disparadores de arriba siguen mandando. Sin registro o sin unidad para el código, la skill corre igual y no inventa cobertura.
+
+- **La decisión acota la revisión, nunca tu cambio.** `skip` dice que el resto de la unidad ya está verificado; lo que vos agregás o tocás se revisa igual, con el modo que corresponda. `incremental` limita la revisión al alcance que lista `check` más su contexto necesario: los estados de la región que contiene lo cambiado, su feedback, errores, validación y accesibilidad, sin recorrer toda la página. `full` (sin cobertura previa o cambio de gran parte de la unidad) es el modo completo sobre toda la unidad.
+- **Modo de `begin`** igual al que usaste: `lightweight` para un cambio puntual sobre una unidad ya verificada, `incremental` para el alcance de `check`, `full` para el modo completo. Un pedido de auditoría completa o un rediseño usa `check --force-full` y modo completo, aunque la cobertura esté vigente.
+- **Evidencia** después de `begin`: `review` con lo que revisaste (checklist del modo liviano o matriz de estados), `test` con `--exec` de los tests de comportamiento que corriste y `browser` con los estados que recorriste y con qué herramienta. Sin navegador, registrá la falta como `--limitation`: el resultado queda `partial`, que es lo que corresponde.
+- `nextjs-route-ui-boundaries` se sigue cargando junto con esta skill en Next.js con App Router; el registro de esta skill no cubre sus decisiones.
 
 ## 0. Leer el sistema de diseño del proyecto
 
@@ -89,6 +98,9 @@ Solo en modo completo:
 
 ## Verificación
 <estados recorridos, con qué navegador o herramienta, tests y comprobaciones ejecutadas, con resultado>
+
+## Cobertura
+<solo con registro: por unidad, decisión de `check`, resultado de `record` y pendientes>
 
 ## Limitaciones del agente
 <solo si faltó una herramienta: qué se omitió, qué se evaluó y cómo verificarlo>

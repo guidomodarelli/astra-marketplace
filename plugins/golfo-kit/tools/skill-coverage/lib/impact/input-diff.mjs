@@ -1,0 +1,92 @@
+/**
+ * Compares the inputs recorded for a coverage attempt with the current
+ * inputs of the same unit. Content is compared through hashes, so the
+ * comparison works with uncommitted edits, after rebases or squash merges
+ * and without network access. A symbol that moved to another file with the
+ * same content is reported as relocated, not as a change.
+ */
+
+/**
+ * @param {string} key Input key (`path#Part`, `pkg:name`, ...).
+ * @returns {{ path: string | null, part: string }}
+ */
+export function splitInputKey(key) {
+  const hashIndex = key.indexOf('#');
+  if (hashIndex === -1) return { part: key, path: null };
+  return { part: key.slice(hashIndex + 1), path: key.slice(0, hashIndex) };
+}
+
+/**
+ * @typedef {{ key: string, change: 'modified' | 'added' | 'removed' | 'relocated', previousHash?: string, currentHash?: string, from?: string }} InputChange
+ */
+
+/**
+ * Lists the differences between two input maps.
+ *
+ * @param {Record<string, string>} previous Inputs stored in the attempt.
+ * @param {Record<string, string>} current Inputs computed now.
+ * @returns {InputChange[]}
+ */
+export function diffInputs(previous, current) {
+  const changes = [];
+  const removed = [];
+  const added = [];
+  for (const [key, previousHash] of Object.entries(previous)) {
+    if (!(key in current)) removed.push(key);
+    else if (current[key] !== previousHash) changes.push({ change: 'modified', currentHash: current[key], key, previousHash });
+  }
+  for (const key of Object.keys(current)) if (!(key in previous)) added.push(key);
+
+  // A part that disappeared from one file and appeared with the same hash in
+  // another one moved (component extracted or file renamed): not a change.
+  const removedBySignature = new Map();
+  for (const key of removed) {
+    const { part, path } = splitInputKey(key);
+    if (path === null || part === '<module>' || part === '*') continue;
+    removedBySignature.set(`${part}\0${previous[key]}`, key);
+  }
+  const relocatedSources = new Set();
+  for (const key of added) {
+    const { part, path } = splitInputKey(key);
+    const source = path === null ? undefined : removedBySignature.get(`${part}\0${current[key]}`);
+    if (source && !relocatedSources.has(source)) {
+      relocatedSources.add(source);
+      changes.push({ change: 'relocated', currentHash: current[key], from: source, key });
+    } else {
+      changes.push({ change: 'added', currentHash: current[key], key });
+    }
+  }
+  for (const key of removed) {
+    if (!relocatedSources.has(key)) changes.push({ change: 'removed', key, previousHash: previous[key] });
+  }
+
+  // Moved parts bring the module shell of their new file (directives such as
+  // "use client"). When it equals the shell of the file they came from, the
+  // move kept the module context: the shell is relocated too.
+  const relocatedFiles = new Map();
+  for (const change of changes) {
+    if (change.change === 'relocated') relocatedFiles.set(splitInputKey(change.key).path, splitInputKey(change.from).path);
+  }
+  for (const addedShell of changes.filter((change) => change.change === 'added' && splitInputKey(change.key).part === '<module>')) {
+    const fromPath = relocatedFiles.get(splitInputKey(addedShell.key).path);
+    const fromShellKey = `${fromPath}#<module>`;
+    if (fromPath === undefined || previous[fromShellKey] !== addedShell.currentHash) continue;
+    addedShell.change = 'relocated';
+    addedShell.from = fromShellKey;
+    const removedShell = changes.find((change) => change.change === 'removed' && change.key === fromShellKey);
+    if (removedShell) changes.splice(changes.indexOf(removedShell), 1);
+  }
+  return changes.sort((left, right) => left.key.localeCompare(right.key));
+}
+
+/**
+ * Files whose content differs between two `files` maps.
+ *
+ * @param {Record<string, string>} previous
+ * @param {Record<string, string>} current
+ * @returns {string[]}
+ */
+export function diffFiles(previous, current) {
+  const paths = new Set([...Object.keys(previous), ...Object.keys(current)]);
+  return [...paths].filter((filePath) => previous[filePath] !== current[filePath]).sort();
+}

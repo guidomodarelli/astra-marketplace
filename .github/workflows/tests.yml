@@ -47,6 +47,8 @@ jobs:
       - run: pnpm run compat:validate
       - run: pnpm run test:review-fix-loop
       - run: pnpm run test:sibling-worktree
+      - name: Skill coverage engine (temporary git repositories)
+        run: pnpm run test:skill-coverage
 
   bootstrap:
     name: Agent Ready bootstrap (shard ${{ matrix.shard }}/3)

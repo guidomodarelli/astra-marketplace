@@ -3,7 +3,7 @@ name: measured-performance-optimization
 description: 'Mide y optimiza rendimiento web: app lenta, Core Web Vitals, bundle, renders, caching, N+1 o jobs periódicos que releen toda una ventana en cada corrida. Usar también sin pedido explícito al crear un flujo nuevo o sumarle a uno existente requests, llamadas, queries o pasos nuevos; no en refactors, fixes ni cambios de copy o estilos que no agregan carga.'
 license: MIT
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
   author: "Guido Modarelli"
   category: "performance"
   tags: "performance, web-vitals, bundle, caching, n+1, incremental-sweep, cron, lazy-loading, chrome-devtools, playwright, sentry"
@@ -54,6 +54,15 @@ En este modo la skill acompaña la implementación sin reemplazarla y se acota a
 5. **Reportar** con el formato del paso 7, con una fila por carga nueva medida ("Antes" = revisión sin la funcionalidad, o "— (flujo nuevo)").
 
 Si no se puede medir, no bloquear la entrega de la funcionalidad: la detención del paso 3 aplica a pedidos de optimización. Declarar en **Sin medir** qué faltó y cómo medirlo, y dejar las optimizaciones no medidas como hipótesis en **Próximos pasos**, sin aplicarlas.
+
+## Cobertura incremental
+
+Si el repositorio tiene `.golfo/skill-coverage/`, seguí el [protocolo de cobertura](../../references/skill-coverage.md#protocolo-de-una-skill) con `--skill measured-performance-optimization` en cada unidad funcional del flujo medido. El registro evita volver a medir lo que no cambió de carga; nunca reemplaza la medición.
+
+- **Cuándo consultar.** Al empezar, `check` dice si la unidad tiene cobertura y cuál es su revisión base (`baseline.commit`, que sirve como "antes" si sigue en el historial). En la invocación automática por funcionalidad nueva, volvé a correr `check` después de implementar: lista la carga agregada por parte (`+1 requests`, `+2 awaited steps`, paquete nuevo) y es tu inventario del paso 1.
+- **Qué significa cada decisión.** `skip`: desde la última medición solo hubo cambios que no agregan carga (copy, estilos, tipos, refactors) o ninguno; no se vuelve a medir. `incremental`: medí el **flujo completo** antes y después en condiciones comparables, enfocado en la carga que lista `check`; ser incremental reduce qué investigar, no qué medir. `full`: aplicá el flujo obligatorio completo; un flujo nuevo usa `full` con su costo absoluto. Un pedido explícito de auditoría o de optimización completa usa `check --force-full`.
+- **Evidencia** después de `begin`: una `measurement` por métrica de la tabla del paso 7 (`--metric`, `--before`, `--after`, `--tool`, `--conditions`; en un flujo nuevo `--baseline-kind new-flow --reference <flujo análogo o presupuesto>`) y los tests con `--exec`. Sin medición real, registrá `partial` con `--limitation` igual que en **Sin medir**: un valor estimado nunca acredita.
+- Las optimizaciones descartadas o no medidas no se registran como cobertura: van a **Descartadas** y **Próximos pasos**.
 
 ## Flujo obligatorio
 
@@ -112,6 +121,7 @@ Cerrar con este formato:
 **Descartadas:** <cambios probados que no mejoraron y se revirtieron, con su medición>
 **Sin medir:** <qué no se pudo medir y por qué>
 **Próximos pasos:** <hallazgos pendientes ordenados por impacto>
+**Cobertura:** <solo con registro: por unidad, decisión de `check`, resultado de `record` y pendientes>
 **Limitaciones del agente:** <solo si faltó una herramienta: qué se usó en su lugar o qué quedó sin medir y cómo obtenerlo>
 ```
 
