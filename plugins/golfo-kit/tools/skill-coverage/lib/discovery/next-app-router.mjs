@@ -63,6 +63,18 @@ function hasSignal(signals, names) {
 }
 
 /**
+ * Whether an entry defines the unit's identity. Composition-only entries
+ * (`follow: false`, such as the page that renders a section) only place the
+ * unit in its page and must not make another flow look like this unit.
+ *
+ * @param {{ follow?: boolean }} entry
+ * @returns {boolean}
+ */
+function isFunctionalEntry(entry) {
+  return entry.follow !== false;
+}
+
+/**
  * @param {string} innerName Handler name such as `handleSubmit` or `onRetry`.
  * @returns {string}
  */
@@ -107,7 +119,7 @@ export function discoverUnits(context, options = {}) {
   const { units: existingUnits, errors } = context.registry.loadUnits();
 
   const existingByEntry = new Map();
-  for (const unit of existingUnits) for (const entry of unit.entries) existingByEntry.set(`${entry.path}#${entry.symbol ?? '*'}`, unit.id);
+  for (const unit of existingUnits) for (const entry of unit.entries.filter(isFunctionalEntry)) existingByEntry.set(`${entry.path}#${entry.symbol ?? '*'}`, unit.id);
 
   const discoveryPolicy = {
     excludesFile: (filePath) => !isUiFile(filePath),
@@ -267,7 +279,7 @@ export function discoverUnits(context, options = {}) {
     proposal.existingId = existingByEntry.get(`${primary.path}#${primary.symbol}`) ?? null;
     if (!proposal.existingId) {
       for (const unit of existingUnits) {
-        const moved = unit.entries.find((entry) => entry.symbol === primary.symbol && entry.path !== primary.path && !declaresSymbol(entry.path, entry.symbol));
+        const moved = unit.entries.find((entry) => isFunctionalEntry(entry) && entry.symbol === primary.symbol && entry.path !== primary.path && !declaresSymbol(entry.path, entry.symbol));
         if (moved) {
           proposal.existingId = unit.id;
           relocations.push({ from: moved.path, symbol: primary.symbol, to: primary.path, unitId: unit.id });
