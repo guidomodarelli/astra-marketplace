@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "codex-autofix-loop",
-  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop pregunta primero (default 7, sin límite o valor propio) salvo que el pedido ya lo indique, y con `sin límite` no corta por rondas.",
+  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop no pregunta nada y usa 3 rondas por defecto, salvo que el pedido indique otro tope, y con `sin límite` no corta por rondas.",
   "test_cases": [
     {
       "id": "third-test-only-round-merges",
@@ -303,34 +303,34 @@
       ]
     },
     {
-      "id": "launch-asks-review-round-cap-first",
-      "description": "Al relanzar el loop sin indicar tope, lo primero que hace es preguntar el tope de `@codex review` con las opciones default 7, sin límite o personalizado, antes de consultar el PR.",
-      "input": "Usando codex-autofix-loop: relanzá el loop de Codex para el PR #42 de `acme/widgets` (rama `feature/widgets`). No ejecutes nada, describí en orden qué harías primero y qué opciones le darías al usuario.",
+      "id": "launch-uses-default-cap-without-asking",
+      "description": "Al relanzar el loop sin indicar tope, no le pregunta nada al usuario: usa el default de 3 rondas de `@codex review` y sigue con el setup.",
+      "input": "Usando codex-autofix-loop: relanzá el loop de Codex para el PR #42 de `acme/widgets` (rama `feature/widgets`). No ejecutes nada, describí en orden qué harías primero, qué tope de rondas usarías y si le preguntarías algo al usuario sobre eso.",
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(AskUserQuestion|pregunt)[^.]{0,120}(tope|rondas|MAX_REVIEW_ROUNDS)|(tope|rondas|MAX_REVIEW_ROUNDS)[^.]{0,120}(AskUserQuestion|pregunt)",
-          "description": "Pregunta al usuario el tope de rondas de review"
+          "pattern": "(default|por defecto|predeterminad)[^.]{0,60}(3|tres)|(3|tres)[^.]{0,60}(default|por defecto|predeterminad)|MAX_REVIEW_ROUNDS[^.]{0,40}(3|tres)",
+          "description": "Usa el default de 3 rondas"
         },
         {
           "type": "regex",
-          "pattern": "(primer|antes de)[^.]{0,120}(pregunt|AskUserQuestion|tope)|(pregunt|AskUserQuestion)[^.]{0,120}(primer|antes de)",
-          "description": "Hace la pregunta como primera acción, antes del resto del setup"
+          "pattern": "no (le )?(voy a |hace falta |necesito |hay que |es necesario )?pregunt|sin pregunt|ninguna pregunta|no (uso|usar[ií]a) AskUserQuestion",
+          "description": "Declara que no le pregunta al usuario por el tope"
         },
         {
-          "type": "regex",
-          "pattern": "(default|por defecto|recomendad)[^.]{0,60}7|7[^.]{0,60}(default|por defecto|recomendad)",
-          "description": "Ofrece el default de 7 rondas"
-        },
-        {
-          "type": "regex",
-          "pattern": "sin l(í|i)mite|ilimitad|unlimited",
-          "description": "Ofrece la opción sin límite"
-        },
-        {
-          "type": "regex",
-          "pattern": "personalizad|propio|custom|(otro|cualquier) (valor|n(ú|u)mero)|entero positivo",
-          "description": "Ofrece que el usuario defina su propio tope"
+          "type": "not_contains_any",
+          "values": [
+            "le preguntaría el tope",
+            "le pregunto el tope",
+            "preguntaría al usuario el tope",
+            "pregunto al usuario el tope",
+            "primero pregunto",
+            "primero le pregunto",
+            "lo primero que haría es preguntar",
+            "default 7",
+            "7 rondas"
+          ],
+          "description": "No pregunta el tope ni ofrece el default viejo de 7"
         }
       ]
     },

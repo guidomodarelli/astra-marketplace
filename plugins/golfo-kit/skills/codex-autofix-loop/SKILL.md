@@ -3,7 +3,7 @@ name: codex-autofix-loop
 description: "Relanzar y operar el loop local (vía Claude Code) que auto-fixea comentarios de Codex (chatgpt-codex-connector[bot]) en un PR: clone efímero → fix → push → closeout del hilo, o delegación a Codex con `@codex fix` en el propio hilo (modo `codex`/`auto` con fallback local), con dedup por PR, tope de rondas, auto-merge sin esperar revisión humana y guard de auto-cancelación. Para responder un solo comentario de Codex fuera del loop alcanza con `codex-comment-closeout`. Use when the user asks to relaunch/start the Codex auto-fix loop for a PR, set up Codex comment auto-fixing, mentions docs/codex-autofix-loop.md, processed-PR.json, or the codex-autofix workflow."
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, codex, pull-request, autofix, convergence"
@@ -11,9 +11,6 @@ metadata:
 ---
 
 # Codex auto-fix loop (local, vía Claude Code)
-
-> **Primera acción al lanzar o relanzar el loop:** preguntá el tope de rondas de
-> `@codex review` antes de cualquier otra cosa (ver paso 0 de «Cómo relanzarlo»).
 
 Loop local que escucha comentarios de **Codex** (`chatgpt-codex-connector[bot]`)
 en un PR y **spawnea subagentes en paralelo** (uno por GRUPO de archivo, tantos
@@ -190,21 +187,15 @@ Reglas del pedido a Codex:
 
 ## Cómo relanzarlo (cualquier PR)
 
-0. Definí `{{MAX_REVIEW_ROUNDS}}` con el usuario apenas se activa la skill: es la
-   **primera acción**, antes de leer el PR, consultar `gh`, inicializar el estado o
-   completar placeholders. Así el usuario contesta al toque y el resto del setup corre sin
-   volver a interrumpirlo. Decide cuánto puede iterar el loop sin
-   supervisión. Si el pedido ya lo dice («sin límite», «tope 5»), usalo sin preguntar. Si
-   no, preguntá una sola vez con tres opciones:
-   - **Default** (recomendada): `{{DEFAULT_MAX_REVIEW_ROUNDS}}` rondas.
-   - **Sin límite**: `sin límite`; el loop solo corta por review limpia, convergencia,
-     tope de solo tests o cierre del PR.
-   - **Personalizado**: el usuario indica un entero positivo; si no es válido, repreguntá.
+0. Definí `{{MAX_REVIEW_ROUNDS}}` **sin preguntarle al usuario**: decide cuánto puede
+   iterar el loop sin supervisión.
+   - Si el pedido ya lo indica, usalo: un entero positivo («tope 5») o `sin límite` (el
+     loop solo corta por review limpia, convergencia, tope de solo tests o cierre del PR).
+   - Si no lo indica (o el valor no es un entero positivo ni «sin límite»), usá
+     `{{DEFAULT_MAX_REVIEW_ROUNDS}}` rondas y seguí con el setup.
 
-   En Claude Code usá la herramienta `AskUserQuestion` (la opción «Other» cubre el valor
-   personalizado); en Codex, o si esa herramienta no está disponible, hacé la pregunta
-   directa en el chat y esperá la respuesta antes de lanzar. Esta pregunta no cambia
-   `{{MAX_TEST_ONLY_ROUNDS}}`, que sigue aplicando igual.
+   No uses `AskUserQuestion` ni hagas una pregunta en el chat por el tope: el loop arranca
+   directo. El tope elegido no cambia `{{MAX_TEST_ONLY_ROUNDS}}`, que sigue aplicando igual.
 1. Reemplazá los placeholders del prompt de abajo (`{{OWNER}}`, `{{REPO}}`,
    `{{PR}}`, `{{BRANCH}}`) por los del PR objetivo.
 2. Inicializá el estado de dedup del PR (vacío procesa todo el backlog; con ids
@@ -229,8 +220,8 @@ Reglas del pedido a Codex:
    /loop {{INTERVAL}} <pegá acá el prompt ya completado>
    ```
    O, más simple, decile a Claude: «relanzá el loop de Codex para el PR {{PR}}
-   usando el skill codex-autofix-loop» y completa la plantilla por vos (empezando por la
-   pregunta del paso 0).
+   usando el skill codex-autofix-loop» y completa la plantilla por vos (con el tope de
+   rondas del paso 0).
 
 > **Variables globales del loop** (única fuente de verdad — cambiá SOLO estos
 > números y se propagan a todo el documento):
@@ -257,11 +248,12 @@ Reglas del pedido a Codex:
 >   recursos locales, pero sí pushes concurrentes a la rama).
 > - `{{MONITOR_POLL_SEC}}` = `30` — segundos entre consultas del `Monitor` que vigila
 >   el PR mientras está abierto (30 s o más por rate limit).
-> - `{{DEFAULT_MAX_REVIEW_ROUNDS}}` = `7` — tope de `@codex review` que se ofrece por
->   defecto al lanzar el loop.
-> - `{{MAX_REVIEW_ROUNDS}}` = elegido al lanzar (paso 0 de «Cómo relanzarlo»): un entero
->   positivo o `sin límite` — `@codex review` que el loop puede postear antes de cortar por
->   falta de convergencia (ver «Tope de rondas»).
+> - `{{DEFAULT_MAX_REVIEW_ROUNDS}}` = `3` — tope de `@codex review` que usa el loop
+>   cuando el pedido no indica otro.
+> - `{{MAX_REVIEW_ROUNDS}}` = el que indica el pedido o, si no indica ninguno,
+>   `{{DEFAULT_MAX_REVIEW_ROUNDS}}` (paso 0 de «Cómo relanzarlo»): un entero positivo o
+>   `sin límite` — `@codex review` que el loop puede postear antes de cortar por falta de
+>   convergencia (ver «Tope de rondas»).
 > - `{{MAX_TEST_ONLY_ROUNDS}}` = `3` — rondas consecutivas en las que los fixes solo tocan
 >   tests o evals antes de dejar de pedir reviews y mergear (ver «Tope de rondas de solo
 >   tests»). Aplica aunque se suba o se levante `{{MAX_REVIEW_ROUNDS}}`.
