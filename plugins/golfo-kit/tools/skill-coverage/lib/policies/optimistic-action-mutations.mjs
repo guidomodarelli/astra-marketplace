@@ -2,8 +2,9 @@
  * Policy of `optimistic-action-mutations`: a change is relevant when it can
  * alter an operation's lifecycle (handlers, component state and render,
  * helpers, API contracts, server code, cache keys, timing configuration).
- * Copy members, styles and translation catalogs cannot, so they leave the
- * coverage current; anything the analyzer cannot classify is relevant. Server
+ * Styles, translation catalogs and object members positively identified as
+ * presentation cannot, so they leave the coverage current; any other object
+ * member and anything the analyzer cannot classify is relevant. Server
  * code is followed completely because idempotency, transactions and the
  * reconciliation payload live there.
  */
@@ -20,11 +21,47 @@ const SERVER_FILE_PATTERN = /(?:^|\/)(?:route|actions?)\.[cm]?[jt]sx?$|(?:^|\/)(
 const LIFECYCLE_MEMBER_PATTERN = /delay|debounce|throttle|timeout|interval|retr(?:y|ies)|backoff|cooldown|ttl|expir|limit|max|min|attempt|concurren|batch|poll|url|endpoint|path|route|method|query|key|status|code|version|idempoten/i;
 
 /**
+ * Last word of an object name that marks it as a copy dictionary (`COPY`,
+ * `PROVIDERS_COPY`, `saveMessages`, `UI_TEXT`): its members are presentation.
+ */
+const COPY_DICTIONARY_WORD_PATTERN = /^(?:cop(?:y|ies)|messages?|labels?|texts?|strings?|i18n|translations?|content)$/i;
+
+/**
+ * Last word of a member name that marks it as visible text (`providersTitle`,
+ * `helpText`, `errorMessage`) instead of configuration or executable code.
+ */
+const PRESENTATION_MEMBER_WORD_PATTERN = /^(?:title|subtitle|heading|label|placeholder|description|tooltip|caption|copy|text|message)s?$/i;
+
+/** Separators between the words of an identifier: dots, underscores, dashes and camelCase humps. */
+const IDENTIFIER_WORD_SEPARATOR_PATTERN = /[._$-]+|(?<=[a-z])(?=[A-Z])/;
+
+/**
  * @param {Record<string, number> | undefined} signals
  * @returns {boolean} Whether a part performs I/O, timers, effects or subscriptions.
  */
 function hasOperationSignals(signals) {
   return Boolean(signals && Object.keys(signals).length);
+}
+
+/**
+ * @param {string} identifier Object or member name, possibly a dotted path.
+ * @returns {string} Last word of the identifier, splitting camelCase and separators.
+ */
+function lastIdentifierWord(identifier) {
+  const words = identifier.split(IDENTIFIER_WORD_SEPARATOR_PATTERN).filter(Boolean);
+  return words.at(-1) ?? '';
+}
+
+/**
+ * Only members positively identified by name as presentation leave the
+ * coverage current; unknown configuration and executable members do not.
+ *
+ * @param {string} objectName Part before the first dot (`COPY` in `COPY.title`).
+ * @param {string} member Part after the first dot.
+ * @returns {boolean} Whether the object is a copy dictionary or the member is visible text.
+ */
+function isPresentationMember(objectName, member) {
+  return COPY_DICTIONARY_WORD_PATTERN.test(lastIdentifierWord(objectName)) || PRESENTATION_MEMBER_WORD_PATTERN.test(lastIdentifierWord(member));
 }
 
 /**
@@ -72,7 +109,8 @@ export const optimisticActionMutationsPolicy = {
     if (member !== undefined) {
       if (hasOperationSignals(currentSignals[change.key]) || hasOperationSignals(previousSignals[change.key])) return { reason: 'object member that performs I/O, timers or effects', relevant: true };
       if (LIFECYCLE_MEMBER_PATTERN.test(member)) return { reason: `lifecycle configuration member (${member})`, relevant: true };
-      return { reason: 'copy or display member: no impact on the operation lifecycle', relevant: false };
+      if (isPresentationMember(part.slice(0, part.indexOf('.')), member)) return { reason: 'copy or display member: no impact on the operation lifecycle', relevant: false };
+      return { reason: 'unclassified object member: lifecycle impact unknown', relevant: true };
     }
     if (part.includes('/')) return { reason: change.change === 'added' ? 'new action handler' : 'action handler changed', relevant: true };
     if (part.endsWith('~shell')) return { reason: 'component state or render changed', relevant: true };

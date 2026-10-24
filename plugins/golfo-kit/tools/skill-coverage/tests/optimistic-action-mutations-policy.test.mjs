@@ -34,10 +34,13 @@ describe('optimistic-action-mutations policy', () => {
   before(() => {
     fixture = createFixture();
     fixture.writeSkill(OPTIMISTIC_SKILL, '1.1.0');
-    // A lifecycle setting next to the copy, and a route handler that the client
+    // A lifecycle setting next to the copy, a setting object whose member names
+    // say nothing about the lifecycle, and a route handler that the client
     // reaches by URL, declared as a dependency the analyzer cannot follow.
     fixture.replace(MANAGEMENT_FILE, 'queueTitle: "Solicitudes",', 'queueTitle: "Solicitudes",\n  saveRetryLimit: 2,');
     fixture.replace(MANAGEMENT_FILE, 'if (!result.ok) setError(result.message);', 'if (!result.ok && COPY.saveRetryLimit > 0) setError(result.message);');
+    fixture.replace(MANAGEMENT_FILE, 'export function AcademyManagement', 'export const SAVE_SETTINGS = {\n  optimistic: true,\n} as const;\n\nexport function AcademyManagement');
+    fixture.replace(MANAGEMENT_FILE, 'const handleSubmit = async () => {', 'const handleSubmit = async () => {\n    if (!SAVE_SETTINGS.optimistic) setError(null);');
     fixture.write(PROVIDERS_ROUTE, 'export async function POST(request) {\n  const body = await request.json();\n  return Response.json({ id: "p1", name: body.name });\n}\n');
     const unitPath = `.golfo/skill-coverage/units/${PROVIDERS}.json`;
     const unit = JSON.parse(fixture.read(unitPath));
@@ -81,6 +84,14 @@ describe('optimistic-action-mutations policy', () => {
     assert.equal(check.decision, 'incremental');
     assert.ok(check.relevantChanges.some((change) => change.reason === 'lifecycle configuration member (saveRetryLimit)'));
     assert.ok(check.suggestedScope.some((scope) => scope.includes('lifecycle configuration read from this member')));
+  });
+
+  test('a change in an unclassified object member is relevant because its lifecycle impact is unknown', () => {
+    fixture.replace(MANAGEMENT_FILE, 'optimistic: true,', 'optimistic: false,');
+    const check = fixture.check(PROVIDERS, OPTIMISTIC_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.notEqual(check.decision, 'skip');
+    assert.ok(check.relevantChanges.some((change) => change.key.endsWith('SAVE_SETTINGS.optimistic') && change.reason === 'unclassified object member: lifecycle impact unknown'));
   });
 
   test('a handler change scopes the next run to that action', () => {
