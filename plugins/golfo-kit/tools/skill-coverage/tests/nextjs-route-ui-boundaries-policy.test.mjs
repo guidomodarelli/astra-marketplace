@@ -404,6 +404,31 @@ describe('nextjs-route-ui-boundaries policy', () => {
     assert.ok(check.suggestedScope.some((scope) => scope.includes('against the installed version')));
   });
 
+  test('a declared test run never accredits a lightweight run', () => {
+    fixture.replace('app/(public)/pricing/page.tsx', '<h1>Precios</h1>', '<h1>Planes y precios</h1>');
+    const begin = fixture.run(['begin', '--unit', PRICING, '--skill', NEXTJS_SKILL, '--mode', 'lightweight']);
+    const runId = begin.json.runId;
+    fixture.run(['evidence', '--run', runId, '--kind', 'review', '--outcome', 'pass', '--summary', 'heading copy reviewed']);
+    fixture.run(['evidence', '--run', runId, '--kind', 'test', '--outcome', 'pass', '--summary', 'pricing tests passed']);
+    const record = fixture.run(['record', '--run', runId, '--result', 'verified']);
+    assert.equal(record.status, 0, record.stderr);
+    assert.equal(record.json.result, 'partial');
+    assert.ok(record.json.downgradeReasons.includes('test evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared'));
+  });
+
+  test('a loading UI member of a copy dictionary stays relevant while its copy members do not', () => {
+    fixture.write('components/members/members-content.tsx', 'export const content = {\n  fallback: <div aria-busy="true" />,\n  title: "Miembros",\n};\n');
+    fixture.replace(MEMBERS_PANEL, 'import styles from "./members-panel.module.scss";', 'import styles from "./members-panel.module.scss";\nimport { Suspense } from "react";\nimport { content } from "./members-content";');
+    fixture.replace(MEMBERS_PANEL, '<DataTable rows={[]} />', '<Suspense fallback={content.fallback}><DataTable rows={[]} /></Suspense>\n      <p>{content.title}</p>');
+    verifyNextjs(fixture, MEMBERS_LIST, { mode: 'incremental' });
+    fixture.replace('components/members/members-content.tsx', 'title: "Miembros",', 'title: "Miembros de la tribu",');
+    assert.equal(fixture.check(MEMBERS_LIST, NEXTJS_SKILL).decision, 'skip');
+    fixture.replace('components/members/members-content.tsx', 'fallback: <div aria-busy="true" />,', 'fallback: null,');
+    const check = fixture.check(MEMBERS_LIST, NEXTJS_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.ok(check.relevantChanges.some((change) => change.key === 'components/members/members-content.tsx#content.fallback'));
+  });
+
   test('a dependency that cannot be resolved statically gets a conservative review', () => {
     fixture.replace(MEMBERS_PANEL, 'import { inviteMember } from "@/lib/members-client";', 'import { inviteMember } from "@/lib/members-client";\nimport { trackInvite } from "@/lib/generated/analytics";');
     fixture.replace(MEMBERS_PANEL, 'if (!result.ok) setError(result.message);', 'trackInvite();\n    if (!result.ok) setError(result.message);');
@@ -422,7 +447,7 @@ describe('nextjs-route-ui-boundaries policy', () => {
     const record = fixture.run(['record', '--run', runId, '--result', 'verified']);
     assert.equal(record.status, 0, record.stderr);
     assert.equal(record.json.result, 'partial');
-    assert.ok(record.json.downgradeReasons.includes('command evidence (build, lint or typecheck) must be run with evidence --exec, not declared'));
+    assert.ok(record.json.downgradeReasons.includes('command evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared'));
     assert.ok(record.json.downgradeReasons.includes('missing passing evidence of kind command'));
     assert.ok(record.json.downgradeReasons.includes('missing passing evidence of kind browser or test'));
     const check = fixture.check(PAYMENTS, NEXTJS_SKILL);

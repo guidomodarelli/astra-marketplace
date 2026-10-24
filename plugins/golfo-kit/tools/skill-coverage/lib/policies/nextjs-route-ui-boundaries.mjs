@@ -37,6 +37,9 @@ const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'peerDependencie
 /** A binding named in PascalCase is a component the page renders, not data it loads. */
 const COMPONENT_BINDING_PATTERN = /^[A-Z]/;
 
+/** Evidence kinds that only accredit when `evidence --exec` ran them. */
+const EXECUTED_EVIDENCE_KINDS = new Set(['command', 'test']);
+
 /** Load signals that add awaited work to the render path of a route. */
 const RENDER_WAIT_SIGNALS = new Set(['awaits', 'awaitInLoop', 'fetch', 'database', 'projectCalls']);
 
@@ -225,7 +228,9 @@ export const nextjsRouteUiBoundariesPolicy = {
     const member = part.includes('.') && !part.includes('/') ? part.slice(part.indexOf('.') + 1) : undefined;
     const hasSignals = Boolean(currentSignals[change.key] || previousSignals[change.key]);
     if (member !== undefined && !isRouteFile(filePath)) {
-      if (!hasSignals && isPresentationMember(part.slice(0, part.indexOf('.')), member)) return { reason: 'copy or display member: no route boundary depends on it', relevant: false };
+      // A member named as loading UI (`content.fallback`) can hold the JSX of a
+      // Suspense fallback even inside a copy dictionary: it stays relevant.
+      if (!hasSignals && !LOADING_UI_PATTERN.test(member) && isPresentationMember(part.slice(0, part.indexOf('.')), member)) return { reason: 'copy or display member: no route boundary depends on it', relevant: false };
       return { reason: 'object member read by the route changed: route configuration impact unknown', relevant: true };
     }
     if (part === '<module>') return { reason: 'module directives ("use client", "use server") or side-effect imports changed', relevant: true };
@@ -252,14 +257,14 @@ export const nextjsRouteUiBoundariesPolicy = {
   },
 
   /**
-   * A build, lint or typecheck accredits only when the tool ran it.
+   * A build, lint, typecheck or test run accredits only when the tool ran it.
    *
    * @param {any} item
    * @returns {string[]}
    */
   validateEvidence(item) {
-    if (item.kind !== 'command' || item.outcome === 'fail' || item.source === 'witnessed') return [];
-    return ['command evidence (build, lint or typecheck) must be run with evidence --exec, not declared'];
+    if (!EXECUTED_EVIDENCE_KINDS.has(item.kind) || item.outcome === 'fail' || item.source === 'witnessed') return [];
+    return [`${item.kind} evidence (build, lint, typecheck or tests) must be run with evidence --exec, not declared`];
   },
 
   /**
