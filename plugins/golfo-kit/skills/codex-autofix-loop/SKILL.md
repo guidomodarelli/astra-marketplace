@@ -1,9 +1,9 @@
 ---
 name: codex-autofix-loop
-description: "Lanza y opera el loop que auto-fixea comentarios de Codex (chatgpt-codex-connector[bot]) en un PR: clone efímero → fix → push → closeout del hilo, o `@codex fix` en el propio hilo (modos `codex`/`auto` con fallback local), con dedup por PR, tope de rondas, guard de auto-cancelación y merge sin preguntar ni esperar revisión humana tras el gate de CI, también al terminar la última ronda. Lanzarlo solo, sin que lo pidan, apenas el agente abre un PR con `gh pr create`. Adapta la espera a cada agente (Monitor en Claude Code, watcher en background en Hermes, en foreground en Codex, o una ronda por invocación). Para un solo comentario de Codex alcanza con `codex-comment-closeout`. Use when the user asks to relaunch/start the Codex auto-fix loop for a PR, right after the agent opens a pull request (gh pr create) even if nobody asked, set up Codex comment auto-fixing, mentions docs/codex-autofix-loop.md, processed-PR.json, or the codex-autofix workflow."
+description: "Lanza y opera el loop que auto-fixea comentarios de Codex (chatgpt-codex-connector[bot]) en un PR: clone efímero → fix → push → closeout del hilo, o `@codex fix` en el propio hilo (modos `codex`/`auto` con fallback local), con dedup por PR, tope de rondas, timeout por ronda, guard de auto-cancelación y merge sin preguntar ni esperar revisión humana tras el gate de CI, también al terminar la última ronda. Lanzarlo solo, sin que lo pidan, apenas el agente abre un PR con `gh pr create`. Adapta la espera a cada agente (Monitor en Claude Code, watcher en background en Hermes, en foreground en Codex, o una ronda por invocación). Para un solo comentario de Codex alcanza con `codex-comment-closeout`. Use when the user asks to relaunch/start the Codex auto-fix loop for a PR, right after the agent opens a pull request (gh pr create) even if nobody asked, set up Codex comment auto-fixing, mentions docs/codex-autofix-loop.md, processed-PR.json, or the codex-autofix workflow."
 license: MIT
 metadata:
-  version: "1.5.2"
+  version: "1.6.0"
   author: "Guido Modarelli"
   category: "code-review"
   tags: "code-review, codex, pull-request, autofix, convergence"
@@ -145,6 +145,40 @@ levantado `{{MAX_REVIEW_ROUNDS}}`, y gana el que se alcance primero. El tope alc
 queda persistido: el loop lo reevalúa en cada vuelta (aunque esa vuelta no fixee nada)
 hasta que el merge salga o el PR se cierre, y mientras siga alcanzado no pide más reviews.
 
+**Timeout de ronda:** cada ronda (cada `@codex review` que postea el loop, incluida la
+review inicial pedida en el paso 2-ter) tiene un reloj. Así el loop no queda vivo para
+siempre si Codex nunca publica la review: en el PR #29 la review de la ronda 1 quedó
+`running` 9,5 h y el loop esperó sin hacer nada.
+
+- **Reloj**: `reviewRequestedAt` guarda el momento en que el loop posteó el `@codex review`
+  de la ronda. El repost de un trigger sin 👀 (paso 2-bis) no lo reinicia, así que un
+  trigger que Codex nunca leyó también termina en este timeout.
+- **Vencimiento**: la ronda vence cuando pasaron `{{REVIEW_ROUND_TIMEOUT_MIN}}` min desde
+  `reviewRequestedAt` y Codex no publicó una review **terminada** de `lastReviewedSha`. La
+  evidencia es la misma que en el «Fin de la última ronda» del paso 6. La 👀 y un estado
+  `running` no frenan el reloj: muestran que Codex tomó el pedido, no que la review vaya a
+  llegar, y el PR #29 quedó colgado justo en `running`.
+- **Primer vencimiento**: reintentá una sola vez. Si `reviewTimeoutRetries` es menor que
+  `{{REVIEW_ROUND_TIMEOUT_RETRIES}}`, reposteá `@codex review`. En la misma unidad, sumá 1
+  a `reviewTimeoutRetries`, poné `reviewRequestedAt` en ahora, guardá el head actual en
+  `lastReviewedSha` y persistí el JSON. **No sumes a `reviewRounds`**: una review que nunca
+  llegó no consume el tope de rondas.
+- **Segundo vencimiento**: mandá una PushNotification de una línea («PR #N: Codex no
+  publicó la review en X min», con X = `{{REVIEW_ROUND_TIMEOUT_MIN}}` ×
+  (`{{REVIEW_ROUND_TIMEOUT_RETRIES}}` + 1)), poné `reviewTimedOut: true` y **auto-cancelá
+  el loop**. Si quedan ids en `inFlight`, esperá a que vuelvan sus subagentes y cancelá en
+  la primera vuelta sin `inFlight`. Se auto-cancela, en vez de quedar vivo con un aviso, porque sin review no
+  hay nada que procesar: cada vuelta del cron o del watcher gasta un turno del agente
+  (unas 190 vueltas en las 9,5 h del PR #29) y el aviso queda perdido entre ellas. El
+  JSON se conserva, así que relanzar retoma la misma ronda.
+- **Nunca mergea**: una ronda vencida no es una review limpia. Tampoco cuenta para el
+  corte por convergencia, el tope de solo tests ni el fin de la última ronda, aunque la CI
+  esté verde y no queden hallazgos abiertos.
+- **Relanzar tras el timeout**: con `reviewTimedOut: true`, el paso 2 de «Cómo
+  relanzarlo» lo vuelve a `false` y pone `reviewTimeoutRetries` en `0`. Como el reloj ya
+  venció, la primera vuelta repostea `@codex review` y arranca un reloj nuevo. Relanzar un
+  loop que no se canceló por timeout no toca estos campos, así que no regala reintentos.
+
 **Sin espera de revisión humana:** el loop no frena el merge para que una persona
 apruebe, sin importar qué archivos toque el PR ni el tamaño del diff. Los únicos
 requisitos para mergear son la review limpia de Codex (o el corte por convergencia, el
@@ -223,7 +257,7 @@ herramientas **realmente presentes en la sesión**, no según el nombre del agen
   vuelta del prompt, sin monitor, cron ni esperas, y cierre con instrucciones para relanzar.
 
 En todos los modos se mantienen el dedup de `processed-<PR>.json`, los topes de rondas, el
-guard de auto-cancelación y los gates de merge (review limpia del head + CI verde). Lo que el
+timeout de ronda, el guard de auto-cancelación y los gates de merge (review limpia del head + CI verde). Lo que el
 modo desactiva se reporta al cierre en `Limitaciones del agente`.
 
 ## Arranque automático al abrir un PR
@@ -270,7 +304,7 @@ No lo lances, y decí en una línea por qué, cuando:
 2. Inicializá el estado de dedup del PR (vacío procesa todo el backlog; con ids
    ya cargados procesa solo los nuevos):
    ```
-   .codex-autofix/processed-{{PR}}.json  ->  {"pr":{{PR}},"processedCommentIds":[],"inFlight":{},"codexAttempts":{},"delegationReplyIds":[],"reviewRounds":0,"testOnlyRounds":0,"testOnlyHeadSha":null,"lastReviewedSha":null,"finalMergePending":false,"outcomes":{}}
+   .codex-autofix/processed-{{PR}}.json  ->  {"pr":{{PR}},"processedCommentIds":[],"inFlight":{},"codexAttempts":{},"delegationReplyIds":[],"reviewRounds":0,"testOnlyRounds":0,"testOnlyHeadSha":null,"lastReviewedSha":null,"reviewRequestedAt":null,"reviewTimeoutRetries":0,"reviewTimedOut":false,"finalMergePending":false,"outcomes":{}}
    ```
    (`inFlight` registra los comentarios que tienen un subagente o un pedido
    `@codex fix` trabajando; `codexAttempts` cuenta los pedidos a Codex por comment id;
@@ -279,12 +313,19 @@ No lo lances, y decí en una línea por qué, cuando:
    `testOnlyRounds` cuenta las rondas consecutivas cuyos commits solo tocaron tests o evals
    (ver «Tope de rondas de solo tests») y `testOnlyHeadSha` es el head de la última
    clasificación (o, antes de la primera, el head previo a los primeros fixes del loop);
-   `lastReviewedSha` es el head al postear el último; `finalMergePending` queda en `true`
+   `lastReviewedSha` es el head al postear el último; `reviewRequestedAt` (ISO-8601 UTC) es
+   el momento en que se posteó el `@codex review` de la ronda en curso y
+   `reviewTimeoutRetries` cuenta los reposts de esa ronda por vencimiento y `reviewTimedOut`
+   queda en `true` cuando el loop se auto-canceló porque la ronda volvió a vencer (ver
+   «Timeout de ronda»); `finalMergePending` queda en `true`
    cuando terminó la última ronda permitida y solo falta el merge final (ver «Tope de
    rondas»); `outcomes` es el registro de
    findings de la política de convergencia: `id -> {result, severity, round, path, sha?, reason?}`,
    con `result` en `fixed`, `rejected`, `pre-existing`, `nit-skipped`, `edge-case` o
    `failed`. Si falta alguna clave, el loop la trata como vacía o `0`.)
+   Si el archivo ya existe (relanzar), conservalo. Solo si trae `reviewTimedOut: true`,
+   ponelo en `false` y `reviewTimeoutRetries` en `0`: el loop se había auto-cancelado por el
+   «Timeout de ronda» y relanzarlo es pedir un reintento más.
    (`.codex-autofix/` está gitignored: es estado de runtime, no se commitea.)
 3. Lanzá el loop pegando el prompt con el intervalo `{{INTERVAL}}`:
    ```
@@ -327,6 +368,13 @@ No lo lances, y decí en una línea por qué, cuando:
 >   convergencia (ver «Tope de rondas»).
 > - `{{INITIAL_REVIEW_GRACE_MIN}}` = `5` — minutos desde que se abrió el PR que el loop
 >   espera la review automática de Codex antes de pedirla con `@codex review` (paso 2-ter).
+> - `{{REVIEW_ROUND_TIMEOUT_MIN}}` = `45` — minutos que el loop espera, desde el
+>   `@codex review` de una ronda, a que Codex publique la review terminada de
+>   `lastReviewedSha` (ver «Timeout de ronda»). Codex suele tardar entre 5 y 15 min. Los 45
+>   dan margen para un PR grande o una cola lenta, y el timeout se evalúa en varias vueltas
+>   del cron o del watcher antes de vencer.
+> - `{{REVIEW_ROUND_TIMEOUT_RETRIES}}` = `1` — reposts de `@codex review` que el loop hace por
+>   una ronda vencida antes de avisar y auto-cancelarse.
 > - `{{MAX_TEST_ONLY_ROUNDS}}` = `3` — rondas consecutivas en las que los fixes solo tocan
 >   tests o evals antes de dejar de pedir reviews y mergear (ver «Tope de rondas de solo
 >   tests»). Aplica aunque se suba o se levante `{{MAX_REVIEW_ROUNDS}}`.
@@ -345,14 +393,15 @@ El disparador principal es un `Monitor` del PR (paso 0 del prompt): consulta Git
 de Codex o un cambio en los checks. El cron de `{{INTERVAL}}` queda como respaldo para los
 timeouts y para rearmar el monitor si murió. Monitor y cron son session-only: si cerrás
 Claude, hay que relanzarlo. El loop se
-**auto-cancela** en tres casos: (a) cuando el PR deja de estar `OPEN`
+**auto-cancela** en estos casos: (a) cuando el PR deja de estar `OPEN`
 (mergeado/cerrado/borrado); (b) cuando Codex responde con una **review limpia**
 para el head actual, no quedan ítems pendientes y pasa el gate de CI (o se da el corte
 por convergencia): ahí el loop **mergea el PR** sin esperar revisión humana y se corta
 solo; (c) cuando termina la última ronda permitida (`{{MAX_REVIEW_ROUNDS}}`): ahí también
 mergea sin preguntar tras el gate de CI; (d) cuando se alcanzan
 `{{MAX_TEST_ONLY_ROUNDS}}` rondas seguidas que solo corrigen tests y el PR se mergea tras el
-gate de CI. La review limpia se reconoce por el estado JSON del resumen de Codex
+gate de CI; (e) cuando la review de una ronda vence por segunda vez (ver «Timeout de
+ronda»): ahí avisa y corta **sin mergear**. La review limpia se reconoce por el estado JSON del resumen de Codex
 (`<!-- codex-review-state:v1 {...} -->` sin hallazgos) o, en el formato viejo, por el
 texto "Codex Review: Didn't find any major issues" (ver paso 5-bis).
 
@@ -393,11 +442,11 @@ Si OPEN, procesá:
      since=$now
    done
    ```
-   Cada línea que emite (head nuevo, comentario o review de Codex, cambio en los checks o PR que dejó de estar `OPEN`) es un evento: corré **una iteración inmediata** de este mismo prompt, sin esperar al cron. Si ya hay una iteración en curso, no lances otra: esa vuelta, o la siguiente, reconcilia el evento. El monitor no evalúa timeouts: los de ack (`{{CODEX_ACK_TIMEOUT_MIN}}`), commit (`{{CODEX_FIX_TTL_MIN}}`) e `inFlight` huérfano (`{{INFLIGHT_TTL_MIN}}`), los reintentos de merge y el re-disparo de `@codex review` los resuelve el cron.
+   Cada línea que emite (head nuevo, comentario o review de Codex, cambio en los checks o PR que dejó de estar `OPEN`) es un evento: corré **una iteración inmediata** de este mismo prompt, sin esperar al cron. Si ya hay una iteración en curso, no lances otra: esa vuelta, o la siguiente, reconcilia el evento. El monitor no evalúa timeouts: los de ack (`{{CODEX_ACK_TIMEOUT_MIN}}`), commit (`{{CODEX_FIX_TTL_MIN}}`), `inFlight` huérfano (`{{INFLIGHT_TTL_MIN}}`) y ronda (`{{REVIEW_ROUND_TIMEOUT_MIN}}`, paso 2-quater), los reintentos de merge y el re-disparo de `@codex review` los resuelve el cron. Si Codex nunca publica la review, el monitor no emite nada y solo el cron hace vencer la ronda.
    - Al vencer (aviso de expiración), rearmalo con el mismo `command` si el PR sigue `OPEN`. Si al empezar una vuelta del cron no está vivo (se perdió el aviso o falló el rearme), rearmalo en ese momento.
    - Cuando el PR deja de estar `OPEN` el script termina solo; si el loop se auto-cancela por otro motivo, detenelo con `TaskStop` (ver «Auto-cancelar»).
 
-(1) Leé `processedCommentIds` desde `.codex-autofix/processed-{{PR}}.json`. Los ids de comentarios (inline/generales) se guardan como número crudo; los ids de review-body se guardan namespaceados como `"review:<id>"` (evita colisión entre espacios de id distintos). `processedCommentIds` representa comentarios cerrados: fixes aplicados y los cerrados como «Sin cambios» (incluidos los bordes rebuscados del paso 3-pre). Leé también `inFlight` (mapa `id -> {label, startedAt}` con el mismo formato de id; si falta, tratalo como `{}`): son los comentarios que YA tienen un subagente trabajando, lanzado en esta vuelta o en una anterior. Las entradas delegadas a Codex llevan además `via: "codex"`, `triggerId` (id del comentario `@codex fix`), `triggerKind` (`inline` o `general`), `baseSha` (head del PR al pedir) y `groupIds` (todos los ids del grupo). Leé también `codexAttempts`, `delegationReplyIds`, `reviewRounds`, `testOnlyRounds`, `testOnlyHeadSha`, `lastReviewedSha`, `finalMergePending` y `outcomes` (si faltan, `{}`, `[]`, `0`, `0`, `null`, `null`, `false` y `{}`). Modo de fix de esta corrida: `{{FIX_MODE}}`.
+(1) Leé `processedCommentIds` desde `.codex-autofix/processed-{{PR}}.json`. Los ids de comentarios (inline/generales) se guardan como número crudo; los ids de review-body se guardan namespaceados como `"review:<id>"` (evita colisión entre espacios de id distintos). `processedCommentIds` representa comentarios cerrados: fixes aplicados y los cerrados como «Sin cambios» (incluidos los bordes rebuscados del paso 3-pre). Leé también `inFlight` (mapa `id -> {label, startedAt}` con el mismo formato de id; si falta, tratalo como `{}`): son los comentarios que YA tienen un subagente trabajando, lanzado en esta vuelta o en una anterior. Las entradas delegadas a Codex llevan además `via: "codex"`, `triggerId` (id del comentario `@codex fix`), `triggerKind` (`inline` o `general`), `baseSha` (head del PR al pedir) y `groupIds` (todos los ids del grupo). Leé también `codexAttempts`, `delegationReplyIds`, `reviewRounds`, `testOnlyRounds`, `testOnlyHeadSha`, `lastReviewedSha`, `reviewRequestedAt`, `reviewTimeoutRetries`, `reviewTimedOut`, `finalMergePending` y `outcomes` (si faltan, `{}`, `[]`, `0`, `0`, `null`, `null`, `null`, `0`, `false`, `false` y `{}`). Modo de fix de esta corrida: `{{FIX_MODE}}`.
 
 (1-bis) NO RELANCES COMENTARIOS CON UN SUBAGENTE TRABAJANDO. Una vuelta puede empezar mientras siguen corriendo subagentes de vueltas anteriores. Antes de armar grupos, reconciliá `inFlight`:
    - Si el subagente de una entrada sigue vivo (lo ves corriendo en tus tareas/agentes en background con ese label), el id queda BLOQUEADO: no lo agrupes, no lo spawnees de nuevo, no reacciones ni respondas. Esperá su resultado; el closeout lo hace el paso (4) cuando vuelva.
@@ -424,11 +473,20 @@ Si OPEN, procesá:
    - Seguí SOLO si `LAST_BODY` es un trigger de review (matchea `^@codex review`); si no, salteá (el último comentario no es un trigger pendiente).
    - Reacción 👀 del bot sobre ese comentario: `HAS_EYES=$(gh api repos/{{OWNER}}/{{REPO}}/issues/comments/$LAST_ID/reactions --jq '[.[] | select(.content=="eyes" and .user.login=="chatgpt-codex-connector[bot]")] | length')`.
    - Si `HAS_EYES == 0` (sin ojitos del bot): reposteá el trigger → `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"`. Si `HAS_EYES >= 1`, NO hagas nada: Codex ya lo está procesando.
-   - Para no duplicar el trigger: si en ESTA misma vuelta vas a fixear ítems nuevos (vas a postear `@codex review` en el paso (6)), salteá el repost acá; ese paso ya re-dispara la review.
+   - Para no duplicar el trigger: si en ESTA misma vuelta vas a fixear ítems nuevos (vas a postear `@codex review` en el paso (6)) o vence la ronda (paso 2-quater), salteá el repost acá; ese paso ya re-dispara la review.
+   - Este repost no toca `reviewRequestedAt` ni `reviewTimeoutRetries`: el reloj de la ronda sigue corriendo desde el pedido original.
 
 (2-ter) REVIEW INICIAL. Codex suele revisar solo al abrir el PR, pero no siempre: puede tener las reviews automáticas apagadas o tomar una mención de `@codex` en el body del PR como pedido de tarea. Si `reviewRounds` es `0` y el PR no tiene ninguna review de Codex (ni comentario con `codex-review-state:v1`, ni review del bot, ni receipt `codex-review-receipt:v1`), ni ningún comentario general `@codex review`:
-   - Si pasaron más de `{{INITIAL_REVIEW_GRACE_MIN}}` min desde `createdAt` del PR (`gh pr view {{PR}} --repo {{OWNER}}/{{REPO}} --json createdAt -q .createdAt`), posteá `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"` y guardá el head en `lastReviewedSha`. Es la review inicial (ronda 0): no sumes a `reviewRounds`. Desde ahí, el paso (2-bis) la re-dispara si Codex no le pone 👀.
+   - Si pasaron más de `{{INITIAL_REVIEW_GRACE_MIN}}` min desde `createdAt` del PR (`gh pr view {{PR}} --repo {{OWNER}}/{{REPO}} --json createdAt -q .createdAt`), posteá `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"` y, en la misma unidad, guardá el head en `lastReviewedSha`, poné `reviewRequestedAt` en ahora y `reviewTimeoutRetries` en `0`. Es la review inicial (ronda 0): no sumes a `reviewRounds`. Desde ahí, el paso (2-bis) la re-dispara si Codex no le pone 👀 y el paso (2-quater) la hace vencer si nunca llega.
    - Si no pasó ese plazo, no hagas nada: la próxima vuelta lo vuelve a evaluar.
+
+(2-quater) TIMEOUT DE RONDA (ver «Timeout de ronda» del skill; se evalúa en CADA vuelta, también en las que no fixean nada).
+   - Review automática colgada: si `reviewRequestedAt` es `null`, `reviewRounds` es `0` y el estado `codex-review-state:v1` del PR sigue `running`, arrancá el reloj sin postear nada: `reviewRequestedAt` = `createdAt` del PR y `lastReviewedSha` = `code_review.commit_sha` de ese estado, y persistí el JSON. Así también vence la review que Codex dispara solo al abrir el PR.
+   - Salteá el resto del paso si `reviewRequestedAt` es `null` o si Codex ya publicó una review terminada de `lastReviewedSha` (la misma evidencia del «Fin de la última ronda» del paso 6). Si no, calculá los minutos desde `reviewRequestedAt`:
+   - Menos de `{{REVIEW_ROUND_TIMEOUT_MIN}}` → no hagas nada: la ronda sigue esperando.
+   - Vencida y `reviewTimeoutRetries < {{REVIEW_ROUND_TIMEOUT_RETRIES}}` → `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"` y, en la misma unidad, `reviewTimeoutRetries += 1`, `reviewRequestedAt` = ahora, `lastReviewedSha` = head actual y persistí el JSON. NO sumes a `reviewRounds`.
+   - Vencida y `reviewTimeoutRetries >= {{REVIEW_ROUND_TIMEOUT_RETRIES}}` → NO postees otra review. Con ids en `inFlight`, esperá a que vuelvan (sus closeouts siguen el paso 4). Sin `inFlight`, PushNotification de una línea «PR #{{PR}}: Codex no publicó la review en X min» (X = `{{REVIEW_ROUND_TIMEOUT_MIN}}` × (`{{REVIEW_ROUND_TIMEOUT_RETRIES}}` + 1)), poné `reviewTimedOut: true`, persistí el JSON y auto-cancelá el loop como en el GUARD. El resto del estado queda como está para que relanzar retome la ronda.
+   - Una ronda vencida NUNCA lleva al merge: no es review limpia (paso 5-bis) y no habilita el corte por convergencia, el tope de solo tests ni el fin de la última ronda (paso 6), aunque la CI esté verde.
 
 (3) FAN-OUT EN PARALELO (por GRUPO de archivo, con concurrencia según recursos libres).
 
@@ -528,7 +586,7 @@ Si OPEN, procesá:
    - **Ronda de solo tests**: clasificá TODOS los commits que entraron desde la última clasificación, no solo los de `outcomes`, para que un commit ajeno al loop también cuente. Tomá como inicio `testOnlyHeadSha` (lo inicializa el paso (3b-bis) antes de los primeros fixes; si aun así es `null`, por un estado viejo, usá `lastReviewedSha` y, si también es `null`, la base del PR: `gh pr view {{PR}} --repo {{OWNER}}/{{REPO}} --json baseRefOid -q .baseRefOid`) y como fin el head actual; listá los commits del rango con `gh api 'repos/{{OWNER}}/{{REPO}}/compare/<inicio>...<head>?per_page=100' --paginate --jq '.commits[].sha'` (con `per_page`, `--paginate` recorre todas las páginas; si la cantidad listada no coincide con `.total_commits` del compare, no hay lista completa) y los archivos de cada uno con `gh api repos/{{OWNER}}/{{REPO}}/commits/<sha> --paginate --jq '.files[] | .filename, (.previous_filename // empty)'` (en un rename cuentan el path de origen y el de destino). Si TODOS matchean `{{TEST_PATH_PATTERNS}}` (`grep -Ev '<patrón>'` no devuelve nada), sumá 1 a `testOnlyRounds`; si alguno no matchea, o si algún listado falla o vuelve vacío (no hay lista completa), poné `testOnlyRounds` en `0`. Guardá el head clasificado en `testOnlyHeadSha` y persistí el JSON en la misma unidad. Si `testOnlyRounds >= {{MAX_TEST_ONLY_ROUNDS}}`, NO postees otra review: aplicá el «Tope de rondas de solo tests» del skill (GATE DE CI del paso 5-bis, merge con squash y auto-cancelar) y terminá; antes del merge, si el head avanzó desde `testOnlyHeadSha`, reclasificá ese rango y no mergees si entró algo fuera de los tests. Mergeá con `--match-head-commit <testOnlyHeadSha>` y manejá checks pendientes, en rojo o un merge fallido como en el «Tope de solo tests persistido». Este chequeo va antes que el tope general.
    - **Tope de rondas**: si `reviewRounds >= {{MAX_REVIEW_ROUNDS}}`, aplicá el «Fin de la última ronda» de arriba en vez de postear otra review.
    - Si no, posteá UN único comentario general con el trigger exacto `@codex review`, sin texto adicional y en todas las rondas: `gh pr comment {{PR}} --repo {{OWNER}}/{{REPO}} --body "@codex review"`. No uses `@codex review for …` ni otras instrucciones para enfocar la review en el delta: Codex las ignora y revisa el PR completo en el head actual. Los hallazgos repetidos los cierra el registro de `outcomes` (paso 3-pre), no el texto del pedido.
-   - En la misma unidad, sumá 1 a `reviewRounds`, guardá el head actual en `lastReviewedSha` y persistí el JSON.
+   - En la misma unidad, sumá 1 a `reviewRounds`, guardá el head actual en `lastReviewedSha`, poné `reviewRequestedAt` en ahora (ISO-8601 UTC) y `reviewTimeoutRetries` en `0`, y persistí el JSON. Vale para todo `@codex review` de ronda nueva, también el del reset del «Tope de solo tests persistido» y el que sigue a un fix de CI (paso 5-bis): cada ronda arranca su propio reloj (paso 2-quater).
    Si NO fixeaste nada nuevo esta vuelta (contador == 0), NO postees nada (evitá spam), salvo la review que pide el reset del «Tope de solo tests persistido». Si los únicos cierres de la vuelta fueron «Sin cambios», aplicá el «Corte por convergencia» de la «Regla de alcance y convergencia»: sin `@codex review`, mergeá el PR (pasando antes el GATE DE CI del paso 5-bis) y auto-cancelá el loop.
 
 (6-bis) RESUMEN DE LA VUELTA: en la PushNotification de cierre del loop (merge, tope o PR cerrado) incluí una línea con las rondas usadas (`reviewRounds`/`{{MAX_REVIEW_ROUNDS}}`), las rondas seguidas de solo tests (`testOnlyRounds`/`{{MAX_TEST_ONLY_ROUNDS}}`) y el conteo de `outcomes` por resultado (por ejemplo «3 fixed, 2 edge-case, 1 pre-existing»). Esa línea mide el ruido de Codex y alimenta las evals del reviewer.
@@ -626,6 +684,10 @@ regla de paridad con el step «Cerrar comentario» del Action
   commit y, en `auto`, el grupo cae a subagente local. Las respuestas del bot al pedido
   se registran en `delegationReplyIds` para no tratarlas como hallazgos nuevos.
   El `Monitor` del PR (paso 0) detecta el push de Codex y dispara la vuelta que cierra.
+- **Timeout de ronda**: si Codex no publica la review de una ronda en
+  `{{REVIEW_ROUND_TIMEOUT_MIN}}` min, el loop repostea `@codex review` una vez sin consumir
+  el tope de rondas; si vuelve a vencer, avisa y se auto-cancela sin mergear. Relanzarlo
+  le da a esa ronda un reintento más (ver «Timeout de ronda»).
 - **Cancelar a mano**: `CronList` para ver el job y `CronDelete <id>`.
 - **Persistencia real**: para correr sin sesión abierta, mergeá el workflow de CI
   a la rama default y usá el Action.
