@@ -19,7 +19,9 @@
  * - `contextEntries({ unit, index, config })` (optional): extra entries the
  *   unit's closure needs for this skill and that the unit does not declare,
  *   such as the layouts and boundaries wrapping its routes. Each entry is
- *   `{ path, symbol, role, follow }` and must name an existing file.
+ *   `{ path, symbol, role, follow }` naming an existing file, or
+ *   `{ package }` for a package the unit runs on without importing it
+ *   (tracked at the version the project declares).
  *
  * `classifyChange` receives `previousSignals`, `currentSignals`,
  * `signalsRecorded` and `currentImporters` (every part or entry that reaches

@@ -18,10 +18,11 @@
  * A literal `import('./x')` is followed as a whole-module import from the
  * part that contains it, like a static import of `* from './x'`.
  */
-import { ANALYZER_VERSION, FILE_LEVEL_ANALYZER, MAX_UNIT_INPUT_ENTRIES } from '../constants.mjs';
+import { ANALYZER_VERSION, FILE_LEVEL_ANALYZER, MAX_UNIT_INPUT_ENTRIES, PACKAGE_METADATA_FILES } from '../constants.mjs';
 import { fingerprintOf } from '../support.mjs';
 
 const MISSING_HASH = 'missing';
+const PACKAGE_MANIFEST_FILE = PACKAGE_METADATA_FILES.manifest;
 const ROUTE_HANDLER_PATTERN = /(?:^|\/)route\.[cm]?[jt]sx?$/;
 const REFERENCE_PATTERN = /^([^/.~]+)(?:\/([^/.]+)|\.(.+)|(~shell))?$/;
 
@@ -128,6 +129,13 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   // boundaries that wrap the unit's routes): existing files only, subject to
   // the ignore list and the policy exclusions like any reached file.
   for (const entry of policy.contextEntries?.({ config, index, unit }) ?? []) {
+    // A package the unit depends on without importing it (the framework that
+    // runs its routes) is tracked at the version the project declares.
+    if (entry.package) {
+      const resolution = index.resolver.resolve(PACKAGE_MANIFEST_FILE, entry.package);
+      if (resolution.kind === 'package') addInput(`pkg:${resolution.name}`, resolution.versionHash, undefined, `context:pkg:${entry.package}`);
+      continue;
+    }
     queue.push({ depth: 0, explicit: false, follow: entry.follow !== false, from: `context:${entry.path}#${entry.symbol ?? '*'}`, path: entry.path, reference: entry.symbol ?? '*', role: entry.role ?? entryRole(entry) });
   }
 

@@ -370,6 +370,30 @@ describe('nextjs-route-ui-boundaries policy', () => {
     assert.ok(check.suggestedScope.some((scope) => scope.includes('loading, error or template boundary')));
   });
 
+  test('data a page awaits before rendering the unit is part of a unit that enters through a component', () => {
+    fixture.write('lib/members.ts', 'export async function loadMembers() {\n  return [];\n}\n');
+    fixture.write(MEMBERS_PAGE, 'import { MembersPanel } from "@/components/members/members-panel";\nimport { loadMembers } from "@/lib/members";\n\nexport default async function MembersPage() {\n  await loadMembers();\n  return <MembersPanel />;\n}\n');
+    verifyNextjs(fixture, MEMBERS_LIST, { mode: 'incremental' });
+    fixture.replace('lib/members.ts', 'export async function loadMembers() {\n  return [];', 'import { cookies } from "next/headers";\n\nexport async function loadMembers() {\n  const store = await cookies();\n  return store.get("tribe") ? [] : [];');
+    const check = fixture.check(MEMBERS_LIST, NEXTJS_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.ok(check.relevantChanges.some((change) => change.key === 'lib/members.ts#loadMembers'));
+    // The section components the page renders are not followed from the page context.
+    const inputs = fixture.run(['inputs', '--unit', PAYMENTS, '--skill', NEXTJS_SKILL]).json.inputs;
+    assert.ok(Object.keys(inputs).some((key) => key.startsWith('lib/payments.ts#')), 'the payments loader is tracked');
+  });
+
+  test('a framework upgrade invalidates routes whose files never import it', () => {
+    fixture.replace('package.json', '"react": "19.0.0"', '"next": "15.5.0", "react": "19.0.0"');
+    verifyNextjs(fixture, PRICING, { mode: 'incremental' });
+    fixture.replace('package.json', '"next": "15.5.0"', '"next": "16.0.0"');
+    assert.ok(affectedUnits(fixture, ['package.json']).includes(PRICING));
+    const check = fixture.check(PRICING, NEXTJS_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.ok(check.relevantChanges.some((change) => change.key === 'pkg:next' && change.reason === 'framework package version changed (next): App Router APIs may differ'));
+    assert.ok(check.suggestedScope.some((scope) => scope.includes('against the installed version')));
+  });
+
   test('a dependency that cannot be resolved statically gets a conservative review', () => {
     fixture.replace(MEMBERS_PANEL, 'import { inviteMember } from "@/lib/members-client";', 'import { inviteMember } from "@/lib/members-client";\nimport { trackInvite } from "@/lib/generated/analytics";');
     fixture.replace(MEMBERS_PANEL, 'if (!result.ok) setError(result.message);', 'trackInvite();\n    if (!result.ok) setError(result.message);');

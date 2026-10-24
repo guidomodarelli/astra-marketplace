@@ -31,6 +31,12 @@ const LOADING_UI_PATTERN = /skeleton|fallback|loading|placeholder|shimmer/i;
 /** Packages whose version decides which App Router APIs and conventions exist. */
 const FRAMEWORK_PACKAGES = new Set(['next', 'react', 'react-dom']);
 
+/** Sections of package.json whose entries the project installs. */
+const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'peerDependencies'];
+
+/** A binding named in PascalCase is a component the page renders, not data it loads. */
+const COMPONENT_BINDING_PATTERN = /^[A-Z]/;
+
 /** Load signals that add awaited work to the render path of a route. */
 const RENDER_WAIT_SIGNALS = new Set(['awaits', 'awaitInLoop', 'fetch', 'database', 'projectCalls']);
 
@@ -72,6 +78,43 @@ function stylesLoadingUi(key, importers) {
     }
   }
   return false;
+}
+
+/**
+ * Data and helpers a page awaits before rendering (`loadPayments`,
+ * `getTribe`): the page's imports that are not components. The components
+ * it renders stay out, so a handler of one section does not invalidate the
+ * other subflows of the page.
+ *
+ * @param {any} index Project index.
+ * @param {string} pagePath
+ * @returns {{ path: string, symbol: string, role: string, follow: boolean }[]}
+ */
+function pageDataDependencies(index, pagePath) {
+  const analysis = index.analyze(pagePath);
+  if (!analysis?.imports) return [];
+  const dependencies = [];
+  for (const [localName, binding] of analysis.imports) {
+    if (binding.typeOnly || COMPONENT_BINDING_PATTERN.test(localName)) continue;
+    const resolution = index.resolver.resolve(pagePath, binding.source);
+    if (resolution.kind === 'file') dependencies.push({ follow: true, path: resolution.path, role: 'route', symbol: binding.imported });
+  }
+  return dependencies;
+}
+
+/**
+ * @param {any} index Project index.
+ * @returns {string[]} Framework packages the project declares in package.json.
+ */
+function declaredFrameworkPackages(index) {
+  let manifest;
+  try {
+    manifest = JSON.parse(index.readSource('package.json') ?? '{}');
+  } catch {
+    return [];
+  }
+  const declared = new Set(DEPENDENCY_SECTIONS.flatMap((section) => Object.keys(manifest?.[section] ?? {})));
+  return [...FRAMEWORK_PACKAGES].filter((name) => declared.has(name));
 }
 
 /**
@@ -133,18 +176,22 @@ export const nextjsRouteUiBoundariesPolicy = {
   excludesFile: (filePath) => NO_BOUNDARY_FILE_PATTERN.test(filePath),
 
   /**
-   * Pages of the unit's routes (their own parts only), every segment file
-   * that wraps them and the project configuration, followed with the
-   * `route` role.
+   * Pages of the unit's routes (their own parts and the data they await,
+   * not the other components they render), every segment file that wraps
+   * them, the project configuration, followed with the `route` role, and the
+   * framework packages the project declares, whose version decides the App
+   * Router conventions even when no file imports them.
    *
    * @param {{ index: any, unit: any }} input
-   * @returns {{ path: string, symbol: string, role: string, follow: boolean }[]}
+   * @returns {({ path: string, symbol: string, role: string, follow: boolean } | { package: string })[]}
    */
   contextEntries({ index, unit }) {
     const { pages, projectFiles, segmentFiles } = routeContextFiles(index, unit);
     return [
       ...pages.map((filePath) => ({ follow: false, path: filePath, role: 'route', symbol: '*' })),
+      ...pages.flatMap((filePath) => pageDataDependencies(index, filePath)),
       ...[...segmentFiles, ...projectFiles].map((filePath) => ({ follow: true, path: filePath, role: 'route', symbol: '*' })),
+      ...declaredFrameworkPackages(index).map((name) => ({ package: name })),
     ];
   },
 
