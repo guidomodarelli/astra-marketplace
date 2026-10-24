@@ -55,7 +55,8 @@ export function unitEntries(unit, config, skill) {
  * @returns {{
  *   analyzer: string, fingerprint: string, inputs: Record<string, string>, files: Record<string, string>,
  *   signals: Record<string, Record<string, number>>, fileLevelFiles: Record<string, string>,
- *   unresolved: string[], warnings: string[], truncated: boolean, via: Record<string, string>
+ *   unresolved: string[], warnings: string[], truncated: boolean, via: Record<string, string>,
+ *   importers: Record<string, string[]>
  * }}
  */
 export function computeUnitInputs({ index, unit, config, policy }) {
@@ -68,6 +69,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   const queue = [];
   const expansionScopes = new Map();
   const via = {};
+  const importers = new Map();
   let truncated = false;
   let inputCount = 0;
 
@@ -267,6 +269,10 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   while (queue.length && !truncated) {
     const context = queue.shift();
     if (!context.explicit && (index.isIgnored(context.path) || policy.excludesFile?.(context.path))) continue;
+    // Every part that reaches a file, not only the first one `via` keeps: a
+    // file shared by several consumers belongs to all of them.
+    if (!importers.has(context.path)) importers.set(context.path, new Set());
+    importers.get(context.path).add(context.from);
     if (!claimExpansion(`${context.path}\0${context.reference}`, context)) continue;
     const analysis = index.analyze(context.path);
     if (!analysis) {
@@ -303,6 +309,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
     fileLevelFiles,
     files,
     fingerprint: fingerprintOf(inputs),
+    importers: Object.fromEntries([...importers].map(([filePath, parents]) => [filePath, [...parents].sort()])),
     inputs,
     signals,
     truncated,

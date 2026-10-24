@@ -16,7 +16,6 @@
 import path from 'node:path';
 
 import { splitInputKey } from '../impact/input-diff.mjs';
-import { dependencyChain } from '../impact/unit-inputs.mjs';
 import { isRouteConventionFile, routeContextFiles } from '../source/next-route-tree.mjs';
 import { describeInputKey, increasedSignals } from './base-policy.mjs';
 import { isPresentationMember } from './presentation-members.mjs';
@@ -35,8 +34,8 @@ const FRAMEWORK_PACKAGES = new Set(['next', 'react', 'react-dom']);
 /** Load signals that add awaited work to the render path of a route. */
 const RENDER_WAIT_SIGNALS = new Set(['awaits', 'awaitInLoop', 'fetch', 'database', 'projectCalls']);
 
-/** Prefix of the parent labels a dependency chain ends with (`entry:` or `context:`). */
-const CHAIN_ROOT_PREFIX_PATTERN = /^(?:entry|context):/;
+/** Prefix of the labels of unit and context entries among the importers (`entry:` or `context:`). */
+const ENTRY_LABEL_PREFIX_PATTERN = /^(?:entry|context):/;
 
 /**
  * @param {string | null} filePath
@@ -49,16 +48,38 @@ function isRouteFile(filePath) {
 /**
  * Whether a style input is reached through a skeleton, a fallback or a
  * loading boundary, so it shapes what a navigation shows while it waits.
+ * Walks every importer of the stylesheet and of the files that reach it,
+ * not a single dependency path: a stylesheet shared by an ordinary
+ * component and a skeleton is loading UI too.
  *
  * @param {string} key Style input key (`path#*`).
- * @param {Record<string, string>} via Parent of each current input.
+ * @param {Record<string, string[]>} importers Parts or entries that reach each current file.
  * @returns {boolean}
  */
-function stylesLoadingUi(key, via) {
-  return dependencyChain(via, key).some((element) => {
-    const { part, path: filePath } = splitInputKey(element.replace(CHAIN_ROOT_PREFIX_PATTERN, ''));
-    return LOADING_UI_PATTERN.test(path.posix.basename(filePath ?? '')) || LOADING_UI_PATTERN.test(part);
-  });
+function stylesLoadingUi(key, importers) {
+  const stylePath = splitInputKey(key).path;
+  if (LOADING_UI_PATTERN.test(path.posix.basename(stylePath ?? ''))) return true;
+  const pending = [stylePath];
+  const visited = new Set(pending);
+  while (pending.length) {
+    for (const importer of importers[pending.shift()] ?? []) {
+      const { part, path: importerPath } = splitInputKey(importer.replace(ENTRY_LABEL_PREFIX_PATTERN, ''));
+      if (LOADING_UI_PATTERN.test(path.posix.basename(importerPath ?? '')) || LOADING_UI_PATTERN.test(part)) return true;
+      if (importerPath && !visited.has(importerPath)) {
+        visited.add(importerPath);
+        pending.push(importerPath);
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * @param {string | null} filePath
+ * @returns {string} App Router convention of a file (`loading` in `app/x/loading.tsx`).
+ */
+function conventionName(filePath) {
+  return path.posix.basename(filePath ?? '', path.posix.extname(filePath ?? ''));
 }
 
 /**
@@ -79,7 +100,7 @@ function addedRenderWaits(change, previousSignals, currentSignals) {
  */
 function reviewFocus(change) {
   const { part, path: filePath } = splitInputKey(change.key);
-  if (change.change === 'relocated') return 'the segment the file now belongs to: URL, layouts it renders inside, loading and error boundaries it inherits or replaces';
+  if (change.change === 'relocated') return 'the segment and convention the file now has: URL, layouts it renders inside, loading, error or template boundary it defines, inherits or replaces';
   if (change.change === 'removed') return 'what the route lost: a layout, a boundary, a Suspense fallback or a client island; check that each state still has its boundary';
   if (change.key.startsWith('pkg:')) {
     const name = change.key.slice(4);
@@ -129,15 +150,17 @@ export const nextjsRouteUiBoundariesPolicy = {
 
   /**
    * @param {{ key: string, change: string, from?: string }} change
-   * @param {{ previousSignals?: Record<string, any>, currentSignals?: Record<string, any>, currentVia?: Record<string, string> }} context
+   * @param {{ previousSignals?: Record<string, any>, currentSignals?: Record<string, any>, currentImporters?: Record<string, string[]> }} context
    * @returns {{ relevant: boolean, reason: string }}
    */
-  classifyChange(change, { previousSignals = {}, currentSignals = {}, currentVia = {} }) {
+  classifyChange(change, { previousSignals = {}, currentSignals = {}, currentImporters = {} }) {
     const { part, path: filePath } = splitInputKey(change.key);
     if (change.change === 'relocated') {
       const fromPath = splitInputKey(change.from).path;
-      const segmentChanged = path.posix.dirname(fromPath ?? '') !== path.posix.dirname(filePath ?? '');
-      if (segmentChanged && (isRouteFile(filePath) || isRouteFile(fromPath))) return { reason: 'route file moved to another segment: its URL, layouts and inherited boundaries may have changed', relevant: true };
+      if (isRouteFile(filePath) || isRouteFile(fromPath)) {
+        if (path.posix.dirname(fromPath ?? '') !== path.posix.dirname(filePath ?? '')) return { reason: 'route file moved to another segment: its URL, layouts and inherited boundaries may have changed', relevant: true };
+        if (conventionName(fromPath) !== conventionName(filePath)) return { reason: `route convention changed (${conventionName(fromPath)} → ${conventionName(filePath)}): the boundary the segment defines changed`, relevant: true };
+      }
       return { reason: 'moved without changes outside the route tree', relevant: false };
     }
     if (change.change === 'removed') return { reason: 'code no longer reached by the route: a layout, boundary or client island may have been removed', relevant: true };
@@ -149,7 +172,7 @@ export const nextjsRouteUiBoundariesPolicy = {
     if (change.key.startsWith('unresolved:')) return { reason: 'import that cannot be resolved: boundary impact unknown, reviewed conservatively', relevant: true };
     if (filePath && PROJECT_FILE_PATTERN.test(filePath)) return { reason: 'project configuration of rendering, caching or navigation changed: applies to every route', relevant: true };
     if (filePath && STYLE_FILE_PATTERN.test(filePath)) {
-      if (stylesLoadingUi(change.key, currentVia)) return { reason: 'styles of a skeleton or loading boundary changed', relevant: true };
+      if (stylesLoadingUi(change.key, currentImporters)) return { reason: 'styles of a skeleton or loading boundary changed', relevant: true };
       return { reason: 'styles outside skeletons and loading boundaries: no route boundary or server/client decision depends on them', relevant: false };
     }
     const member = part.includes('.') && !part.includes('/') ? part.slice(part.indexOf('.') + 1) : undefined;

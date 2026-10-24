@@ -348,6 +348,28 @@ describe('nextjs-route-ui-boundaries policy', () => {
     assert.ok(check.suggestedScope.some((scope) => scope.includes('final shape, reserved heights and reduced motion')));
   });
 
+  test('a stylesheet shared by a component and a loading boundary is relevant whichever reaches it first', () => {
+    // The panel entry reaches the stylesheet before the loading boundary of
+    // the route context does, so its first dependency path is not loading UI.
+    fixture.write('app/(platform)/members/loading.tsx', 'import styles from "@/components/members/members-panel.module.scss";\n\nexport default function Loading() {\n  return <div className={styles.panel} aria-busy="true" />;\n}\n');
+    verifyNextjs(fixture, MEMBERS_LIST, { mode: 'incremental' });
+    fixture.replace('components/members/members-panel.module.scss', 'padding: 16px;', 'padding: 24px;');
+    const check = fixture.check(MEMBERS_LIST, NEXTJS_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.ok(check.relevantChanges.some((change) => change.key === 'components/members/members-panel.module.scss#*' && change.reason === 'styles of a skeleton or loading boundary changed'));
+  });
+
+  test('a convention file renamed inside its segment is relevant even with identical content', () => {
+    const loadingPath = 'app/(platform)/members/loading.tsx';
+    fixture.write('app/(platform)/members/template.tsx', fixture.read(loadingPath));
+    fixture.git('rm', '--quiet', loadingPath);
+    const check = fixture.check(MEMBERS_LIST, NEXTJS_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.notEqual(check.decision, 'skip');
+    assert.ok(check.relevantChanges.some((change) => change.change === 'relocated' && change.key.startsWith('app/(platform)/members/template.tsx#') && change.reason === 'route convention changed (loading → template): the boundary the segment defines changed'));
+    assert.ok(check.suggestedScope.some((scope) => scope.includes('loading, error or template boundary')));
+  });
+
   test('a dependency that cannot be resolved statically gets a conservative review', () => {
     fixture.replace(MEMBERS_PANEL, 'import { inviteMember } from "@/lib/members-client";', 'import { inviteMember } from "@/lib/members-client";\nimport { trackInvite } from "@/lib/generated/analytics";');
     fixture.replace(MEMBERS_PANEL, 'if (!result.ok) setError(result.message);', 'trackInvite();\n    if (!result.ok) setError(result.message);');

@@ -22,8 +22,8 @@
  *   `{ path, symbol, role, follow }` and must name an existing file.
  *
  * `classifyChange` receives `previousSignals`, `currentSignals`,
- * `signalsRecorded` and `currentVia` (the parent of each current input, for
- * `dependencyChain`).
+ * `signalsRecorded` and `currentImporters` (every part or entry that reaches
+ * each current file, `entry:`/`context:` labels included).
  */
 import { splitInputKey } from '../impact/input-diff.mjs';
 
