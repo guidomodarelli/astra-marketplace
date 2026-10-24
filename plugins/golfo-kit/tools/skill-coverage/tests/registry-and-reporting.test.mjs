@@ -31,8 +31,8 @@ describe('status, discovery and registry integrity', () => {
     assert.equal(reject.changes[0].key, `${MANAGEMENT_FILE}#ReviewQueueSection/reject`);
 
     const text = fixture.run(['status', '--details'], { json: false }).stdout;
-    assert.match(text, /Academy {2}\(UI\/UX 2\/3 · Performance 0\/3 · Optimistic 0\/3\)/);
-    assert.match(text, /Verification Requests {2}\(UI\/UX 1\/2 · Performance 0\/2 · Optimistic 0\/2\)/);
+    assert.match(text, /Academy {2}\(UI\/UX 2\/3 · Performance 0\/3 · Optimistic 0\/3 · Next\.js 0\/3\)/);
+    assert.match(text, /Verification Requests {2}\(UI\/UX 1\/2 · Performance 0\/2 · Optimistic 0\/2 · Next\.js 0\/2\)/);
     assert.match(text, /Reject {2}\[academy\.manage\.requests\.reject\]\n\s+UI\/UX: +STALE/);
     assert.match(text, /modified: .*ReviewQueueSection › reject/);
     assert.match(text, /next: incremental/);

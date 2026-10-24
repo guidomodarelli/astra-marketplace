@@ -3,7 +3,7 @@ name: nextjs-route-ui-boundaries
 description: 'Next.js App Router: decide loading.tsx con skeleton, error.tsx, layouts compartidos, Suspense, server vs client (sidebar, header, tablas, contenedores) y las APIs de Next.js que conviene usar. Usar siempre, sin pedido explícito, al crear o modificar cualquier código de un proyecto Next.js con App Router: archivos de app/ (page, layout, route), contenedores y componentes cliente que monta una ruta (app/**, components/**), hooks, formularios, server actions o next.config, aunque el cambio no toque page.tsx, loading.tsx ni error.tsx y el pedido solo diga mejorar la UI/UX, rediseñar una pantalla o agregar un botón. En un cambio de UI, cargarla junto con ui-ux-flow-patterns: esta decide boundaries y qué es server o cliente; aquella, qué muestra cada estado. No en Pages Router ni en repos sin Next.js.'
 license: MIT
 metadata:
-  version: "1.1.1"
+  version: "1.2.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "nextjs, app-router, loading, error-boundary, layout, suspense, skeleton, server-components"
@@ -43,6 +43,20 @@ Elegir el modo según el alcance del cambio:
 - **Modo completo** (pedido explícito sobre rutas, loading, errores, layouts o rendimiento de navegación; ruta o sección nueva; reestructura de `app/`). Seguir los pasos 0 a 5 completos.
 
 No cambiar boundaries de rutas que el cambio no toca: si se detectan problemas fuera del alcance, listarlos como sugerencia al final en vez de corregirlos.
+
+## Cobertura incremental
+
+Si el repositorio tiene `.golfo/skill-coverage/`, seguí el [protocolo de cobertura](../../references/skill-coverage.md#protocolo-de-una-skill) con `--skill nextjs-route-ui-boundaries` en cada unidad funcional que toque el trabajo: `affected` y `check` antes de decidir, `begin`, `evidence` y `record` al cerrar. El registro decide **cuánto** volver a revisar, nunca **si** cargar la skill: los disparadores de arriba mandan siempre, y sin registro o sin unidad para el código la skill corre igual y no inventa cobertura.
+
+- **Qué incluye la unidad para esta skill.** Además de su código, el motor suma lo que envuelve sus rutas: layouts y templates ancestros, `loading`/`error`/`not-found`/`forbidden`/`unauthorized` heredados, `default` de los slots paralelos, `global-error`, `next.config.*` y `middleware`/`proxy` ([detalle](../../references/skill-coverage.md#políticas-por-skill)). Por eso `affected --paths app/(platform)/layout.tsx --skill nextjs-route-ui-boundaries` lista todas las rutas bajo ese layout, y un handler aislado de una ruta no invalida las demás. Si `check` no ve una dependencia que sí decide un boundary (una ruta interceptada, una URL llamada por `fetch`), declarala en `dependsOn` de la unidad.
+- **Decisión de `check` → modo.** `skip`: la cobertura verificada respalda el resto de la unidad, pero lo que vos agregás o tocás se revisa igual con el checklist del modo liviano. `incremental`: solo el alcance que lista `check` (cada parte con su foco: directiva `"use client"`, `await` nuevo en el render, archivo de ruta movido, layout compartido, skeleton) más su contexto necesario. `full`: los pasos 0 a 5 sobre toda la unidad. Una ruta nueva, una reestructura de `app/` o un pedido de auditoría completa usan `check --force-full` y modo completo aunque la cobertura esté vigente.
+- **Modo de `begin`** igual al que usaste: `lightweight` (modo liviano sobre una unidad ya verificada), `incremental` (el alcance de `check`) o `full` (modo completo).
+- **Evidencia** después de `begin`, solo de lo que realmente hiciste:
+  - `review` con los segmentos y decisiones revisados (tabla del paso 2 o checklist del modo liviano).
+  - `command` con `--exec` del build, lint o typecheck: tiene que correrlo el CLI; un comando declarado no acredita.
+  - `browser` con lo recorrido en el dev server (navegación entre hermanas con la chrome fija, skeleton del segmento destino, error contenido y `retry`, shell server-rendered) o `test` con `--exec` de los tests que ejercen esos estados. El modo liviano pide `review` + (`command` o `test`).
+  - Sin navegador o sin poder correr el build, registrá la falta con `--limitation`: el resultado queda `partial` (o `blocked` si nada se pudo verificar), que es lo que corresponde. No describas navegaciones ni builds que no ocurrieron.
+- **Registros independientes.** La cobertura de `ui-ux-flow-patterns`, `optimistic-action-mutations` o `measured-performance-optimization` sobre la misma unidad no acredita esta skill ni la reemplaza: cada una registra la suya. Las mediciones de rendimiento son de `measured-performance-optimization`; esta skill no las exige.
 
 ## 0. Verificar la versión antes de escribir código
 
@@ -97,6 +111,7 @@ Un `loading.tsx` o un fallback de `<Suspense>` que devuelve texto ("Cargando..."
    - Recargar en una ruta con datos lentos: el HTML inicial ya trae el shell server-rendered (ver código fuente o desactivar JS).
    - Revisar el bundle o las islas `"use client"`: el sidebar no debería aparecer entero como componente cliente.
 4. Actualizar o agregar tests de comportamiento que cubran los estados nuevos (render del skeleton, fallback de error con acción de reintentar, `notFound`), siguiendo la estrategia de testing del proyecto.
+5. Con registro de cobertura, cerrar con `record` por cada unidad tocada y sumar al reporte una línea por unidad: decisión de `check`, resultado registrado y pendientes.
 
 ## Formato del reporte
 

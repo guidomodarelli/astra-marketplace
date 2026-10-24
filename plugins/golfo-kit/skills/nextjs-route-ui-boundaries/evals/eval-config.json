@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "nextjs-route-ui-boundaries",
-  "description": "Evalúa decisiones de boundaries de ruta en Next.js App Router: loading.tsx por segmento con skeleton, error.tsx que preserva la chrome, layouts compartidos con route groups, split server/cliente del sidebar, modo liviano ante cambios puntuales, uso de APIs de Next.js con valor y scope negativo en Pages Router.",
+  "description": "Evalúa decisiones de boundaries de ruta en Next.js App Router: loading.tsx por segmento con skeleton, error.tsx que preserva la chrome, layouts compartidos con route groups, split server/cliente del sidebar, modo liviano ante cambios puntuales, uso de APIs de Next.js con valor y scope negativo en Pages Router, y cobertura incremental con skill-coverage (skip que igual revisa lo nuevo, layout compartido con affected, registros independientes de UI/UX, --force-full y cambios irrelevantes).",
   "test_cases": [
     {
       "id": "plain-text-loading-to-skeleton",
@@ -380,6 +380,136 @@
           "type": "regex",
           "pattern": "(confirm|deshacer|undo|di(a|á)logo)",
           "description": "No ignora la UX de la acción destructiva (complementa con ui-ux-flow-patterns)"
+        }
+      ]
+    },
+    {
+      "id": "coverage-skip-still-reviews-new-use-client",
+      "description": "Con cobertura vigente (check = skip) para la unidad, no re-audita toda la ruta pero sí revisa el cambio nuevo (\"use client\" en la página) en modo liviano y lo registra con begin lightweight, evidence --exec del build/typecheck y record.",
+      "input": "Usando nextjs-route-ui-boundaries en mi app Next.js 16 (App Router). El repo tiene `.golfo/skill-coverage/` y corrí `node ~/golfo-kit/tools/skill-coverage/skill-coverage.mjs check --unit platform.payments.view --skill nextjs-route-ui-boundaries`:\n\n```\ncoverage: CURRENT (state verified, freshness current)\ndecision: SKIP\n  - verified coverage is current\nbaseline: verified full at 9c1d2e3f4a5b (ancestor) · skill 1.2.0\n```\n\nAhora quiero agregar un botón \"Exportar CSV\" en `app/(platform)/payments/page.tsx` con un `onClick`, y para eso pensaba poner `\"use client\"` arriba de la página. No ejecutes nada: decime qué revisás, qué no, y qué comandos de cobertura corrés al terminar.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|sin) (vuelvo|volver|hace falta|es necesario|re-?audit[oa]r?|re-?revis[oa]r?|re-?recorr[oe]r?)[^.]{0,60}(toda|todo|completa|la ruta|la unidad|el árbol)|resto de la (unidad|ruta)|no hago la (auditoría|revisión) completa",
+          "description": "No re-audita toda la unidad porque la cobertura está vigente"
+        },
+        {
+          "type": "regex",
+          "pattern": "hoja|leaf|isla|island|componente (cliente|client) (chico|aparte|separado|propio)|no (en|a) (toda )?la página",
+          "description": "Revisa el cambio nuevo: baja \"use client\" a la hoja interactiva en vez de la página"
+        },
+        {
+          "type": "regex",
+          "pattern": "lightweight",
+          "description": "Registra la corrida en modo lightweight"
+        },
+        {
+          "type": "regex",
+          "pattern": "kind command|evidence[^.]{0,80}--exec",
+          "description": "Registra build, lint o typecheck como evidencia ejecutada con --exec"
+        },
+        {
+          "type": "regex",
+          "pattern": "record[^.]{0,80}--result|--result (verified|partial)",
+          "description": "Cierra con record"
+        }
+      ]
+    },
+    {
+      "id": "coverage-shared-layout-identifies-routes",
+      "description": "Un await nuevo en un layout compartido: usa affected para encontrar todas las rutas bajo el layout, corre check por cada unidad, revisa loading/Suspense y, sin navegador, registra partial con --limitation en lugar de inventar la navegación.",
+      "input": "Usando nextjs-route-ui-boundaries. En `app/(platform)/layout.tsx` agregué `const tribe = await getTribe()` para mostrar el nombre en el header. Debajo están `members/page.tsx`, `payments/page.tsx` y `settings/page.tsx`. El repo tiene `.golfo/skill-coverage/` con una unidad por pantalla. En esta sesión no tengo navegador ni puedo levantar el dev server, pero sí puedo correr `pnpm typecheck`. No ejecutes nada: decime qué comandos de cobertura corrés, en qué orden, qué revisás del layout y cómo registrás el resultado.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "affected",
+          "description": "Usa affected para identificar las unidades afectadas por el layout"
+        },
+        {
+          "type": "regex",
+          "pattern": "members[^.]{0,80}payments|payments[^.]{0,80}settings|(las|todas las) (tres|3) (rutas|unidades|pantallas)|cada (unidad|ruta)",
+          "description": "Reconoce que el layout compartido afecta a todas las rutas que envuelve"
+        },
+        {
+          "type": "regex",
+          "pattern": "suspense|loading\\.tsx",
+          "description": "Revisa que el await del layout tenga su Suspense o loading y no congele la navegación"
+        },
+        {
+          "type": "regex",
+          "pattern": "limitation",
+          "description": "Registra la falta de navegador como limitación"
+        },
+        {
+          "type": "regex",
+          "pattern": "partial",
+          "description": "El resultado queda partial, no verified"
+        },
+        {
+          "type": "regex",
+          "pattern": "--exec[^.]{0,60}typecheck|typecheck[^.]{0,60}--exec",
+          "description": "Registra el typecheck ejecutado como evidencia con --exec"
+        }
+      ]
+    },
+    {
+      "id": "coverage-ui-ux-record-does-not-accredit-nextjs",
+      "description": "Una cobertura verificada de ui-ux-flow-patterns sobre la unidad no es evidencia de esta skill: check de nextjs-route-ui-boundaries da unreviewed → full y se hace el análisis completo de boundaries.",
+      "input": "Usando nextjs-route-ui-boundaries en mi app Next.js App Router con `.golfo/skill-coverage/`. Para la unidad `platform.members.list` ya está verificada la cobertura de ui-ux-flow-patterns (current). Corrí `node ~/golfo-kit/tools/skill-coverage/skill-coverage.mjs check --unit platform.members.list --skill nextjs-route-ui-boundaries` y dio:\n\n```\ncoverage: UNREVIEWED (state unreviewed, freshness unknown)\ndecision: FULL\n  - no previous coverage: the whole unit is analyzed\n```\n\n¿Puedo saltear la revisión de boundaries porque UI/UX ya está cubierto? No ejecutes nada.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no (alcanza|sirve|reemplaza|cubre|acredita|cuenta|vale)|independiente|cada skill (registra|tiene)|(registros|coberturas) (distint|separad|independ)",
+          "description": "Explica que la cobertura de UI/UX no acredita ni reemplaza esta skill"
+        },
+        {
+          "type": "regex",
+          "pattern": "(modo|análisis|auditoría|revisión) complet|--mode full",
+          "description": "Hace el análisis completo de la unidad"
+        },
+        {
+          "type": "regex",
+          "pattern": "layout|loading|error\\.tsx|suspense|use client",
+          "description": "Nombra las decisiones de boundaries que va a revisar"
+        }
+      ]
+    },
+    {
+      "id": "coverage-force-full-on-explicit-audit",
+      "description": "Ante un pedido explícito de auditoría completa, usa check --force-full aunque la cobertura esté vigente y registra en modo full.",
+      "input": "Usando nextjs-route-ui-boundaries: el repo (Next.js 15, App Router) tiene `.golfo/skill-coverage/` y todas las rutas de `app/(platform)/` tienen cobertura vigente de esta skill. Igual quiero que audites de nuevo todos los boundaries de esas rutas desde cero porque cambiamos de librería de componentes. No ejecutes nada: decime cómo corrés la cobertura.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "--force-full",
+          "description": "Usa --force-full para no reutilizar la cobertura vigente"
+        },
+        {
+          "type": "regex",
+          "pattern": "--mode full|modo (completo|full)",
+          "description": "Registra la auditoría en modo full"
+        },
+        {
+          "type": "regex",
+          "pattern": "record",
+          "description": "Cierra cada unidad con record"
+        }
+      ]
+    },
+    {
+      "id": "coverage-format-only-change-skips",
+      "description": "Si check devuelve skip con cambios ignorados (comentarios, copy y estilos que no son de skeleton), no repite la auditoría de boundaries.",
+      "input": "Usando nextjs-route-ui-boundaries. Cambié comentarios de `app/(platform)/members/page.tsx`, el texto del título en `MEMBERS_COPY` y el padding de `members-panel.module.scss`. El repo tiene registro de cobertura y `node ~/golfo-kit/tools/skill-coverage/skill-coverage.mjs check --unit platform.members.list --skill nextjs-route-ui-boundaries` devolvió:\n\n```\ncoverage: CURRENT (state verified, freshness current)\ndecision: SKIP\n  - verified coverage is current\n  - 2 change(s) not relevant to nextjs-route-ui-boundaries\nignored changes:\n  modified: components/members/members-panel.tsx › MEMBERS_COPY.title — copy or display member: no route boundary depends on it\n  modified: components/members/members-panel.module.scss (whole file) — styles outside skeletons and loading boundaries: no route boundary or server/client decision depends on them\n```\n\n¿Tengo que volver a revisar los boundaries de la ruta? No ejecutes nada.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no (hace falta|es necesario|ten(e|é)s que|hay que|corresponde)[^.]{0,50}(revis|audit)|sin (volver a )?(revisar|auditar)",
+          "description": "No repite la revisión de boundaries"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|ninguno) (cambian|afectan|mueven|tocan|alteran)[^.]{0,60}(boundar|decisi|layout|server|cliente|ruta)|sin (impacto|efecto) (en|sobre) (los )?(boundar|decisi|la ruta)|(irrelevantes|no relevantes) para|ninguno de (sus|los) [^.]{0,40}aplica|no (agrega|agregaste|introduce|introducen) [^.]{0,20}(use client|await|boundar)",
+          "description": "Justifica que los cambios no mueven decisiones de boundaries"
         }
       ]
     }

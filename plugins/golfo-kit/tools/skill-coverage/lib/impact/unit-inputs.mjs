@@ -18,10 +18,11 @@
  * A literal `import('./x')` is followed as a whole-module import from the
  * part that contains it, like a static import of `* from './x'`.
  */
-import { ANALYZER_VERSION, FILE_LEVEL_ANALYZER, MAX_UNIT_INPUT_ENTRIES } from '../constants.mjs';
+import { ANALYZER_VERSION, FILE_LEVEL_ANALYZER, MAX_UNIT_INPUT_ENTRIES, PACKAGE_METADATA_FILES } from '../constants.mjs';
 import { fingerprintOf } from '../support.mjs';
 
 const MISSING_HASH = 'missing';
+const PACKAGE_MANIFEST_FILE = PACKAGE_METADATA_FILES.manifest;
 const ROUTE_HANDLER_PATTERN = /(?:^|\/)route\.[cm]?[jt]sx?$/;
 const REFERENCE_PATTERN = /^([^/.~]+)(?:\/([^/.]+)|\.(.+)|(~shell))?$/;
 
@@ -55,7 +56,8 @@ export function unitEntries(unit, config, skill) {
  * @returns {{
  *   analyzer: string, fingerprint: string, inputs: Record<string, string>, files: Record<string, string>,
  *   signals: Record<string, Record<string, number>>, fileLevelFiles: Record<string, string>,
- *   unresolved: string[], warnings: string[], truncated: boolean, via: Record<string, string>
+ *   unresolved: string[], warnings: string[], truncated: boolean, via: Record<string, string>,
+ *   importers: Record<string, string[]>
  * }}
  */
 export function computeUnitInputs({ index, unit, config, policy }) {
@@ -68,6 +70,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   const queue = [];
   const expansionScopes = new Map();
   const via = {};
+  const importers = new Map();
   let truncated = false;
   let inputCount = 0;
 
@@ -121,6 +124,19 @@ export function computeUnitInputs({ index, unit, config, policy }) {
       continue;
     }
     queue.push({ depth: 0, explicit: true, follow: entry.follow !== false, from: `entry:${entry.path}#${entry.symbol ?? '*'}`, path: entry.path, reference: entry.symbol ?? '*', role: entryRole(entry) });
+  }
+  // Context the policy derives from the project (for example the layouts and
+  // boundaries that wrap the unit's routes): existing files only, subject to
+  // the ignore list and the policy exclusions like any reached file.
+  for (const entry of policy.contextEntries?.({ config, index, unit }) ?? []) {
+    // A package the unit depends on without importing it (the framework that
+    // runs its routes) is tracked at the version the project declares.
+    if (entry.package) {
+      const resolution = index.resolver.resolve(PACKAGE_MANIFEST_FILE, entry.package);
+      if (resolution.kind === 'package') addInput(`pkg:${resolution.name}`, resolution.versionHash, undefined, `context:pkg:${entry.package}`);
+      continue;
+    }
+    queue.push({ depth: 0, explicit: false, follow: entry.follow !== false, from: `context:${entry.path}#${entry.symbol ?? '*'}`, path: entry.path, reference: entry.symbol ?? '*', role: entry.role ?? entryRole(entry) });
   }
 
   /**
@@ -261,6 +277,10 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   while (queue.length && !truncated) {
     const context = queue.shift();
     if (!context.explicit && (index.isIgnored(context.path) || policy.excludesFile?.(context.path))) continue;
+    // Every part that reaches a file, not only the first one `via` keeps: a
+    // file shared by several consumers belongs to all of them.
+    if (!importers.has(context.path)) importers.set(context.path, new Set());
+    importers.get(context.path).add(context.from);
     if (!claimExpansion(`${context.path}\0${context.reference}`, context)) continue;
     const analysis = index.analyze(context.path);
     if (!analysis) {
@@ -297,6 +317,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
     fileLevelFiles,
     files,
     fingerprint: fingerprintOf(inputs),
+    importers: Object.fromEntries([...importers].map(([filePath, parents]) => [filePath, [...parents].sort()])),
     inputs,
     signals,
     truncated,
@@ -308,7 +329,8 @@ export function computeUnitInputs({ index, unit, config, policy }) {
 
 /**
  * Chain of parts through which a unit reaches an input, from the input back
- * to the unit entry (`entry:path#symbol`).
+ * to the unit entry (`entry:path#symbol`) or the policy context entry
+ * (`context:path#symbol`).
  *
  * @param {Record<string, string>} via Parent of each input, from `computeUnitInputs`.
  * @param {string} key Input key.

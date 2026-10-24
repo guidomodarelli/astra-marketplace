@@ -7,32 +7,9 @@
  * measurement under comparable conditions.
  */
 import { splitInputKey } from '../impact/input-diff.mjs';
-import { describeInputKey } from './base-policy.mjs';
+import { describeInputKey, increasedSignals } from './base-policy.mjs';
 
 const NON_LOAD_FILE_PATTERN = /\.(?:s?css|sass|less|po|pot|md|mdx)$/;
-
-const SIGNAL_LABELS = {
-  awaitInLoop: 'awaited calls inside a loop',
-  awaits: 'awaited steps',
-  database: 'database queries',
-  dynamicImports: 'dynamic imports',
-  effects: 'effects',
-  fetch: 'requests',
-  listeners: 'listeners or subscriptions',
-  projectCalls: 'calls to I/O helpers',
-  timers: 'timers or polling',
-};
-
-/**
- * @param {Record<string, number> | undefined} previous
- * @param {Record<string, number> | undefined} current
- * @returns {string[]} Increased signals, described.
- */
-function increasedSignals(previous = {}, current = {}) {
-  return Object.entries(current)
-    .filter(([name, count]) => count > (previous[name] ?? 0))
-    .map(([name, count]) => `+${count - (previous[name] ?? 0)} ${SIGNAL_LABELS[name] ?? name}`);
-}
 
 export const measuredPerformanceOptimizationPolicy = {
   definitionFiles: ['SKILL.md', 'references/**/*.md'],
