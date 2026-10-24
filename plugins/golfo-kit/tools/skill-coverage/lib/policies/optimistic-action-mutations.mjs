@@ -10,6 +10,7 @@
  */
 import { splitInputKey } from '../impact/input-diff.mjs';
 import { describeInputKey } from './base-policy.mjs';
+import { isPresentationMember } from './presentation-members.mjs';
 
 const NO_LIFECYCLE_FILE_PATTERN = /\.(?:s?css|sass|less|po|pot|md|mdx)$/;
 const SERVER_FILE_PATTERN = /(?:^|\/)(?:route|actions?)\.[cm]?[jt]sx?$|(?:^|\/)(?:api|server|actions)\//;
@@ -21,47 +22,11 @@ const SERVER_FILE_PATTERN = /(?:^|\/)(?:route|actions?)\.[cm]?[jt]sx?$|(?:^|\/)(
 const LIFECYCLE_MEMBER_PATTERN = /delay|debounce|throttle|timeout|interval|retr(?:y|ies)|backoff|cooldown|ttl|expir|limit|max|min|attempt|concurren|batch|poll|url|endpoint|path|route|method|query|key|status|code|version|idempoten/i;
 
 /**
- * Last word of an object name that marks it as a copy dictionary (`COPY`,
- * `PROVIDERS_COPY`, `saveMessages`, `UI_TEXT`): its members are presentation.
- */
-const COPY_DICTIONARY_WORD_PATTERN = /^(?:cop(?:y|ies)|messages?|labels?|texts?|strings?|i18n|translations?|content)$/i;
-
-/**
- * Last word of a member name that marks it as visible text (`providersTitle`,
- * `helpText`, `errorMessage`) instead of configuration or executable code.
- */
-const PRESENTATION_MEMBER_WORD_PATTERN = /^(?:title|subtitle|heading|label|placeholder|description|tooltip|caption|copy|text|message)s?$/i;
-
-/** Separators between the words of an identifier: dots, underscores, dashes and camelCase humps. */
-const IDENTIFIER_WORD_SEPARATOR_PATTERN = /[._$-]+|(?<=[a-z])(?=[A-Z])/;
-
-/**
  * @param {Record<string, number> | undefined} signals
  * @returns {boolean} Whether a part performs I/O, timers, effects or subscriptions.
  */
 function hasOperationSignals(signals) {
   return Boolean(signals && Object.keys(signals).length);
-}
-
-/**
- * @param {string} identifier Object or member name, possibly a dotted path.
- * @returns {string} Last word of the identifier, splitting camelCase and separators.
- */
-function lastIdentifierWord(identifier) {
-  const words = identifier.split(IDENTIFIER_WORD_SEPARATOR_PATTERN).filter(Boolean);
-  return words.at(-1) ?? '';
-}
-
-/**
- * Only members positively identified by name as presentation leave the
- * coverage current; unknown configuration and executable members do not.
- *
- * @param {string} objectName Part before the first dot (`COPY` in `COPY.title`).
- * @param {string} member Part after the first dot.
- * @returns {boolean} Whether the object is a copy dictionary or the member is visible text.
- */
-function isPresentationMember(objectName, member) {
-  return COPY_DICTIONARY_WORD_PATTERN.test(lastIdentifierWord(objectName)) || PRESENTATION_MEMBER_WORD_PATTERN.test(lastIdentifierWord(member));
 }
 
 /**

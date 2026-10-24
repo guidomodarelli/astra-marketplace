@@ -20,9 +20,8 @@ import path from 'node:path';
 import { ROUTE_BOUNDARY_FILES, SCHEMA_VERSION } from '../constants.mjs';
 import { splitInputKey } from '../impact/input-diff.mjs';
 import { computeUnitInputs } from '../impact/unit-inputs.mjs';
+import { PAGE_FILE_PATTERN, ROUTE_HANDLER_FILE_PATTERN, appDirectoryOf, nearestSegmentFiles, routeOfFile } from '../source/next-route-tree.mjs';
 
-const PAGE_FILE_PATTERN = /(?:^|\/)page\.[cm]?[jt]sx?$/;
-const ROUTE_FILE_PATTERN = /(?:^|\/)route\.[cm]?[jt]sx?$/;
 const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
 /** Route exports every page or route handler shares: their name alone never identifies a moved entry. */
 const ROUTE_EXPORT_SYMBOLS = new Set(['default', ...HTTP_METHODS]);
@@ -50,10 +49,9 @@ function toKebab(text) {
  * @returns {{ route: string, idSegments: string[] }}
  */
 function routeOf(appDirectory, filePath) {
-  const segments = path.posix.dirname(filePath).slice(appDirectory.length).split('/').filter(Boolean)
-    .filter((segment) => !/^\(.*\)$/.test(segment) && !segment.startsWith('@'));
+  const { route, segments } = routeOfFile(appDirectory, filePath);
   const idSegments = segments.filter((segment) => !segment.startsWith('[')).map(toKebab).filter(Boolean);
-  return { idSegments: idSegments.length ? idSegments : ['root'], route: `/${segments.join('/')}` };
+  return { idSegments: idSegments.length ? idSegments : ['root'], route };
 }
 
 /**
@@ -100,36 +98,12 @@ function actionSlug(innerName) {
 }
 
 /**
- * Nearest route boundary files (`loading`, `error`, ...) of a page.
- *
- * @param {any} index
- * @param {string} appDirectory
- * @param {string} pagePath
- * @returns {string[]}
- */
-function routeBoundaries(index, appDirectory, pagePath) {
-  const found = [];
-  for (const boundary of ROUTE_BOUNDARY_FILES) {
-    let directory = path.posix.dirname(pagePath);
-    while (directory.length >= appDirectory.length) {
-      const match = ['.tsx', '.jsx', '.ts', '.js'].map((extension) => `${directory}/${boundary}${extension}`).find((candidate) => index.files.has(candidate));
-      if (match) {
-        found.push(match);
-        break;
-      }
-      directory = path.posix.dirname(directory);
-    }
-  }
-  return found;
-}
-
-/**
  * @param {any} context Project context.
  * @param {{ scope?: string, includeApi?: boolean }} options
  */
 export function discoverUnits(context, options = {}) {
   const index = context.index;
-  const appDirectory = index.files.has('src/app/layout.tsx') || [...index.files].some((file) => file.startsWith('src/app/')) ? 'src/app' : 'app';
+  const appDirectory = appDirectoryOf(index.files);
   const uiPrefixes = [`${appDirectory}/`, 'components/', 'src/components/', 'hooks/', 'src/hooks/'];
   const isUiFile = (filePath) => uiPrefixes.some((prefix) => filePath.startsWith(prefix));
   const inScope = (filePath) => !options.scope || filePath.startsWith(options.scope.replace(/\\/g, '/').replace(/\/?$/, '/')) || filePath === options.scope;
@@ -248,7 +222,7 @@ export function discoverUnits(context, options = {}) {
     if (pageLoadsData || !pageProposals.length) {
       pageProposals.push({
         confidence: pageProposals.length ? 'medium' : 'low',
-        entries: [{ path: pagePath, symbol: 'default' }, ...routeBoundaries(index, appDirectory, pagePath).map((boundary) => ({ path: boundary, symbol: 'default' }))],
+        entries: [{ path: pagePath, symbol: 'default' }, ...nearestSegmentFiles(index, appDirectory, pagePath, ROUTE_BOUNDARY_FILES).map((boundary) => ({ path: boundary, symbol: 'default' }))],
         hierarchy: { module: moduleLabel, page: route, section: null, subflow: 'view' },
         id: [...idSegments, 'view'].join('.'),
         kind: 'ui-flow',
@@ -260,7 +234,7 @@ export function discoverUnits(context, options = {}) {
   }
 
   if (options.includeApi) {
-    const routes = [...index.files].filter((filePath) => filePath.startsWith(`${appDirectory}/`) && ROUTE_FILE_PATTERN.test(filePath) && inScope(filePath)).sort();
+    const routes = [...index.files].filter((filePath) => filePath.startsWith(`${appDirectory}/`) && ROUTE_HANDLER_FILE_PATTERN.test(filePath) && inScope(filePath)).sort();
     for (const routePath of routes) {
       const { idSegments, route } = routeOf(appDirectory, routePath);
       const analysis = index.analyze(routePath);

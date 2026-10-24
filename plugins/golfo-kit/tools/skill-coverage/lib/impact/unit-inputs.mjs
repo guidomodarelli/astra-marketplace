@@ -122,6 +122,12 @@ export function computeUnitInputs({ index, unit, config, policy }) {
     }
     queue.push({ depth: 0, explicit: true, follow: entry.follow !== false, from: `entry:${entry.path}#${entry.symbol ?? '*'}`, path: entry.path, reference: entry.symbol ?? '*', role: entryRole(entry) });
   }
+  // Context the policy derives from the project (for example the layouts and
+  // boundaries that wrap the unit's routes): existing files only, subject to
+  // the ignore list and the policy exclusions like any reached file.
+  for (const entry of policy.contextEntries?.({ config, index, unit }) ?? []) {
+    queue.push({ depth: 0, explicit: false, follow: entry.follow !== false, from: `context:${entry.path}#${entry.symbol ?? '*'}`, path: entry.path, reference: entry.symbol ?? '*', role: entry.role ?? entryRole(entry) });
+  }
 
   /**
    * Queues a cross-file reference through an import binding.
@@ -308,7 +314,8 @@ export function computeUnitInputs({ index, unit, config, policy }) {
 
 /**
  * Chain of parts through which a unit reaches an input, from the input back
- * to the unit entry (`entry:path#symbol`).
+ * to the unit entry (`entry:path#symbol`) or the policy context entry
+ * (`context:path#symbol`).
  *
  * @param {Record<string, string>} via Parent of each input, from `computeUnitInputs`.
  * @param {string} key Input key.

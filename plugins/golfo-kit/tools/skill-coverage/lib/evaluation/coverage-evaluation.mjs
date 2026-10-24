@@ -45,7 +45,7 @@ export function evaluateAttempt({ attempt, current, definition, policy, git }) {
   changes = analyzerChanged
     ? diffInputs(sharedAnalyzerIndependentInputs(baseline.inputs, current.inputs), sharedAnalyzerIndependentInputs(current.inputs, baseline.inputs))
     : diffInputs(baseline.inputs, current.inputs);
-  const context = { currentSignals: current.signals ?? {}, previousSignals: baseline.signals ?? {}, signalsRecorded: baseline.signals !== undefined };
+  const context = { currentSignals: current.signals ?? {}, currentVia: current.via ?? {}, previousSignals: baseline.signals ?? {}, signalsRecorded: baseline.signals !== undefined };
   for (const change of changes) {
     const classification = policy.classifyChange(change, context);
     const classified = { ...change, reason: classification.reason };

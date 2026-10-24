@@ -7,6 +7,7 @@ import { EVIDENCE_KINDS, EXECUTION_MODES } from '../constants.mjs';
 import { CoverageError, matchesAnyGlob } from '../support.mjs';
 import { describeInputKey } from './base-policy.mjs';
 import { measuredPerformanceOptimizationPolicy } from './measured-performance-optimization.mjs';
+import { nextjsRouteUiBoundariesPolicy } from './nextjs-route-ui-boundaries.mjs';
 import { optimisticActionMutationsPolicy } from './optimistic-action-mutations.mjs';
 import { uiUxFlowPatternsPolicy } from './ui-ux-flow-patterns.mjs';
 
@@ -14,6 +15,7 @@ const BUILT_IN_POLICIES = new Map([
   [uiUxFlowPatternsPolicy.skill, uiUxFlowPatternsPolicy],
   [measuredPerformanceOptimizationPolicy.skill, measuredPerformanceOptimizationPolicy],
   [optimisticActionMutationsPolicy.skill, optimisticActionMutationsPolicy],
+  [nextjsRouteUiBoundariesPolicy.skill, nextjsRouteUiBoundariesPolicy],
 ]);
 
 /**

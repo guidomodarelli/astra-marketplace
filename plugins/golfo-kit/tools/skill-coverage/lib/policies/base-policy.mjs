@@ -16,6 +16,14 @@
  *   one passing item.
  * - `validateEvidence(evidence)`: extra checks of one evidence item.
  * - `suggestScope(decision, relevantChanges, context)`: next run's scope.
+ * - `contextEntries({ unit, index, config })` (optional): extra entries the
+ *   unit's closure needs for this skill and that the unit does not declare,
+ *   such as the layouts and boundaries wrapping its routes. Each entry is
+ *   `{ path, symbol, role, follow }` and must name an existing file.
+ *
+ * `classifyChange` receives `previousSignals`, `currentSignals`,
+ * `signalsRecorded` and `currentVia` (the parent of each current input, for
+ * `dependencyChain`).
  */
 import { splitInputKey } from '../impact/input-diff.mjs';
 
@@ -34,6 +42,30 @@ export function describeInputKey(key) {
   if (part.endsWith('~shell')) return `${path} › ${part.slice(0, -6)} (component body outside its handlers)`;
   if (part.endsWith('~frame')) return `${path} › ${part.slice(0, -6)} (object structure)`;
   return `${path} › ${part.replace('/', ' › ')}`;
+}
+
+/** Human description of each load signal the module analyzer counts. */
+const SIGNAL_LABELS = {
+  awaitInLoop: 'awaited calls inside a loop',
+  awaits: 'awaited steps',
+  database: 'database queries',
+  dynamicImports: 'dynamic imports',
+  effects: 'effects',
+  fetch: 'requests',
+  listeners: 'listeners or subscriptions',
+  projectCalls: 'calls to I/O helpers',
+  timers: 'timers or polling',
+};
+
+/**
+ * @param {Record<string, number> | undefined} previous
+ * @param {Record<string, number> | undefined} current
+ * @returns {string[]} Increased signals, described.
+ */
+export function increasedSignals(previous = {}, current = {}) {
+  return Object.entries(current)
+    .filter(([name, count]) => count > (previous[name] ?? 0))
+    .map(([name, count]) => `+${count - (previous[name] ?? 0)} ${SIGNAL_LABELS[name] ?? name}`);
 }
 
 /**

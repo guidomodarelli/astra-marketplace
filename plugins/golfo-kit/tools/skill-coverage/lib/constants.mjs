@@ -90,3 +90,27 @@ export const EXIT_CODES = { failure: 1, ok: 0, refused: 3, usage: 2 };
 
 /** Next.js App Router files that define what a route segment shows while loading or failing. */
 export const ROUTE_BOUNDARY_FILES = ['loading', 'error', 'not-found', 'template'];
+
+/**
+ * Next.js App Router files of a segment that wrap, replace or complete what
+ * the routes below it render: shared chrome, remount, loading, error,
+ * missing or forbidden resources, and the fallback of a parallel route slot.
+ */
+export const NEXT_SEGMENT_FILES = ['layout', 'template', 'loading', 'error', 'not-found', 'forbidden', 'unauthorized', 'default'];
+
+/** Next.js files that only apply at the root of the app directory. */
+export const NEXT_ROOT_SEGMENT_FILES = ['global-error', 'global-not-found'];
+
+/** Extensions a Next.js segment file can have. */
+export const NEXT_SEGMENT_FILE_EXTENSIONS = ['.tsx', '.jsx', '.ts', '.js'];
+
+/**
+ * Project files that configure rendering, caching or navigation of every
+ * route (`proxy` is the Next.js 16 name of `middleware`), with the
+ * directories, relative to the project root, where Next.js looks for them.
+ */
+export const NEXT_PROJECT_FILES = [
+  { directories: [''], extensions: ['.ts', '.mts', '.mjs', '.js', '.cjs'], name: 'next.config' },
+  { directories: ['', 'src/'], extensions: ['.ts', '.js'], name: 'middleware' },
+  { directories: ['', 'src/'], extensions: ['.ts', '.js'], name: 'proxy' },
+];

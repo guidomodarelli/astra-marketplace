@@ -176,7 +176,7 @@ function renderCheck(payload) {
     lines.push('  relevant changes:');
     for (const change of payload.relevantChanges) {
       lines.push(`    ${change.change}: ${describeInputKey(change.key)} — ${change.reason}`);
-      if (change.via?.length > 1) lines.push(`      via ${change.via.map((key) => key.replace(/^entry:/, 'entry ')).join(' ← ')}`);
+      if (change.via?.length > 1) lines.push(`      via ${change.via.map((key) => key.replace(/^(entry|context):/, '$1 ')).join(' ← ')}`);
     }
   }
   if (payload.ignoredChanges.length) {
