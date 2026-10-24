@@ -103,6 +103,515 @@
           "description": "No propone exponer errores crudos de base de datos en la UI"
         }
       ]
+    },
+    {
+      "id": "safe-optimistic-favorite-rollback",
+      "description": "Clasifica un favorito como optimistic: aplica al instante, guarda el baseline confirmado por entidad y revierte solo esa card si el servidor falla.",
+      "input": "En una app Vue 3 con Pinia, la estrella de favorito de `PropertyCard.vue` hace `await api.toggleFavorite(id)` y recién después cambia de color; tarda un segundo. Quiero que responda al instante. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "optimistic|optimista",
+          "description": "Clasifica la acción como optimista"
+        },
+        {
+          "type": "regex",
+          "pattern": "baseline|estado (confirmado|persistido)|snapshot",
+          "description": "Guarda el último estado confirmado por el servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "rollback|revert|restaur|deshac",
+          "description": "Revierte ante un fallo del servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "por (id|entidad|propiedad|card)|per[- ]entity|keyed|propertyId|\\[id\\]|Map<|byId",
+          "description": "Mantiene la intención pendiente por entidad"
+        },
+        {
+          "type": "regex",
+          "pattern": "(antes del|antes de) (await|request|fetch|la llamada|llamar|enviar|la respuesta)|estado optimista|optimistic state|feedback inmediato|inmediat(o|a|amente).{0,40}(UI|estado|estrella|feedback)|sin esperar (la respuesta|al servidor)",
+          "description": "Actualiza la UI antes de la respuesta"
+        }
+      ]
+    },
+    {
+      "id": "subscription-upgrade-server-confirmed",
+      "description": "Ante un upgrade de plan que muestra éxito antes del cobro, exige confirmación del servidor, pending en el botón y consulta del estado ante timeout.",
+      "input": "En el checkout de suscripción (Next.js), el botón \"Pasar a Pro\" llama a `upgradePlan()` y en el mismo click mostramos \"¡Plan Pro activado!\" y desbloqueamos las features Pro, antes de que vuelva la respuesta del cobro. El PM dice que así se siente rápido. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "server-confirmed|confirmaci(o|ó)n (del|por el) servidor|esperar (la )?(respuesta|confirmaci)|confirmad[oa] por el servidor",
+          "description": "Exige la confirmación del servidor antes de mostrar el éxito"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(anticip|mostrar|desbloque|activ).{0,60}(antes|hasta)|(é|e)xito falso|falso (é|e)xito|nunca (puede )?anticipar (el )?(é|e)xito|no aparece .{0,60}(activado|features)",
+          "description": "No anticipa el éxito ni desbloquea antes de la confirmación"
+        },
+        {
+          "type": "regex",
+          "pattern": "pending|pendiente|procesando|spinner|isPending",
+          "description": "Da feedback inmediato de pending"
+        },
+        {
+          "type": "regex",
+          "pattern": "(consult|verific|comprob).{0,80}(estado|status)|resultado (desconocido|incierto)|unknown",
+          "description": "Ante timeout consulta el estado en vez de asumir fallo"
+        },
+        {
+          "type": "regex",
+          "pattern": "idempoten",
+          "description": "Protege el cobro con idempotencia"
+        }
+      ]
+    },
+    {
+      "id": "points-transfer-unknown-outcome",
+      "description": "Ante un timeout en una transferencia con efectos, no reintenta a ciegas: pasa a resultado desconocido, consulta el estado por id u operación y usa clave de idempotencia.",
+      "input": "Tenemos \"Transferir puntos a otro alumno\". Si `POST /api/points/transfers` tarda más de 15 s cortamos con AbortController, mostramos \"Falló la transferencia\" y un botón \"Reintentar\" que vuelve a hacer el POST. Hubo alumnos que recibieron puntos dos veces. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "resultado (desconocido|incierto)|unknown[- ]outcome|no sabemos si|pudo (haberse )?(ejecutad|aplicad|complet)",
+          "description": "Reconoce que el timeout deja el resultado desconocido"
+        },
+        {
+          "type": "regex",
+          "pattern": "(abort|cancel).{0,120}(no (deshace|revierte|cancela)|no significa)|no (deshace|revierte).{0,60}(escritura|servidor)|(abortar|abort).{0,20}no es deshacer|corta solo el request",
+          "description": "Aclara que abortar no deshace la escritura en el servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "(consult|verific|comprob|chequ).{0,80}(estado|status|operaci)",
+          "description": "Consulta el estado antes de repetir"
+        },
+        {
+          "type": "regex",
+          "pattern": "idempoten",
+          "description": "Usa una clave de idempotencia en el reintento"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(reintent|repet|volver a (hacer|enviar|llamar)).{0,80}(autom(a|á)tic|a ciegas|sin (consultar|verificar|comprobar|saber))|bloque[a-z]* (el )?(repetir|reintent)|repetir.{0,40}hasta (saber|confirmar|que se confirme)|antes de repetir|(misma|mismo) (clave|key|operationKey).{0,80}(reintent|reenv)|reintent.{0,80}(misma|mismo) (clave|key)",
+          "description": "No repite la mutación a ciegas"
+        }
+      ]
+    },
+    {
+      "id": "comment-double-post-temp-id",
+      "description": "Un comentario que se duplica con doble Enter se protege en el handler, usa id temporal reconciliado con el definitivo y no se duplica al llegar el refetch.",
+      "input": "En el hilo de comentarios (React + TanStack Query v5), si el usuario aprieta Enter dos veces rápido se crean dos comentarios iguales. Además, cuando agregamos el comentario a la lista antes de la respuesta, al volver el refetch aparece duplicado. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(guard|ref|flag|en curso|in[- ]?flight|isPending|isSubmitting).{0,140}(handler|segundo|doble|ignor|return)|no (alcanza|basta) con (deshabilitar|disabled)",
+          "description": "Protege el doble envío en el handler y no solo con el botón deshabilitado"
+        },
+        {
+          "type": "regex",
+          "pattern": "id temporal|temp(orary)?[ _-]?id|clientId|client[- ]id|optimisticId",
+          "description": "Usa un id temporal del cliente"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reemplaz|reconcili|sustitu|cambi).{0,80}(id (real|definitivo|del servidor)|server id)|(id (real|definitivo|del servidor)).{0,80}(reemplaz|reconcili)",
+          "description": "Reconcilia el id temporal con el definitivo"
+        },
+        {
+          "type": "regex",
+          "pattern": "idempoten|dedup",
+          "description": "Evita efectos duplicados"
+        },
+        {
+          "type": "regex",
+          "pattern": "cancelQueries|setQueryData|onMutate|invalidateQueries",
+          "description": "Usa las primitivas de TanStack Query del proyecto"
+        }
+      ]
+    },
+    {
+      "id": "star-rating-rapid-clicks-last-intent",
+      "description": "Con clicks rápidos en una calificación por estrellas persiste solo la última intención: debounce del envío, no del feedback, flush posterior si hay request en curso y respuesta vieja que no pisa.",
+      "input": "Calificación de 1 a 5 estrellas en `CourseRating.tsx`. Cada click hace un `PUT /api/courses/:id/rating`. Los usuarios pasan el mouse y clickean 3 o 4 veces seguidas; llegan respuestas en otro orden y la estrella queda en un valor que el usuario no eligió. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(última|ultima|latest|last) (intenci|intent|valor|selecci)",
+          "description": "Persiste solo la última intención"
+        },
+        {
+          "type": "regex",
+          "pattern": "debounce.{0,120}(envío|envio|flush|request|petici|PUT)|(envío|envio|flush|request|PUT).{0,120}debounce",
+          "description": "Aplica el debounce al envío"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,40}debounce.{0,60}(visual|feedback|UI|estrella)|feedback (visual )?(inmediat|al instante)",
+          "description": "No retrasa el feedback visual"
+        },
+        {
+          "type": "regex",
+          "pattern": "secuencia|sequence|version|requestId|seq|(respuesta|response)s? (vieja|antigua|obsolet|stale|desordenad|fuera de orden)",
+          "description": "Descarta respuestas viejas o fuera de orden"
+        },
+        {
+          "type": "regex",
+          "pattern": "shouldFlushAfterRequest|isRequestInFlight|en curso|in[- ]?flight",
+          "description": "Encola el envío si hay un request en curso"
+        }
+      ]
+    },
+    {
+      "id": "search-out-of-order-get",
+      "description": "Una búsqueda con respuestas fuera de orden se trata como lectura: sin optimismo, respuesta aplicada solo si coincide con el término vigente, cancelación y datos previos conservados.",
+      "input": "El buscador de alumnos hace `fetch(/api/students?q=...)` en cada tecla. A veces, después de escribir \"garcia\", la lista muestra los resultados de \"gar\" porque esa respuesta llegó última. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(abort|cancel).{0,60}(anterior|previ|vieja)|AbortController|signal",
+          "description": "Cancela o ignora el pedido anterior"
+        },
+        {
+          "type": "regex",
+          "pattern": "(término|termino|query|q|parámetro|parametro|clave|key).{0,80}(vigente|actual|coincid|compar)|queryKey",
+          "description": "Aplica la respuesta solo si coincide con el término vigente"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserv|mantener|mantené|keepPrevious|previous ?data|datos anteriores)",
+          "description": "Conserva los resultados previos mientras carga"
+        },
+        {
+          "type": "regex",
+          "pattern": "lectura|read|GET|no (hay|aplica|corresponde).{0,40}optimis|sin optimis",
+          "description": "Lo trata como lectura, no como mutación optimista"
+        }
+      ]
+    },
+    {
+      "id": "settings-save-entity-switch",
+      "description": "Al cambiar de tribu con un guardado en curso, la respuesta de la tribu anterior no se aplica a la nueva, el estado se resetea por entidad y el guardado de la anterior queda con resultado confirmado o consultado.",
+      "input": "En la pantalla de configuración de tribu, el usuario guarda la tribu A (tarda 3 s) y antes de que termine cambia a la tribu B en el selector. Cuando vuelve la respuesta de A, el formulario de B muestra los valores de A y el mensaje \"Guardado\". No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(ignor|descart|no (aplicar|apliques|se aplica)).{0,80}(respuesta|response)|(respuesta|response).{0,80}(ignor|descart|no se aplica)|(tribeId|tribu).{0,60}(vigente|actual)|siga siendo (el|la) vigente",
+          "description": "No aplica la respuesta de A sobre B"
+        },
+        {
+          "type": "regex",
+          "pattern": "(por|atad[oa] a|key|clave|id de) (tribu|entidad)|tribeId|key=\\{",
+          "description": "Ata el estado a la entidad seleccionada"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reset|limpi|reinici).{0,80}(estado|formulario|error|mensaje)|key=\\{selected[A-Za-z]*Id\\}|remont",
+          "description": "Resetea estado, errores y mensajes al cambiar de entidad"
+        },
+        {
+          "type": "regex",
+          "pattern": "(abort|cancel).{0,120}(no (deshace|revierte|cancela)|igual (se )?(guard|aplic))|(sigue|continúa|continua).{0,40}(en el servidor|guard)|abortar no es deshacer|el servidor lo aplica igual|no cancela ni deshace",
+          "description": "Reconoce que el guardado de A pudo completarse en el servidor"
+        }
+      ]
+    },
+    {
+      "id": "kanban-conflict-and-permission",
+      "description": "Mover una tarjeta que vuelve 409 o 403: el conflicto toma la versión del servidor sin perder la intención local y el rechazo por permiso revierte y explica sin reintentar.",
+      "input": "Tablero kanban con movimiento optimista de tarjetas. El backend ahora responde 409 con `{ currentVersion }` si otro usuario movió la tarjeta, y 403 si el usuario perdió el rol de editor. Hoy en los dos casos reintentamos el mismo PATCH tres veces. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "409.{0,200}(versi(o|ó)n del servidor|servidor (manda|gana)|recarg|refetch|resolver el conflicto|tomar la versi)",
+          "description": "Resuelve el 409 con la versión del servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "403.{0,200}(rollback|revert|restaur|deshac|vuelve)",
+          "description": "Revierte el movimiento ante un 403"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca|sin).{0,40}(reintent|retry).{0,80}(403|permis|rechaz|409|conflicto)|(403|permis).{0,80}(no|sin) (reintent|retry)",
+          "description": "No reintenta rechazos por permiso o conflicto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserv|mantener|no perder|guardar).{0,80}(intenci|movimiento|cambio local|edici)|(intenci(o|ó)n|movimiento) local.{0,40}(se )?(conserv|guard)",
+          "description": "Conserva la intención local hasta que el usuario decida"
+        }
+      ]
+    },
+    {
+      "id": "otp-expired-resend-lifecycle",
+      "description": "Reenvío de código SMS vencido: pending-first sin afirmar envío, vencido distinto de error de red, deduplicación, cooldown y vencimiento del servidor, desafío vigente contra respuestas tardías y tests de los seis escenarios.",
+      "input": "Solicitud de acceso con código SMS (React). El código vence con la pantalla abierta y el input queda bloqueado. Quiero un botón \"Reenviar código\" que llame a `POST /api/access-requests/:id/otp/resend`; el backend devuelve `{ challengeId, expiresAt, resendAvailableAt }`, 429 con `Retry-After` o 5xx. A veces la respuesta del primer reenvío llega después de la del segundo. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño. Incluí qué tests escribirías.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "pending-first|pending|enviando|en curso",
+          "description": "El reenvío entra en pending"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(decir|mostrar|afirmar|anunciar|indicar).{0,60}(envi(ó|o|amos|ado)|se envió)|hasta (la|que) (respuesta|confirm)|hasta (recibir )?(la|que) (respuesta|confirm|responda)|no aparece .{0,40}(te enviamos|enviado)",
+          "description": "No afirma que se envió el SMS antes de la respuesta"
+        },
+        {
+          "type": "regex",
+          "pattern": "(vencid|expir).{0,160}(red|conexi(o|ó)n|network)|(red|network).{0,160}(vencid|expir)",
+          "description": "Distingue código vencido de fallo de red"
+        },
+        {
+          "type": "regex",
+          "pattern": "(desde|seg(u|ú)n|deriv|tom(a|ar|á)|usar|usando|a partir de).{0,60}(expiresAt|resendAvailableAt|Retry-After)|(no|sin|nunca).{0,30}(contador|timer|temporizador) local|fuente de verdad|autoritativ",
+          "description": "Toma vencimiento y cooldown del servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "challengeId.{0,160}(vigente|actual|compar|descart|ignor|coincid)|desaf(i|í)o (vigente|anterior)",
+          "description": "Descarta respuestas de un desafío anterior"
+        },
+        {
+          "type": "regex",
+          "pattern": "doble|duplicad|dedup|un (solo )?(envío|envio|request) a la vez|en curso",
+          "description": "Evita reenvíos duplicados"
+        },
+        {
+          "type": "regex",
+          "pattern": "rate limit|cooldown|(429|Retry-After).{0,120}(esper|deshabilit|habilit|cuenta regresiva|segundos)",
+          "description": "Contempla el rate limit"
+        },
+        {
+          "type": "regex",
+          "pattern": "tard(í|i)a|desordenad|fuera de orden|stale|vieja",
+          "description": "Prueba la respuesta tardía"
+        }
+      ]
+    },
+    {
+      "id": "offline-mark-done-reconnect",
+      "description": "Marcar tareas como hechas sin conexión: intenciones encoladas con idempotencia, marcadas como pendientes sin fingir éxito y reconciliadas en orden al reconectar.",
+      "input": "App de checklist (React + SWR) que se usa en el campo con mala señal. Al marcar una tarea como hecha sin conexión, el check se pone verde, el request falla en silencio y al recargar la tarea vuelve a estar pendiente. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "cola|queue|encolad|outbox",
+          "description": "Encola las intenciones hechas offline"
+        },
+        {
+          "type": "regex",
+          "pattern": "pendiente de sincroniz|sin sincronizar|marcad[oa] como pendiente|estado (de )?(pendiente|sincroniz)|unsynced|pending sync",
+          "description": "Marca lo pendiente de sincronizar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,40}(fing|simul|mostrar|marcar).{0,60}((é|e)xito|confirmad|sincronizad)|(é|e)xito falso|sin sincronizar|no sincronizad",
+          "description": "No finge éxito de lo que no llegó al servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reconect|online|vuelve la conexi).{0,160}(orden|refetch|revalid|sincroniz|reenv)|(online|reconect).{0,160}(env(i|í)a|flush|cola|reenv|sincroniz|refetch|revalid|orden)",
+          "description": "Reconcilia en orden al reconectar"
+        },
+        {
+          "type": "regex",
+          "pattern": "idempoten",
+          "description": "Usa idempotencia para reenviar sin duplicar"
+        }
+      ]
+    },
+    {
+      "id": "bulk-archive-partial-failure",
+      "description": "Archivar 20 ítems donde 3 fallan: éxito parcial reconciliado por ítem, rollback solo de los fallidos y reintento solo de ellos.",
+      "input": "En la tabla de mensajes, \"Archivar seleccionados\" saca los 20 mensajes de la vista y manda `POST /api/messages/archive` con los ids. El backend responde `{ archived: [...], failed: [{ id, reason }] }`. Hoy, si algo falla, volvemos a mostrar los 20. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "parcial|partial",
+          "description": "Reconoce el éxito parcial"
+        },
+        {
+          "type": "regex",
+          "pattern": "(solo|s(o|ó)lo|únicamente|unicamente).{0,40}(los )?(fallid|que fallaron|3)|por (ítem|item|mensaje|id)",
+          "description": "Reconcilia o revierte solo los ítems fallidos"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reintentar|retry).{0,60}(fallid|los que fallaron|solo)|(seleccionad|quedan)[a-z]* para reintentar|(reintentar|retry)[^.]{0,40}(esos|estos) ids",
+          "description": "Ofrece reintentar solo los fallidos"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(volver a mostrar|restaurar|revertir|rollback).{0,40}(los 20|todos)|sin (revertir|restaurar) (los )?(archivados|exitosos)|(rollback|revert|restaur)[^.]{0,60}solo (estos|los|esos) ids|(reinsert|restaur|revert|rollback)[a-z]*[^.]{0,30}solo (esos|estos|los) ids|solo (esos|estos|los) ids|(reinsert|restaur)[a-z]*[^.]{0,40}solo los (mensajes )?(que fallaron|rechazad)",
+          "description": "No revierte los que sí se archivaron"
+        }
+      ]
+    },
+    {
+      "id": "refetch-pagination-read-only",
+      "description": "Implementar refetch al enfocar y paginación: lo trata como lectura sin mutación optimista, conserva la página previa, usa claves con parámetros y no pisa una edición pendiente.",
+      "input": "Implementá en el listado de pagos (Vite + TanStack Query v5) un refetch al volver a enfocar la pestaña y paginación numerada. En la misma pantalla se puede editar inline la descripción de un pago. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "lectura|read|GET|no (hay|aplica|corresponde).{0,40}optimis|sin optimis",
+          "description": "Trata refetch y paginación como lectura"
+        },
+        {
+          "type": "regex",
+          "pattern": "keepPreviousData|placeholderData|página anterior|pagina anterior|datos (previos|anteriores)",
+          "description": "Conserva la página anterior mientras carga"
+        },
+        {
+          "type": "regex",
+          "pattern": "queryKey|query key|clave.{0,40}(página|pagina|page)",
+          "description": "Usa claves con los parámetros de página"
+        },
+        {
+          "type": "regex",
+          "pattern": "(refetch|revalid).{0,160}(edici|pendiente|mutaci|pisar|sobrescrib)|(edici|mutaci).{0,160}(refetch|cancelQueries)",
+          "description": "Evita que el refetch pise una edición pendiente"
+        }
+      ]
+    },
+    {
+      "id": "import-modal-cancel-unmount",
+      "description": "Cerrar el modal de importación con la mutación en curso: limpia timers y suscripciones, no actualiza estado desmontado y no asume que abortar canceló la importación en el servidor.",
+      "input": "El modal \"Importar alumnos desde CSV\" llama a `POST /api/students/import` y hace polling de `GET /api/imports/:jobId` cada 2 s. Si el usuario cierra el modal, abortamos el fetch y asumimos que la importación se canceló; a veces aparecen alumnos importados igual y en consola hay warnings de setState en un componente desmontado. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(limpi|clear|cancel|deten|stop).{0,60}(polling|interval|timer|suscripci)|clearInterval|clearTimeout|refetchInterval|parada en estado terminal|deten(er|é|e) el polling",
+          "description": "Detiene el polling y limpia timers al desmontar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(abort|cerrar el modal|cancel).{0,160}(no (cancela|deshace|revierte|detiene)|sigue (en el servidor|corriendo|ejecut))|(abortar|abort).{0,20}no es deshacer|el job sigue|sigue en segundo plano",
+          "description": "No asume que abortar canceló la importación en el servidor"
+        },
+        {
+          "type": "regex",
+          "pattern": "(consult|estado del job|jobId|GET /api/imports).{0,120}(volver|reabr|al abrir|luego|despu)|(estado real|consultar el estado)",
+          "description": "Consulta el estado real del job al volver"
+        },
+        {
+          "type": "regex",
+          "pattern": "cleanup|useEffect.{0,40}return|return \\(\\) =>|isMounted|signal|unmount",
+          "description": "Evita actualizar estado en un componente desmontado"
+        },
+        {
+          "type": "regex",
+          "pattern": "endpoint de cancelaci|cancelar (el )?job|DELETE /api/imports|POST .{0,30}cancel|cancelaci(o|ó)n (expl(i|í)cita|del servidor)|confirm.{0,40}cancel",
+          "description": "Cancela de verdad solo con una acción confirmada por el servidor"
+        }
+      ]
+    },
+    {
+      "id": "concurrent-todos-isolated-rollback",
+      "description": "Varios toggles en paralelo sobre entidades distintas: intenciones por id, y si una falla solo esa revierte sin pisar las demás confirmadas.",
+      "input": "En la lista de tareas el usuario marca rápido 5 tareas como hechas. Usamos un único `isSaving` para toda la lista y un snapshot de la lista entera; si la tercera falla, restauramos el snapshot y se desmarcan las 5, incluso las que el servidor ya confirmó. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "por (id|tarea|entidad)|per[- ](entity|item|task)|keyed|Map<|byId|\\[taskId\\]|\\[id\\]",
+          "description": "Lleva intenciones y pending por tarea"
+        },
+        {
+          "type": "regex",
+          "pattern": "(solo|s(o|ó)lo|únicamente|unicamente).{0,60}(la (tarea )?(que fall|tercera|fallida))|(rollback|revert).{0,80}(esa|la tarea|la que fall)",
+          "description": "Revierte solo la tarea que falló"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca).{0,60}(pisar|destruir|revertir|tocar|desmarcar).{0,60}(confirmad|las otras|las demás|las demas|otras tareas)|(no|sin|nunca).{0,60}(pisar|destruir|revertir|tocar|desmarcar).{0,60}confirm",
+          "description": "No destruye las otras confirmaciones"
+        },
+        {
+          "type": "regex",
+          "pattern": "(único|unico|global|un solo) .?(isSaving|flag).{0,120}(problema|no (sirve|alcanza|permite|se puede)|por (tarea|entidad)|reemplaz)|nunca un flag global|no hay .?isSaving.? global|en (lugar|vez) de un (flag|isSaving)|en (vez|lugar) de .?isSaving|isSaving.?\\. No distingue",
+          "description": "Señala el problema del flag global"
+        }
+      ]
+    },
+    {
+      "id": "profile-edit-failure-preserves-context",
+      "description": "Un guardado de perfil que falla conserva lo escrito, el foco y el scroll, no borra el formulario y delega el canal y la accesibilidad del feedback en ui-ux-flow-patterns.",
+      "input": "Formulario largo de perfil con PATCH. Si el guardado falla, hoy reseteamos el formulario a los valores del servidor, el scroll vuelve arriba y el foco se pierde; el error aparece en un toast que se va en 3 segundos y el lector de pantalla no lo anuncia. No ejecutes ni edites nada: decime cómo lo resolverías y mostrame el código o el diseño.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(conserv|mantener|mantené|preserv|no (borr|resete|perd)).{0,80}(lo escrito|input|valores|datos|formulario|campos)",
+          "description": "Conserva lo que escribió el usuario"
+        },
+        {
+          "type": "regex",
+          "pattern": "(foco|focus).{0,60}(conserv|mantener|mantené|devolver|mover|llevar|al (campo|primer)|restaur)|scroll.{0,60}(conserv|mantener|restaur|no (salt|vuelv|se mueva))|preventScroll|(foco|focus).{0,60}(queda|vuelve)|\\.focus\\(",
+          "description": "Preserva foco y scroll"
+        },
+        {
+          "type": "regex",
+          "pattern": "pending-first|pending|(confirmaci(o|ó)n|respuesta) del servidor",
+          "description": "Clasifica el guardado como pending-first"
+        },
+        {
+          "type": "regex",
+          "pattern": "ui-ux-flow-patterns|role=.?(status|alert)|aria-live",
+          "description": "Usa feedback accesible coordinado con ui-ux-flow-patterns"
+        }
+      ]
+    },
+    {
+      "id": "copy-only-change-not-applicable",
+      "description": "Caso negativo: un cambio de copy y color en un botón sin tocar su acción termina rápido como no aplicable, sin agregar estado optimista ni tests.",
+      "input": "Usando optimistic-action-mutations: en `components/courses/archive-button.tsx` cambiá el texto del botón de \"Archivar\" a \"Archivar curso\" y el color a `variant=\"secondary\"`. El handler y la llamada a la API no cambian.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no aplica|not[- ]applicable|no hay (operaciones|mutaciones) (nuevas|modificadas)|sin operaciones (nuevas|modificadas)|no (cambia|toca) (la acción|el handler|ninguna operaci)",
+          "description": "Concluye que la skill no aplica"
+        },
+        {
+          "type": "not_contains_any",
+          "values": ["useOptimistic(", "onMutate:", "setQueryData(", "shouldFlushAfterRequest"],
+          "description": "No agrega estado optimista ni maquinaria de concurrencia"
+        }
+      ]
+    },
+    {
+      "id": "coverage-skip-still-evaluates-new-delete",
+      "description": "Con cobertura vigente (skip) y un botón Eliminar nuevo, evalúa igual la operación nueva, la clasifica como server-confirmed y registra con begin/evidence/record en modo lightweight sin inventar evidencia.",
+      "input": "Usando optimistic-action-mutations en un repo con `.golfo/skill-coverage/`. Corrí `check --unit courses.manage.list --skill optimistic-action-mutations` y devolvió `decision: SKIP` (cobertura verified vigente). Ahora agrego un botón \"Eliminar curso\" por fila que llama a `DELETE /api/courses/:id`, sin papelera. Contame qué evaluás y qué comandos de cobertura corrés; no ejecutes nada. No tengo forma de correr tests en esta sesión.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(skip|vigente).{0,160}(igual|pero|aun|aún|nuevo|lo que agreg)|(evalu|revis).{0,80}(nuev|lo que agreg|el botón|la operaci)",
+          "description": "Evalúa la operación nueva aunque la cobertura esté vigente"
+        },
+        {
+          "type": "regex",
+          "pattern": "server-confirmed|confirmad[oa] por el servidor|esperar (la )?(confirmaci|respuesta)|irreversible",
+          "description": "Clasifica el DELETE irreversible como server-confirmed"
+        },
+        {
+          "type": "regex",
+          "pattern": "begin.{0,120}lightweight|lightweight.{0,120}begin|--mode lightweight",
+          "description": "Registra la corrida en modo lightweight"
+        },
+        {
+          "type": "regex",
+          "pattern": "partial|limitation|--limitation",
+          "description": "Sin tests, registra la limitación y no verified"
+        },
+        {
+          "type": "regex",
+          "pattern": "record",
+          "description": "Cierra con record"
+        }
+      ]
     }
   ]
 }

@@ -1,6 +1,6 @@
 # Cobertura incremental de skills (`skill-coverage`)
 
-Fuente única del protocolo con el que una skill de `golfo-kit` consulta qué cubrió antes, decide si repetir el análisis y registra la cobertura que acredita. Las skills integradas (`ui-ux-flow-patterns`, `measured-performance-optimization`) solo agregan sus reglas propias y remiten acá.
+Fuente única del protocolo con el que una skill de `golfo-kit` consulta qué cubrió antes, decide si repetir el análisis y registra la cobertura que acredita. Las skills integradas (`ui-ux-flow-patterns`, `measured-performance-optimization`, `optimistic-action-mutations`) solo agregan sus reglas propias y remiten acá.
 
 ## Contenido
 
@@ -182,15 +182,17 @@ Una evidencia con `outcome: fail` impide `verified` en esa corrida. Las medicion
 
 ## Políticas por skill
 
-| | `ui-ux-flow-patterns` | `measured-performance-optimization` |
-|---|---|---|
-| Cambio relevante | todo cambio visible o interactivo (copy, handlers, JSX, estilos, paquetes de UI) | solo el que agrega carga: requests, queries, `await`, loops con `await`, timers, listeners, effects, imports dinámicos, paquetes nuevos o actualizados |
-| No relevante | código movido sin cambios | copy, estilos, tipos, refactors con la misma carga, código que quita carga |
-| Código servidor | hasta el route handler (un salto) | completo (use cases, repositorios, queries) |
-| Archivos excluidos | ninguno | estilos, catálogos de traducción, Markdown |
-| Modos | `lightweight`, `incremental`, `full` | `incremental`, `full` |
-| Evidencia para `verified` | `lightweight`: review + (test o browser). `incremental`/`full`: review + test + (browser o accessibility) | measurement con antes/después + test |
-| Alcance incremental | cada parte cambiada con su foco (handler: pending, doble envío, feedback, error; shell: estados y copy) | medir el flujo completo (antes = commit base si sigue en el historial y la medición no se registró sobre cambios sin commitear; si fue provisional, la primera revisión que contiene ese código) y la carga agregada por parte |
+| | `ui-ux-flow-patterns` | `measured-performance-optimization` | `optimistic-action-mutations` |
+|---|---|---|---|
+| Cambio relevante | todo cambio visible o interactivo (copy, handlers, JSX, estilos, paquetes de UI) | solo el que agrega carga: requests, queries, `await`, loops con `await`, timers, listeners, effects, imports dinámicos, paquetes nuevos o actualizados | todo lo que puede cambiar el ciclo de vida de una operación: handlers, estado y render del componente, helpers, contratos, código servidor, paquetes, partes que no se pueden clasificar, miembros de configuración (tiempos, límites, reintentos, endpoints, claves de caché, estados) o que hacen I/O, y miembros de objetos no clasificados (ni configuración ni presentación identificada) |
+| No relevante | código movido sin cambios | copy, estilos, tipos, refactors con la misma carga, código que quita carga | código movido sin cambios y solo los miembros de presentación identificados por el nombre del objeto (diccionario de copy, como `COPY` o `*_COPY`) o del miembro (texto visible, como `title`, `label` o `message`) |
+| Código servidor | hasta el route handler (un salto) | completo (use cases, repositorios, queries) | completo (idempotencia, transacciones y payload de reconciliación) |
+| Archivos excluidos | ninguno | estilos, catálogos de traducción, Markdown | estilos, catálogos de traducción, Markdown |
+| Modos | `lightweight`, `incremental`, `full` | `incremental`, `full` | `lightweight`, `incremental`, `full` |
+| Evidencia para `verified` | `lightweight`: review + (test o browser). `incremental`/`full`: review + test + (browser o accessibility) | measurement con antes/después + test | `lightweight`: review + (test o browser). `incremental`/`full`: review + test |
+| Alcance incremental | cada parte cambiada con su foco (handler: pending, doble envío, feedback, error; shell: estados y copy) | medir el flujo completo (antes = commit base si sigue en el historial y la medición no se registró sobre cambios sin commitear; si fue provisional, la primera revisión que contiene ese código) y la carga agregada por parte | cada parte cambiada con su foco (handler: clase, doble envío, respuestas viejas, rollback y resultado desconocido; shell: pending, optimista y confirmado; servidor: contrato e idempotencia; configuración: dónde se usa) |
+
+Un `not-applicable` registrado con `record` se reevalúa cuando hay cambios relevantes en la unidad; `skills.<skill>.applicable: false` en la unidad, en cambio, es permanente. Para `optimistic-action-mutations` usar siempre el registro, así una mutación agregada después vuelve a evaluarse.
 
 ## Integración en CI
 

@@ -3,7 +3,7 @@ name: nextjs-route-ui-boundaries
 description: 'Next.js App Router: decide loading.tsx con skeleton, error.tsx, layouts compartidos, Suspense, server vs client (sidebar, header, tablas, contenedores) y las APIs de Next.js que conviene usar. Usar siempre, sin pedido explícito, al crear o modificar cualquier código de un proyecto Next.js con App Router: archivos de app/ (page, layout, route), contenedores y componentes cliente que monta una ruta (app/**, components/**), hooks, formularios, server actions o next.config, aunque el cambio no toque page.tsx, loading.tsx ni error.tsx y el pedido solo diga mejorar la UI/UX, rediseñar una pantalla o agregar un botón. En un cambio de UI, cargarla junto con ui-ux-flow-patterns: esta decide boundaries y qué es server o cliente; aquella, qué muestra cada estado. No en Pages Router ni en repos sin Next.js.'
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "nextjs, app-router, loading, error-boundary, layout, suspense, skeleton, server-components"
@@ -119,6 +119,7 @@ Un `loading.tsx` o un fallback de `<Suspense>` que devuelve texto ("Cargando..."
 - `refactor-ssr-data-fetching`: desde dónde se piden los datos (SSR, BFF o upstream) y qué DTO cruza al browser.
 - `prevent-ssr-hydration-mismatches`: que el HTML de server y el primer render cliente coincidan (por ejemplo, el estado colapsado del sidebar leído de cookie y no de `localStorage`).
 - `ui-ux-flow-patterns`: complementaria en todo cambio de UI; decide qué muestra cada estado (vacío, error, confirmación, toasts) y el feedback de cada acción. Cargar las dos juntas.
+- `optimistic-action-mutations`: complementaria en todo cambio de UI; decide la clase, la concurrencia, el rollback y la reconciliación de cada acción que monta la ruta.
 - `async-operation-error-handling`: errores de mutations y validaciones dentro de una pantalla, no de la ruta.
 - `measured-performance-optimization`: medir el impacto (LCP, CLS, bundle) cuando el pedido es de rendimiento.
 - `mobile-first-responsive-layout`: el comportamiento responsive del sidebar y la chrome.
