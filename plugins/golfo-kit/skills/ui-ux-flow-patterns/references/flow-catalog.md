@@ -186,33 +186,33 @@ Caso de referencia: en un flujo de solicitud de acceso, al vencer el código SMS
 
 ## Escenarios de feedback y recuperación
 
-Índice rápido: para cada escenario, el canal recomendado, cuánto dura, en qué estado queda el control y cuál es la salida. El detalle está en la sección enlazada; los canales, en la [ficha por canal](feedback-channels.md#ficha-por-canal).
+Índice de navegación, no un resumen: cada fila enlaza el escenario con la sección que lo describe y con las secciones canónicas donde se definen el canal, la duración, el estado del control y la salida. Las reglas (reintentos, códigos HTTP, duraciones, qué se conserva) se leen solo en esas secciones; los canales, en la [ficha por canal](feedback-channels.md#ficha-por-canal).
 
-| Escenario | Canal | Duración | Control | Salida |
-|---|---|---|---|---|
-| [Guardado manual](#guardado-manual-autosave-y-en-segundo-plano) | Inline "Cambios guardados" o la UI; error en el formulario | Éxito breve; error hasta reintentar | Pending y después habilitado | Reintentar con todo conservado |
-| [Autosave](#guardado-manual-autosave-y-en-segundo-plano) | Indicador inline; banner si falla seguido | Persistente mientras edita | Sin botón | "Reintentar" en el indicador; aviso al salir |
-| [Guardado o tarea en segundo plano](#guardado-manual-autosave-y-en-segundo-plano) | Chip en el ítem; toast al terminar si el usuario se fue | Temporal | Libre de inmediato | Toast persistente con "Reintentar" si falla |
-| [Envío de formulario](#formulario-de-creación-o-edición) | Errores de campo + resumen; error general en el formulario | Hasta corregir | Pending, sin doble envío, habilitado al fallar | Corregir o reintentar sin perder datos |
-| [Error de campo frente a error general](validation-feedback.md#error-del-campo-o-condición-del-proceso) | Campo: inline; operación o condición: mensaje de formulario | Hasta corregir o resolver | Campo editable; acción de salida visible | Corregir el campo o ejecutar la acción del mensaje |
-| [Error de red puntual](state-matrix.md#recuperación-de-operaciones) | Junto a la acción o toast temporal | Hasta reintentar | Habilitado | "Reintentar" |
-| [Offline persistente](state-matrix.md#offline-y-datos-desactualizados) | Banner | Mientras dure | Acciones que no funcionan offline, deshabilitadas con motivo | Se va solo al reconectar; cola de pendientes |
-| [Upload de un archivo o varios](#upload-de-archivos) | Progreso y estado por archivo; resumen del lote | Hasta terminar | Cancelar por archivo; enviar espera | "Reintentar" el fallido o "Reintentar fallidos" |
-| [Descarga, importación y exportación](#importación-exportación-y-descargas) | El navegador; progreso en el lugar; toast con "Descargar" si se fue | Según el proceso | Pending y después libre | Errores por fila, reintento, reimportar solo lo rechazado |
-| [Proceso largo](state-matrix.md#operaciones-asíncronas) | Progreso real junto al proceso | Hasta terminar o cancelar | Cancelar visible | Aviso al terminar; qué quedó hecho si se canceló |
-| [Reintento con backoff](state-matrix.md#recuperación-de-operaciones) | "Reintentando…" junto a la acción | 2–3 intentos | Pending | Error con "Reintentar" manual al agotar |
-| [Sesión expirada (401)](state-matrix.md#errores-http) | Diálogo o redirección | Hasta reingresar | Trabajo conservado | Volver al mismo lugar con lo escrito |
-| [Permisos insuficientes (403) y límites del plan](#permisos-y-límites-del-plan) | Región sin permiso; acción con motivo; banner de cuota | Mientras dure | Deshabilitado con motivo | Pedir acceso, mejorar plan, liberar espacio |
-| [No encontrado (404)](state-matrix.md#errores-http) | Región o página dedicada | Es el estado | Navegación disponible | Volver; copiar lo escrito si se estaba editando |
-| [Conflicto de edición (409)](#edición-concurrente-y-conflictos) | Mensaje de formulario o diálogo | Hasta decidir | Guardado bloqueado hasta elegir | Revisar diferencias, recargar o sobrescribir si se permite |
-| [Rechazo de datos (422)](state-matrix.md#errores-http) | Errores por campo o mensaje de formulario | Hasta corregir | Habilitado | Corregir |
-| [Demasiados intentos (429)](state-matrix.md#errores-http) | Inline o mensaje de sección con cuándo volver a intentar | Hasta que vence la espera | Deshabilitado con el motivo; se habilita solo | Esperar o alternativa |
-| [Falla del servidor (5xx)](state-matrix.md#errores-http) | Región o junto a la acción; banner si persiste | Hasta reintentar o resolverse | Habilitado | "Reintentar" y código de referencia |
-| [OTP incorrecto, vencido, reenviado o limitado](#verificación-por-código-sms-email-u-otp) | Campo si es incorrecto; mensaje del paso si venció, falló el reenvío o hay límite | Hasta resolver | Input editable si sirve; "Reenviar" con pending y cooldown real | Corregir, pedir otro código, esperar o alternativa |
-| [Acción optimista con rollback](#acciones-rápidas-toggles-likes-favoritos) | La UI; toast breve si revierte | Temporal | El control vuelve a su valor | Reintentar desde el control |
-| [Eliminación reversible](feedback-channels.md#confirmar-o-deshacer) | La UI + toast con "Deshacer" | 5–10 s, con pausa | Libre | "Deshacer" o papelera |
-| [Pago rechazado, pendiente o incierto](#pago-y-checkout) | Formulario de pago; página de pendiente; "Comprobar estado" | Hasta resolver | Pagar bloqueado si está pendiente o incierto | Otro medio, esperar o comprobar antes de repetir |
-| [Mensaje de chat fallido y reconexión](#chat-y-tiempo-real) | Estado en el mensaje; indicador o banner de reconexión | Hasta reenviar o reconectar | Composer usable | "Reintentar" en el mensaje; resincronización |
-| [Resultado ya visible en la UI](feedback-channels.md#tabla-de-decisión) | Cambio directo, sin toast | — | Vuelve a `idle` | — |
-| [Error persistente que requiere intervención](feedback-channels.md#tabla-de-decisión) | Banner o mensaje de sección | Hasta resolverse | Lo afectado, deshabilitado con motivo | Acción que lo resuelve; se quita sola |
-| [Errores viejos y notificaciones obsoletas](validation-feedback.md#notificaciones-obsoletas) | — | Se limpian al cambiar de contexto o resolverse | — | El estado actual reemplaza al viejo |
+| Escenario | Dónde se definen canal, duración, control y salida |
+|---|---|
+| [Guardado manual](#guardado-manual-autosave-y-en-segundo-plano) | [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas), [Formularios](feedback-channels.md#formularios) |
+| [Autosave](#guardado-manual-autosave-y-en-segundo-plano) | [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas), [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Guardado o tarea en segundo plano](#guardado-manual-autosave-y-en-segundo-plano) | [Recuperación de operaciones](state-matrix.md#recuperación-de-operaciones), [Toast persistente y descartable](feedback-channels.md#toast-persistente-y-descartable) |
+| [Envío de formulario](#formulario-de-creación-o-edición) | [Validar antes de la acción](validation-feedback.md#validar-antes-de-la-acción), [Formularios](feedback-channels.md#formularios), [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas) |
+| [Error de campo frente a error general](validation-feedback.md#error-del-campo-o-condición-del-proceso) | [Tabla de decisión](feedback-channels.md#tabla-de-decisión), [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Error de red puntual](state-matrix.md#recuperación-de-operaciones) | [Offline y datos desactualizados](state-matrix.md#offline-y-datos-desactualizados), [Tabla de decisión](feedback-channels.md#tabla-de-decisión) |
+| [Offline persistente](state-matrix.md#offline-y-datos-desactualizados) | [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Upload de un archivo o varios](#upload-de-archivos) | [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas) |
+| [Descarga, importación y exportación](#importación-exportación-y-descargas) | [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas), [Recuperación de operaciones](state-matrix.md#recuperación-de-operaciones) |
+| [Proceso largo](state-matrix.md#operaciones-asíncronas) | [Recuperación de operaciones](state-matrix.md#recuperación-de-operaciones), [Tabla de decisión](feedback-channels.md#tabla-de-decisión) |
+| [Reintento con backoff](state-matrix.md#recuperación-de-operaciones) | [Error](state-matrix.md#error), [Errores HTTP](state-matrix.md#errores-http) |
+| [Sesión expirada (401)](state-matrix.md#errores-http) | [Error](state-matrix.md#error), [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Permisos insuficientes (403) y límites del plan](#permisos-y-límites-del-plan) | [Errores HTTP](state-matrix.md#errores-http), [Error](state-matrix.md#error) |
+| [No encontrado (404)](state-matrix.md#errores-http) | [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Conflicto de edición (409)](#edición-concurrente-y-conflictos) | [Errores HTTP](state-matrix.md#errores-http) |
+| [Rechazo de datos (422)](state-matrix.md#errores-http) | [Formularios](feedback-channels.md#formularios) |
+| [Demasiados intentos (429)](state-matrix.md#errores-http) | [Error](state-matrix.md#error) |
+| [Falla del servidor (5xx)](state-matrix.md#errores-http) | [Recuperación de operaciones](state-matrix.md#recuperación-de-operaciones) |
+| [OTP incorrecto, vencido, reenviado o limitado](#verificación-por-código-sms-email-u-otp) | [Error del campo o condición del proceso](validation-feedback.md#error-del-campo-o-condición-del-proceso), [Errores HTTP](state-matrix.md#errores-http) |
+| [Acción optimista con rollback](#acciones-rápidas-toggles-likes-favoritos) | [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas), [Tabla de decisión](feedback-channels.md#tabla-de-decisión) |
+| [Eliminación reversible](feedback-channels.md#confirmar-o-deshacer) | [Ficha por canal](feedback-channels.md#ficha-por-canal), [Toasts](feedback-channels.md#toasts) |
+| [Pago rechazado, pendiente o incierto](#pago-y-checkout) | [Recuperación de operaciones](state-matrix.md#recuperación-de-operaciones), [Operaciones asíncronas](state-matrix.md#operaciones-asíncronas) |
+| [Mensaje de chat fallido y reconexión](#chat-y-tiempo-real) | [Recuperación de operaciones](state-matrix.md#recuperación-de-operaciones), [Offline y datos desactualizados](state-matrix.md#offline-y-datos-desactualizados) |
+| [Resultado ya visible en la UI](feedback-channels.md#tabla-de-decisión) | [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Error persistente que requiere intervención](feedback-channels.md#tabla-de-decisión) | [Ficha por canal](feedback-channels.md#ficha-por-canal) |
+| [Errores viejos y notificaciones obsoletas](validation-feedback.md#notificaciones-obsoletas) | [Errores viejos y contexto de error](validation-feedback.md#errores-viejos-y-contexto-de-error) |

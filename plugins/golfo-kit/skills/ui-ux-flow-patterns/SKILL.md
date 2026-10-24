@@ -51,7 +51,7 @@ Antes de proponer componentes, leer `DESIGN.md`, `AGENTS.md`/`CLAUDE.md` y las c
 
 ## 1. Identificar el tipo de flujo
 
-Clasificar la pantalla o acción en uno o más tipos de [flow-catalog.md](references/flow-catalog.md) (colección/lista/tabla, búsqueda, detalle, formulario de creación/edición, guardado y autosave, edición concurrente, wizard u onboarding, acción destructiva, upload, importación y exportación, dashboard, settings, permisos y límites del plan, autenticación y verificación por código, pago, inbox/notificaciones, chat/tiempo real). Su [índice de escenarios](references/flow-catalog.md#escenarios-de-feedback-y-recuperación) resume canal, duración, control y salida de cada caso. Cada tipo trae sus componentes típicos, sus estados críticos, los errores comunes y referencias de productos que lo resuelven bien. Leer solo las secciones de los tipos que aplican.
+Clasificar la pantalla o acción en uno o más tipos de [flow-catalog.md](references/flow-catalog.md) (colección/lista/tabla, búsqueda, detalle, formulario de creación/edición, guardado y autosave, edición concurrente, wizard u onboarding, acción destructiva, upload, importación y exportación, dashboard, settings, permisos y límites del plan, autenticación y verificación por código, pago, inbox/notificaciones, chat/tiempo real). Su [índice de escenarios](references/flow-catalog.md#escenarios-de-feedback-y-recuperación) enlaza cada caso con la sección que define su canal, duración, control y salida. Cada tipo trae sus componentes típicos, sus estados críticos, los errores comunes y referencias de productos que lo resuelven bien. Leer solo las secciones de los tipos que aplican.
 
 ## 2. Armar la matriz de estados
 
