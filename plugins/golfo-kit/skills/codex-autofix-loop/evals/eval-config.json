@@ -892,13 +892,9 @@
           "description": "No repostea `@codex review`"
         },
         {
-          "type": "not_contains_any",
-          "values": [
-            "Codex no publicó la review en",
-            "auto-cancelo el loop",
-            "CronDelete"
-          ],
-          "description": "No avisa timeout ni cancela el loop"
+          "type": "regex",
+          "pattern": "(sigo|sigue|seguir|queda|dejo|continúo|continuo)[^.]{0,50}esper|no hago nada|no (toco|cambio|modifico)[^.]{0,40}(reloj|reviewRequestedAt|reviewTimeoutRetries)",
+          "description": "Sigue esperando la review sin tocar el estado del timeout"
         }
       ]
     },
