@@ -65,30 +65,36 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   const fileLevelFiles = {};
   const unresolved = new Set();
   const warnings = [];
-  const visited = new Set();
-  const visitedShells = new Set();
   const queue = [];
-  const expandedContexts = new Map();
+  const expansionScopes = new Map();
   const via = {};
   let truncated = false;
   let inputCount = 0;
 
+  const maxDepth = (role) => policy.maxDepthByRole?.[role] ?? Infinity;
+
   /**
-   * Whether an equivalent or broader expansion of the same module reference
-   * already ran. Re-exports do not add parts, so without this guard a
-   * circular barrel graph (`a` re-exports `b`, `b` re-exports `a`) would
-   * re-queue the same references forever. An earlier expansion covers this
-   * one when it had no more depth spent and followed at least as much.
+   * Claims the expansion of a queued reference, a part, a module shell or a
+   * whole file with the traversal scope of `context`. Hashing an input is
+   * idempotent, but following its dependencies depends on the scope it was
+   * reached with: a server entry may reach a shared helper at its depth
+   * limit before a UI entry reaches it with depth to spare, so the helper
+   * must be expanded again for the broader scope. An earlier expansion
+   * covers this one when it had at least as many cross-file hops left and
+   * followed at least as much. Each key is expanded at most once per
+   * distinct scope, which also ends circular barrel graphs (`a` re-exports
+   * `b`, `b` re-exports `a`) whose re-exports add no parts.
    *
-   * @param {any} context Queue item about to be expanded.
-   * @returns {boolean}
+   * @param {string} key What is about to be expanded.
+   * @param {any} context Traversal context that reached it.
+   * @returns {boolean} Whether no earlier expansion already covered this scope.
    */
-  const isAlreadyExpanded = (context) => {
-    const key = `${context.path}\0${context.reference}\0${context.role}`;
-    const previousExpansions = expandedContexts.get(key) ?? [];
-    if (previousExpansions.some((previous) => previous.depth <= context.depth && (previous.follow || !context.follow))) return true;
-    expandedContexts.set(key, [...previousExpansions, { depth: context.depth, follow: context.follow }]);
-    return false;
+  const claimExpansion = (key, context) => {
+    const scope = { follow: context.follow, remainingDepth: maxDepth(context.role) - context.depth };
+    const previousScopes = expansionScopes.get(key) ?? [];
+    if (previousScopes.some((previous) => previous.remainingDepth >= scope.remainingDepth && (previous.follow || !scope.follow))) return false;
+    expansionScopes.set(key, [...previousScopes, scope]);
+    return true;
   };
 
   const addInput = (key, hash, partSignals, from) => {
@@ -102,8 +108,6 @@ export function computeUnitInputs({ index, unit, config, policy }) {
     if (partSignals && policy.tracksLoadSignals) signals[key] = partSignals;
     return true;
   };
-
-  const maxDepth = (role) => policy.maxDepthByRole?.[role] ?? Infinity;
 
   // Boundaries (composition roots, dependency containers) are hashed but
   // not followed: reaching one must not pull in every module it wires.
@@ -169,8 +173,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
    */
   const addPart = (analysis, symbolName, partKey, context, followInnerReferences) => {
     const key = `${analysis.path}#${partKey}`;
-    if (visited.has(key)) return;
-    visited.add(key);
+    if (!claimExpansion(key, context)) return;
     const part = analysis.symbols.get(symbolName).parts.get(partKey);
     if (!addInput(key, part.hash, part.signals, context.from) || !context.follow || isBoundary(analysis.path, symbolName)) return;
     const childContext = { ...context, from: key };
@@ -255,7 +258,7 @@ export function computeUnitInputs({ index, unit, config, policy }) {
   while (queue.length && !truncated) {
     const context = queue.shift();
     if (!context.explicit && (index.isIgnored(context.path) || policy.excludesFile?.(context.path))) continue;
-    if (isAlreadyExpanded(context)) continue;
+    if (!claimExpansion(`${context.path}\0${context.reference}`, context)) continue;
     const analysis = index.analyze(context.path);
     if (!analysis) {
       addInput(`${context.path}#*`, MISSING_HASH);
@@ -265,17 +268,15 @@ export function computeUnitInputs({ index, unit, config, policy }) {
 
     if (analysis.analyzer === FILE_LEVEL_ANALYZER) {
       const key = `${context.path}#*`;
-      if (visited.has(key)) continue;
-      visited.add(key);
+      if (!claimExpansion(key, context)) continue;
       addInput(key, analysis.fileHash, undefined, context.from);
       if (analysis.fallbackReason && !/not a JavaScript/.test(analysis.fallbackReason)) fileLevelFiles[context.path] = analysis.fallbackReason;
       if (context.follow) for (const source of analysis.importSources) followImport({ ...context, from: key }, source, '*');
       continue;
     }
 
-    if (!visitedShells.has(context.path)) {
-      visitedShells.add(context.path);
-      const shellKey = `${context.path}#<module>`;
+    const shellKey = `${context.path}#<module>`;
+    if (claimExpansion(shellKey, context)) {
       addInput(shellKey, analysis.moduleShell.hash, analysis.moduleShell.signals, context.from);
       if (context.follow) {
         const shellContext = { ...context, from: shellKey };
