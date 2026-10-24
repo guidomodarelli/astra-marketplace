@@ -194,6 +194,9 @@ function renderCheck(payload) {
   return lines.join('\n');
 }
 
+/** Commands that accept positional operands after the command name. */
+const COMMANDS_WITH_OPERANDS = new Set(['affected']);
+
 const COMMANDS = {
   init(context, values) {
     context.registry.initialize();
@@ -271,8 +274,9 @@ const COMMANDS = {
     ].join('\n'));
   },
 
-  affected(context, values) {
-    const paths = new Set(values.paths ?? []);
+  affected(context, values, operands) {
+    // `--paths a b c` and repeated `--paths` flags both select files.
+    const paths = new Set([...(values.paths ?? []), ...operands]);
     if (values.changed) for (const dirty of context.git.dirtyPaths()) paths.add(dirty);
     if (!paths.size) throw usageError('affected: pass --changed or --paths <file>...');
     const skills = values.skill?.length ? values.skill : builtInPolicySkills();
@@ -380,7 +384,7 @@ export function main(argv) {
     process.stderr.write(`skill-coverage: ${error.message}\n\n${USAGE}\n`);
     return EXIT_CODES.usage;
   }
-  const [command] = parsed.positionals;
+  const [command, ...operands] = parsed.positionals;
   if (!command || command === 'help' || parsed.values.help) {
     process.stdout.write(`${USAGE}\n`);
     return command || parsed.values.help ? EXIT_CODES.ok : EXIT_CODES.usage;
@@ -390,9 +394,14 @@ export function main(argv) {
     process.stderr.write(`skill-coverage: unknown command ${command}\n\n${USAGE}\n`);
     return EXIT_CODES.usage;
   }
+  // Only `affected` takes operands (the files after --paths); anything else would be silently ignored.
+  if (operands.length && !COMMANDS_WITH_OPERANDS.has(command)) {
+    process.stderr.write(`skill-coverage: ${command} does not take extra arguments: ${operands.join(' ')}\n\n${USAGE}\n`);
+    return EXIT_CODES.usage;
+  }
   try {
     const context = openProjectContext({ root: parsed.values.root, skillsDirectory: parsed.values['skills-dir'] });
-    handler(context, parsed.values);
+    handler(context, parsed.values, operands);
     return process.exitCode ?? EXIT_CODES.ok;
   } catch (error) {
     if (error instanceof CoverageError) {

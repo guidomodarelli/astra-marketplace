@@ -35,6 +35,7 @@ const DECLARING_PARENTS = new Set(['VariableDeclarator', 'FunctionDeclaration', 
 const TYPE_DECLARATIONS = new Set(['TSTypeAliasDeclaration', 'TSInterfaceDeclaration', 'TSEnumDeclaration', 'TSModuleDeclaration']);
 const WRAPPER_EXPRESSIONS = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSTypeAssertion', 'TSNonNullExpression', 'ParenthesizedExpression']);
 const LOOP_STATEMENTS = new Set(['ForStatement', 'ForOfStatement', 'ForInStatement', 'WhileStatement', 'DoWhileStatement']);
+const NESTED_FUNCTION_TYPES = new Set(['ArrowFunctionExpression', 'FunctionExpression', 'ObjectMethod', 'ClassMethod', 'ClassPrivateMethod']);
 const MEMOIZING_HOOKS = new Set(['useCallback', 'useMemo', 'useEffectEvent']);
 
 /** Callee names and properties counted as load signals. */
@@ -253,6 +254,7 @@ function symbolLevelAnalysis(filePath, source, ast, resolver) {
   const exportAllSources = [];
   const declarations = new Map();
   const shellNodes = [];
+  const topLevelDeclarators = [];
 
   /**
    * @param {string} name
@@ -273,6 +275,7 @@ function symbolLevelAnalysis(filePath, source, ast, resolver) {
     else if (type === 'VariableDeclaration') {
       for (const declarator of declaration.declarations) {
         const rangeNode = declaration.declarations.length === 1 ? declaration : declarator;
+        topLevelDeclarators.push({ declarator, rangeNode });
         if (declarator.id.type === 'Identifier') addDeclaration(declarator.id.name, 'variable', rangeNode, declarator);
         else for (const name of bindingNames(declarator.id)) addDeclaration(name, 'variable', rangeNode, null);
       }
@@ -577,6 +580,21 @@ function symbolLevelAnalysis(filePath, source, ast, resolver) {
     }
 
     parts.set(name, createPart(hashRanges(declarationNodes.map(rangeOf)), declarationNodes));
+  }
+
+  // A top-level initializer runs when the module is imported, whether or not
+  // its binding is used: if it does work there (timers, requests, listeners,
+  // queries...), it belongs to the module shell, which every unit reaching
+  // the file depends on. Work inside nested functions only runs when called.
+  for (const { declarator, rangeNode } of topLevelDeclarators) {
+    if (!declarator.init || isFunctionInitializer(declarator.init) || shellNodes.includes(rangeNode)) continue;
+    const nestedFunctions = new Set();
+    walk(declarator.init, (node) => {
+      if (!NESTED_FUNCTION_TYPES.has(node.type)) return undefined;
+      nestedFunctions.add(node);
+      return false;
+    });
+    if (collectSignals([declarator.init], nestedFunctions)) shellNodes.push(rangeNode);
   }
 
   const shellRanges = [...ast.program.directives.map(rangeOf), ...shellNodes.map(rangeOf)];

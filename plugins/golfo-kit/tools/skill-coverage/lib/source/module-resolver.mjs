@@ -48,9 +48,11 @@ export function stripJsonComments(text) {
 
 /**
  * Reads `paths` and `baseUrl` from tsconfig.json (one level of `extends`).
+ * `hasBaseUrl` says whether `baseUrl` is configured: only then TypeScript
+ * resolves bare specifiers relative to it.
  *
  * @param {string} projectRoot
- * @returns {{ baseUrl: string, paths: Record<string, string[]> }}
+ * @returns {{ baseUrl: string, hasBaseUrl: boolean, paths: Record<string, string[]> }}
  */
 function readTsconfigAliases(projectRoot) {
   const read = (filePath) => {
@@ -67,7 +69,7 @@ function readTsconfigAliases(projectRoot) {
     const parent = read(path.resolve(projectRoot, tsconfig.extends.endsWith('.json') ? tsconfig.extends : `${tsconfig.extends}.json`));
     compilerOptions = { ...(parent?.compilerOptions ?? {}), ...compilerOptions };
   }
-  return { baseUrl: compilerOptions.baseUrl ?? '.', paths: compilerOptions.paths ?? {} };
+  return { baseUrl: compilerOptions.baseUrl ?? '.', hasBaseUrl: typeof compilerOptions.baseUrl === 'string', paths: compilerOptions.paths ?? {} };
 }
 
 /**
@@ -191,8 +193,9 @@ export function createModuleResolver(projectRoot, config, fileExists) {
         const resolved = probe(specifier.startsWith('/') ? specifier.slice(1) : path.posix.join(path.posix.dirname(fromPath), specifier));
         resolution = resolved ? { kind: 'file', path: resolved } : { kind: 'unresolved', specifier };
       } else {
+        // Same order as TypeScript: `paths` aliases, then `baseUrl`, then packages.
         const aliased = aliasCandidates(specifier);
-        const resolved = aliased.map(probe).find(Boolean);
+        const resolved = aliased.map(probe).find(Boolean) ?? (tsconfig.hasBaseUrl ? probe(path.posix.join(tsconfig.baseUrl, specifier)) : undefined);
         if (resolved) resolution = { kind: 'file', path: resolved };
         else if (aliased.length) resolution = { kind: 'unresolved', specifier };
         else {

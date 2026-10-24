@@ -20,7 +20,12 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
   const analyzerChanged = Boolean(coverage.attempt) && coverage.attempt.baseline.analyzer !== current.analyzer;
   const fileChanges = (evaluation?.changedFiles ?? []).map((filePath) => ({ change: 'modified', key: `${filePath}#*`, reason: 'file changed; symbol impact unknown' }));
   const defaultScopeChanges = analyzerChanged ? [...relevantChanges, ...fileChanges] : relevantChanges;
-  const scopeContext = { baselineCommit: coverage.attempt?.baseline.commit, history: evaluation?.history, unit };
+  const scopeContext = {
+    baselineCommit: coverage.attempt?.baseline.commit,
+    baselineProvisional: (coverage.attempt?.baseline.uncommittedFiles ?? []).length > 0,
+    history: evaluation?.history,
+    unit,
+  };
   // An incremental run after a rules change must also re-check the unit
   // against those rules, not only the code that changed.
   const definitionScope = evaluation?.definitionStatus === 'changed'

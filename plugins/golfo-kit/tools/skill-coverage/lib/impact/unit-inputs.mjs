@@ -220,12 +220,15 @@ export function computeUnitInputs({ index, unit, config, policy }) {
     const symbol = analysis.symbols.get(name);
     if (!symbol) {
       const local = analysis.localExports.get(name);
-      if (local && local !== name) {
-        expandReference(analysis, `${local}${suffix}`, context);
-        return;
-      }
+      // An export that names an imported binding (`import Child from './child';
+      // export default Child`, `export { Child as View }`, `export { Child }`)
+      // is followed to the imported module.
       if (local && analysis.imports.has(local)) {
         followReference(analysis, member ? `${local}.${member}` : local, context);
+        return;
+      }
+      if (local && local !== name) {
+        expandReference(analysis, `${local}${suffix}`, context);
         return;
       }
       const reExport = analysis.reExports.get(name);

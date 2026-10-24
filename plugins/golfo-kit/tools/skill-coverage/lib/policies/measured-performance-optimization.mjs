@@ -89,12 +89,16 @@ export const measuredPerformanceOptimizationPolicy = {
    * @param {{ unit: any, baselineCommit?: string, history?: string }} context
    * @returns {string[]}
    */
-  suggestScope(decision, relevantChanges, { unit, baselineCommit, history }) {
+  suggestScope(decision, relevantChanges, { unit, baselineCommit, baselineProvisional, history }) {
     const flow = unit.routes?.length ? unit.routes.join(', ') : unit.id;
     if (decision === 'full') return [`measure the complete flow ${flow} before and after, same build, data and throttling; median of 3 for noisy metrics`];
-    const before = baselineCommit && ['same', 'ancestor', 'diverged'].includes(history)
-      ? `before = revision ${baselineCommit.slice(0, 12)} (last measured)`
-      : 'before = the revision without the new load (baseline commit not reachable)';
+    const reachable = baselineCommit && ['same', 'ancestor', 'diverged'].includes(history);
+    // A record made over uncommitted changes measured code that its commit
+    // does not contain: that commit is not the measured revision.
+    let before;
+    if (!reachable) before = 'before = the revision without the new load (baseline commit not reachable)';
+    else if (baselineProvisional) before = `before = the first revision that contains the last measured code (it was recorded over uncommitted changes on top of ${baselineCommit.slice(0, 12)}, which does not include them), or the revision without the new load`;
+    else before = `before = revision ${baselineCommit.slice(0, 12)} (last measured)`;
     return [
       `measure the complete flow ${flow}: ${before}, after = working tree`,
       ...relevantChanges.map((change) => `${describeInputKey(change.key)} — ${change.reason}`),

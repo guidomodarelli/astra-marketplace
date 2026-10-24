@@ -190,7 +190,7 @@ Una evidencia con `outcome: fail` impide `verified` en esa corrida. Las medicion
 | Archivos excluidos | ninguno | estilos, catálogos de traducción, Markdown |
 | Modos | `lightweight`, `incremental`, `full` | `incremental`, `full` |
 | Evidencia para `verified` | `lightweight`: review + (test o browser). `incremental`/`full`: review + test + (browser o accessibility) | measurement con antes/después + test |
-| Alcance incremental | cada parte cambiada con su foco (handler: pending, doble envío, feedback, error; shell: estados y copy) | medir el flujo completo (antes = commit base si sigue en el historial) y la carga agregada por parte |
+| Alcance incremental | cada parte cambiada con su foco (handler: pending, doble envío, feedback, error; shell: estados y copy) | medir el flujo completo (antes = commit base si sigue en el historial y la medición no se registró sobre cambios sin commitear; si fue provisional, la primera revisión que contiene ese código) y la carga agregada por parte |
 
 ## Integración en CI
 
