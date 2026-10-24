@@ -280,6 +280,9 @@ pnpm run test
 providers falsos y no llama a Claude ni a Codex reales.
 `pnpm run test:sibling-worktree` corre la suite del helper de `sibling-worktree` sobre repos git
 temporales.
+`pnpm run test:skill-coverage` corre con `node --test` la suite del motor de cobertura incremental de
+skills (`plugins/golfo-kit/tools/skill-coverage/`) sobre repos git temporales; usa `@babel/parser`
+de las devDependencies para el análisis por símbolos.
 
 Cada test tiene un timeout de 30 segundos: `test:shell` usa `BATS_TEST_TIMEOUT=30` y las suites
 bash de `review-fix-loop` y `sibling-worktree` corren cada test bajo `timeout` (`gtimeout` en macOS).
@@ -302,6 +305,7 @@ lo que cubre el cambio y dejá la suite completa a la CI:
 | Un flujo puntual de `agent-ready-setup` | `pnpm exec bats --filter '<parte del nombre del test>' plugins/golfo-kit/skills/agent-ready-setup/tests/bootstrap.bats` |
 | Scripts compartidos de `agent-ready-setup` (`scripts/*.sh`, `sync-marketplace.sh`) | `pnpm run test:bootstrap` completo |
 | `review-fix-loop`, `sibling-worktree`, `create-version`, `check-version-bump`, `validate-portable-plugins` o el eval runner | Su suite (`pnpm run test:review-fix-loop`, `pnpm run test:sibling-worktree`, `pnpm exec bats tests/create-version.bats tests/check-version-bump.bats tests/validate-portable-plugins.bats`, `pnpm exec bats skill-eval-runner/tests/*.bats`) |
+| Motor de cobertura de skills (`plugins/golfo-kit/tools/skill-coverage/**`) | `pnpm run test:skill-coverage` |
 | Frontmatter de una skill o `plugin.json` de un plugin | `pnpm validate-portable-plugins` |
 
 Anteponé `LC_ALL=C.UTF-8` a cada `bats` (ver más abajo). En Windows, `bats --jobs` no funciona:

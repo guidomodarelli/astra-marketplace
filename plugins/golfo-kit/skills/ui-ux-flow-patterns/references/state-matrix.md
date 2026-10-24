@@ -6,6 +6,7 @@ Fuente única de qué mostrar en cada estado de una región que trae datos o eje
 
 - [Estados](#estados)
 - [Carga](#carga)
+  - [Skeleton](#skeleton)
 - [Vacío](#vacío)
 - [Con datos](#con-datos)
 - [Error](#error)
@@ -48,8 +49,36 @@ Reglas:
 
 - **Recarga ≠ carga inicial.** Con datos ya visibles, no volver al skeleton: mantener los datos anteriores con un indicador sutil (opacidad reducida, barra fina arriba, spinner en el control que disparó la recarga) y bloquear solo lo que no es válido. Volver al skeleton hace perder el lugar y el scroll.
 - Cargar por **región**: la chrome (navegación, header, filtros) aparece al instante y cada bloque carga por su cuenta; un bloque lento no bloquea a los demás.
-- El skeleton se marca `aria-busy="true"` en la región y se oculta a lectores de pantalla (`aria-hidden`) con un texto accesible de estado ("Cargando pagos"); su animación respeta `prefers-reduced-motion`.
 - Texto plano ("Cargando…") o un spinner centrado en la página son aceptables solo cuando no existe forma conocida (por ejemplo una pantalla de redirección).
+
+### Skeleton
+
+El skeleton anticipa **qué va a aparecer y dónde**: sirve si el usuario reconoce la forma del contenido y si esa forma no salta al llegar los datos. Si no cumple las dos cosas, es ruido que se mueve.
+
+**Cuándo sí:** carga inicial de una región con layout conocido (lista, tabla, tarjetas, detalle, formulario de edición que se precarga, widget de dashboard) cuya espera supera ~300 ms. En Next.js con App Router es el fallback natural de `loading.tsx` o de un `<Suspense>` de esa región; dónde va cada boundary lo decide `nextjs-route-ui-boundaries`.
+
+**Cuándo no:**
+
+| Situación | En lugar del skeleton |
+|---|---|
+| Acción en un control (guardar, enviar, borrar) | Pending en el control |
+| Recarga, filtro o paginado con datos visibles | Datos anteriores con indicador sutil ([regla de recarga](#carga)) |
+| Espera < ~300 ms | Nada |
+| Layout desconocido o muy variable | Spinner chico o texto en el lugar del resultado |
+| Proceso largo y medible | Barra de progreso determinada |
+| Respuesta vacía o con error | El vacío o el error correspondientes: el skeleton nunca los reemplaza |
+
+**Cómo hacerlo:**
+
+- **Misma forma que el contenido final**: mismas columnas y alturas de fila, avatar, título y metadatos en su lugar, mismos radios y espaciados del sistema de diseño. Usar el `Skeleton` del proyecto, no uno nuevo.
+- **Cantidad realista**: tantas filas como el tamaño de página o la cantidad típica, no una pantalla llena si suelen venir tres. Anchos de texto variados (por ejemplo 60–90 %) en lugar de bloques idénticos.
+- **Lo estático se renderiza real**: títulos, encabezados de tabla, toolbar, filtros y botones de crear aparecen desde el inicio y siguen usables; solo se esquematiza lo que depende de los datos.
+- **Una región, un skeleton**: cada región que carga por su cuenta tiene el suyo y se resuelve sola; nunca un skeleton de página entera que tape la navegación.
+- **Sin salto al reemplazarlo**: el contenido ocupa el mismo espacio que el skeleton (sin layout shift); sin fades largos.
+- **Sin parpadeo**: si los datos suelen llegar rápido, mostrarlo recién después de ~150–300 ms; una vez visible, mantenerlo un mínimo (~300–500 ms).
+- **Siempre termina**: el skeleton sale a datos, vacío o error; si el pedido falla o vence, pasa al error con reintento, nunca queda "cargando" para siempre.
+- **Accesible**: `aria-busy="true"` en la región, el skeleton con `aria-hidden` y un texto de estado para lectores ("Cargando pagos") en una live region; el foco nunca entra en un placeholder; con `prefers-reduced-motion`, sin shimmer (opacidad fija).
+- **Testeado**: aparece en la carga inicial, no reaparece al recargar, y se reemplaza por datos, vacío o error.
 
 ## Vacío
 
@@ -114,6 +143,8 @@ Reglas:
 - Pantalla en blanco mientras carga o cuando la lista está vacía.
 - Spinner de página completa para una acción en un botón.
 - Volver al skeleton en cada recarga, perdiendo scroll y contexto.
+- Skeleton con otra forma que el contenido (la página salta al cargar) o de página entera que oculta la navegación y los filtros.
+- Skeleton que nunca termina porque el error o el vacío no tienen su propio estado.
 - Mostrar "No hay resultados" mientras todavía está cargando o cuando el pedido falló.
 - Empty state de primera vez cuando el vacío es por un filtro.
 - Error genérico sin reintento, o que reemplaza toda la pantalla incluida la navegación.

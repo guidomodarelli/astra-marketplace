@@ -36,6 +36,8 @@ plugins/<name>/
   .codex-plugin/plugin.json     ← Codex plugin spec (required for Codex)
   plugin.json                   ← Agent Plugins v1 portable manifest (required for Hermes)
   skills/                       ← Shared skill implementations
+  references/                   ← Docs shared by several skills (optional)
+  tools/                        ← Executable tooling shared by several skills (optional), e.g. golfo-kit `tools/skill-coverage`
 ```
 
 **Portable** `plugin.json` (Agent Plugins v1, installed by Hermes with `hermes plugins install guidomodarelli/golfo-marketplace#plugins/<name>`) may only contain the spec fields (`$schema`, `name`, `version`, `description`, `author`, `homepage`, `repository`, `license`, `keywords`, `extensions`); `$schema` must be `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json`, `name` must equal the plugin directory and `version` must match `.claude-plugin/plugin.json`. Portable runtimes silently drop any skill whose frontmatter `name` differs from its directory or whose `description` is empty or longer than 1024 characters. `pnpm validate-portable-plugins` (`scripts/validate-portable-plugins.js`, run in CI) enforces all of this; run it after changing a manifest or a skill frontmatter.
