@@ -614,10 +614,7 @@
           "type": "not_contains_any",
           "values": [
             "no convergió",
-            "sin mergear",
-            "no mergeo",
-            "no voy a mergear",
-            "no mergear"
+            "no voy a mergear"
           ],
           "description": "No corta el loop sin mergear"
         }
@@ -749,7 +746,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(list|notific|PushNotification|avis)[a-z]*[^.]{0,80}(tax|fall|failed)|(tax|failed)[^.]{0,80}(list|notific|PushNotification|avis)",
+          "pattern": "(list|notific|PushNotification|avis)[a-z]*.{0,250}(tax|failed)|(tax|failed).{0,250}(list|notific|PushNotification|avis)",
           "description": "Reporta el hallazgo fallido en el aviso final"
         }
       ]
@@ -799,6 +796,38 @@
           "type": "regex",
           "pattern": "golden|todas las capas|capas (est[eé]n )?publicadas",
           "description": "Lo lanza cuando el stack esté completo y validado"
+        }
+      ]
+    },
+    {
+      "id": "final-round-waits-for-running-summary",
+      "description": "En la última ronda, con el resumen JSON de Codex todavía `running` para `lastReviewedSha` y un receipt viejo del mismo commit, no marca `finalMergePending` ni mergea aunque la CI esté verde.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`, `MAX_REVIEW_ROUNDS` = 3, `reviewRounds` vale 3 y `lastReviewedSha` es `9f8e7d6`, que es el head actual. El comentario de Codex con `codex-review-state:v1` dice `code_review.status: \"running\"` para `9f8e7d6`, pero hay un receipt viejo `codex-review-receipt:v1` con `**Reviewed commit:** 9f8e7d6` de una review anterior del mismo commit. No hay hallazgos abiertos, ni ids en `inFlight`, y `gh pr checks` da todo verde. No ejecutes nada, describí qué harías en esta vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "running|en curso|no termin|todav[ií]a no",
+          "description": "Reconoce que la review de la última ronda sigue en curso"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin) (mergeo|mergear|mergea|marco|marcar|pongo|poner)[^.]{0,60}|(espero|esperar)[^.]{0,60}(review|Codex|termine)",
+          "description": "No mergea ni marca el merge final todavía"
+        },
+        {
+          "type": "regex",
+          "pattern": "receipt[^.]{0,120}(viejo|anterior|no (cuenta|vale|alcanza|sirve)|ignor|stale)|(ignor|no (cuenta|vale|alcanza))[^.]{0,80}receipt",
+          "description": "Descarta el receipt viejo como evidencia"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "finalMergePending: true y mergeo",
+            "mergeo ahora",
+            "ejecuto gh pr merge",
+            "corro gh pr merge"
+          ],
+          "description": "No ejecuta el merge en esta vuelta"
         }
       ]
     }
