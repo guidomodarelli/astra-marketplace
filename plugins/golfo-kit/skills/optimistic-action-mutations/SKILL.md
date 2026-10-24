@@ -1,124 +1,113 @@
 ---
 name: optimistic-action-mutations
-description: Apply reusable optimistic mutation patterns for fast, repeatable UI actions that update local state before persistence and then reconcile with the server. Use when implementing or refactoring interactions like like/unlike buttons, pin/unpin buttons, poll votes, option selection, saves, follows, reactions, bookmarks, or any rapid toggle/select action that needs debounce, request coalescing, safe rollback, concurrency protection, and minimal mutation responses in React, Next.js, or similar frontend/backend flows.
+description: 'Optimistic UI y ciclo de vida de acciones. INVOCAR SIEMPRE, sin pedido explícito, al crear, modificar, corregir o refactorizar cualquier flujo de UI o su lógica en cualquier stack (pantallas, formularios, botones, handlers, hooks, caché, consultas/refetch y endpoints que alimentan esa UI), aunque no pidan optimismo. Revisar estado inicial, carga, GET/POST/PATCH/DELETE, envío, guardado, toggle, selección, reintento, reenvío de SMS/OTP, reset, cancelar, deshacer, éxito, error, timeout, offline, duplicación, concurrencia, rollback y reconciliación. Decidir entre actualización optimista, estado pending y confirmación por servidor; no anticipar éxito en pagos, autenticación, permisos ni acciones irreversibles. Aplicar cobertura incremental por subflujo con skill-coverage si existe y complementar ui-ux-flow-patterns. No en tareas sin UI ni flujo de usuario.'
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "frontend"
-  tags: "react, nextjs, optimistic-ui, mutations, debounce"
+  tags: "optimistic-ui, mutations, concurrency, rollback, reconciliation, react, nextjs, tanstack-query"
   command: "/optimistic-action-mutations"
 ---
 
-# Optimistic Action Mutations
+# Ciclo de vida de acciones y optimistic UI
 
-## Overview
+Cada acción de una UI tiene un ciclo de vida: el usuario la dispara, la UI responde, el servidor decide y la UI se reconcilia con esa decisión. Esta skill revisa ese ciclo en cada operación que un cambio toca y elige, para cada una, cuánto puede adelantarse la UI sin mentir: actualizar ya y reconciliar (optimistic), mostrar que se está procesando sin afirmar el resultado (pending-first) o esperar la respuesta del servidor (server-confirmed). No convierte todo en optimistic: se asegura de que ninguna acción relevante quede sin evaluar.
 
-Use this skill to implement fast user interactions that feel immediate while preserving server truth. The pattern is: capture a stable baseline, apply an optimistic intent, debounce or coalesce repeated input, submit the latest intent, reconcile with the response, and roll back safely on failure.
+## Invocación automática
 
-## Workflow
+La descripción pide cargarla en cada cambio de un flujo de UI. Es una instrucción al agente, no una garantía: el runtime decide qué skills carga y ningún texto lo vuelve determinístico. Por eso esta sección define qué hacer una vez cargada, para que el costo sea proporcional al cambio.
 
-1. Identify the action shape:
-   - Toggle: `likedByViewer`, `isPinned`, `isFollowing`.
-   - Selection: poll option ids, selected filters, ranking choices.
-   - Counter-backed action: local state includes counts or percentages.
-   - Ordered action: local state affects sorting, badges, timestamps, or pinned ordering.
+- **Activación.** Cualquier creación, modificación, corrección o refactor de un flujo de UI o de la lógica que lo alimenta (handler, hook, caché, query, route handler, server action, contrato de API que una pantalla consume), aunque el pedido no mencione optimismo. Que el cambio "solo agregue un botón" no la deja afuera: ese botón es una operación nueva con su propio ciclo de vida.
+- **Evaluación.** Listar las operaciones que el cambio agrega o toca (lecturas, mutaciones, operaciones prolongadas) y las transiciones afectadas. Solo esas: una pantalla que el cambio no toca no se vuelve a auditar.
+- **Aplicación.** Clasificar cada operación ([decisión](references/optimistic-decision.md)) y aplicar el patrón que corresponde con las primitivas que el proyecto ya tiene ([primitivas](references/framework-primitives.md)). El optimismo se implementa solo donde la clasificación lo permite.
+- **No aplicabilidad.** Si el cambio no agrega ni modifica operaciones (copy, estilos, layout, un componente de presentación sin datos ni acciones) o todas sus operaciones son lecturas sin oportunidad real de optimismo, terminar con una línea que lo justifique («sin operaciones nuevas ni modificadas: no aplica») y seguir. No agregar estado, abstracciones ni tests para cumplir con la skill.
 
-2. Start with the smallest failing test:
-   - Assert immediate optimistic UI feedback.
-   - Assert rapid repeated input sends the latest meaningful intent only.
-   - Assert rollback restores the captured baseline on failure.
-   - Assert stale responses do not update a changed route, entity, or context.
-   - Assert server responses reconcile counts, timestamps, sort order, and selected state.
+Un cambio mínimo produce una evaluación mínima. **No en**: jobs, migraciones, scripts CLI, workers o endpoints sin ninguna pantalla que los consuma, ni documentación sin código.
 
-3. Model pending intent per entity id:
-   - Store `baseline...` fields from the last persisted server state.
-   - Store `intended...` fields from the latest user action.
-   - Store `isRequestInFlight`.
-   - Store `shouldFlushAfterRequest` when input arrives during an active request.
-   - Keep timers and pending intents in refs or equivalent non-render state.
+**Complementaria de `ui-ux-flow-patterns`** (y de `nextjs-route-ui-boundaries` en Next.js con App Router). Las tres se cargan juntas en un cambio de UI y no se reemplazan: esta decide la intención, la concurrencia, la mutación, el rollback y la reconciliación; `ui-ux-flow-patterns` decide qué ve el usuario en cada estado y por qué canal; `nextjs-route-ui-boundaries`, los boundaries y el reparto server/client.
 
-4. Apply optimistic state immediately:
-   - Toggle booleans directly from current visible state.
-   - Update counters with bounded arithmetic such as `Math.max(0, nextCount)`.
-   - Recalculate derived values such as percentages from the optimistic total.
-   - Re-sort affected lists when the action changes ordering.
-   - Preserve accessibility and disabled/loading states for actions that cannot safely repeat.
+## Modos
 
-5. Debounce the flush, not the visual feedback:
-   - Clear any existing timer for the same entity id.
-   - Schedule a flush using a named delay constant.
-   - On flush, skip the request if the intended state equals the baseline.
-   - If a request is already in flight, mark `shouldFlushAfterRequest` and return.
+- **Modo liviano** (cambio puntual: un botón, un handler, un campo, un endpoint). Para cada operación que el cambio toca, responder en el mismo trabajo:
+  1. ¿Qué tipo de operación es y qué clase le corresponde (optimistic, pending-first o server-confirmed)? ([catálogo](references/action-catalog.md), [decisión](references/optimistic-decision.md))
+  2. ¿Se protege del doble disparo y de la respuesta vieja que pisa un estado nuevo? ([concurrencia](references/concurrency-reconciliation.md))
+  3. ¿Qué pasa ante error, timeout y resultado desconocido? ¿Hay rollback al baseline confirmado sin destruir otras operaciones? ¿Hay salida para el usuario?
+  4. ¿Qué se limpia al cambiar de ruta, de entidad o al desmontar?
 
-6. Reconcile the response:
-   - Validate the response shape before applying it.
-   - Ignore stale responses when the route, scope, or selected entity changed.
-   - If server state matches the latest intent, apply the server result and clear pending intent.
-   - If the user changed intent while the request was in flight, promote the response to the new baseline, reapply the optimistic latest intent, and flush again.
-   - Use the server response as the source of truth for counters, timestamps, permissions, and status messages.
+  Corregir lo que el cambio introduce y sumar una línea por hallazgo al cierre. Si nada aplica, no reportar nada extra.
+- **Modo completo** (flujo o pantalla nueva, rediseño, pedido explícito sobre optimismo, concurrencia o reconciliación). Seguir los pasos 1 a 6.
 
-7. Roll back intentionally:
-   - Restore the captured baseline state, not an inferred old value.
-   - Clear the pending intent and timer for that entity.
-   - Show a safe, specific user-facing error.
-   - Use warning feedback for business-limit failures and error feedback for unexpected failures.
+## Cobertura incremental
 
-## Server Contract
+Si el repositorio tiene `.golfo/skill-coverage/`, seguí el [protocolo de cobertura](../../references/skill-coverage.md#protocolo-de-una-skill) con `--skill optimistic-action-mutations` en cada unidad funcional que toque el trabajo: `affected` y `check` antes de evaluar, `begin`, `evidence` y `record` al cerrar. El registro decide **cuánto** trabajo repetir, nunca **si** cargar la skill: la activación de arriba manda siempre.
 
-Design the mutation endpoint or server action to return the minimum view model needed to reconcile the affected UI. Do not force a full route refresh when the client can update safely from the mutation result.
+- **Decisión de `check`.** `skip`: la cobertura verificada sigue vigente para el resto de la unidad, pero lo que vos agregás o tocás se evalúa igual. `incremental`: solo el alcance que lista `check` (cada parte con su foco: handler, render, contrato del servidor, configuración de tiempos) más su contexto necesario. `full`: el inventario completo de operaciones de la unidad. Un pedido de auditoría completa usa `check --force-full`.
+- **Modo de `begin`** igual al que usaste: `lightweight`, `incremental` o `full`.
+- **Evidencia** después de `begin`: `review` con las operaciones evaluadas y su clase, y `test` con `--exec` de los tests de comportamiento que corriste (rollback, respuesta vieja, doble disparo). Sin tests ejecutables, registrá la falta con `--limitation` y el resultado queda `partial`. No hay evidencia que inventar: solo lo que se ejecutó o revisó en la sesión.
+- **No aplica.** Si la unidad no tiene mutaciones ni oportunidad de optimismo, registrá `record --result not-applicable --summary "<motivo>"`, nunca `applicable: false` en la unidad ([por qué](../../references/skill-coverage.md#políticas-por-skill)): el registro se reevalúa cuando se agrega una mutación.
+- Sin registro o sin unidad para el código, la skill corre igual y no inventa cobertura.
 
-For toggle actions, return the persisted boolean, relevant counts, and a stable status. For ordered actions, return timestamps or ordering fields. For selection actions, return the persisted selected ids, option counts, percentages, totals, and viewer state.
+## 1. Inventariar las operaciones
 
-Make server writes safe under retries and concurrent requests:
-   - Use idempotent inserts/deletes or upserts for toggles.
-   - Use transactions around multi-step mutations.
-   - Use database constraints for uniqueness.
-   - Use advisory locks or equivalent protection for per-user/per-resource replacement flows.
-   - Re-read aggregate state after the write and return persisted values.
+Listar las operaciones de la unidad o del cambio con el [catálogo de acciones](references/action-catalog.md): lecturas (carga inicial, GET dependiente de parámetros, refetch, invalidación, paginación, búsqueda), mutaciones (POST, PUT/PATCH, DELETE, guardado y autosave, toggle, selección, reordenamiento, masivas, envío de mensajes, reenvío de códigos, reset, cancelar, deshacer) y operaciones prolongadas (uploads, jobs, polling, resultados parciales). Por cada una anotar qué dispara el usuario, qué endpoint o acción del servidor ejecuta y qué estado de la UI depende de ella.
 
-## Client Checklist
+## 2. Clasificar cada operación
 
-- Keep pending state keyed by the entity id being mutated.
-- Capture baseline from persisted state only once per pending intent.
-- Treat the latest user intent as authoritative while a request is pending.
-- Use named constants for debounce delays, limits, statuses, and copy keys.
-- Validate response types before applying state.
-- Guard against stale route/context responses.
-- Clean up timers and pending intent refs on unmount or scope reset.
-- Keep user-facing copy safe and localized according to the repository rules.
-- Avoid exposing provider payloads, stack traces, tokens, or internal diagnostics in UI feedback.
+Con la [tabla de decisión](references/optimistic-decision.md) clasificar cada mutación como **optimistic**, **pending-first** o **server-confirmed** según reversibilidad, efectos secundarios, permisos, probabilidad de fallo, costo del rollback, idempotencia y consistencia entre clientes. Pagos, autenticación, envíos reales de SMS o email, permisos, eliminaciones irreversibles y procesos externos no compensables nunca muestran un éxito antes de que el servidor lo confirme. Las lecturas no se clasifican así: se revisan sus estados de carga y su protección contra respuestas fuera de orden.
 
-## Test Checklist
+## 3. Recorrer la máquina de estados de cada interacción
 
-- Optimistic state appears immediately after the interaction.
-- Repeated rapid interactions are coalesced into the latest meaningful intent.
-- Returning to the original baseline cancels the unnecessary request.
-- A response matching the latest intent clears pending state.
-- A response older than the latest intent becomes the new baseline and triggers another flush.
-- Network or validation failure restores the captured baseline.
-- Business-limit responses show warning feedback and preserve server truth.
-- Stale responses from a previous route or scope are ignored.
-- Timers are cleared during unmount/reset.
-- Server mutation tests cover idempotency, constraints, permission failures, and aggregate re-read behavior.
+Para cada operación afectada, revisar las transiciones de la [máquina de estados por interacción](references/interaction-state-machine.md): qué ve el usuario, qué sigue habilitado, qué datos se conservan, qué es verdad confirmada, cómo se recupera y cómo se impide que una respuesta vieja pise un estado nuevo. Los nombres de los estados se adaptan al framework; no hace falta una máquina formal ni una dependencia nueva para una acción trivial. Qué mensaje y qué canal recibe cada estado lo decide `ui-ux-flow-patterns`.
 
-## Naming Pattern
+## 4. Proteger concurrencia y reconciliación
 
-Prefer explicit names that describe the action and state:
+Aplicar los patrones de [concurrencia y reconciliación](references/concurrency-reconciliation.md): baseline confirmado separado de la intención optimista, intenciones pendientes por entidad y operación, secuencias o versiones para descartar respuestas viejas, deduplicación y protección del doble envío, claves de idempotencia, conflictos, ids temporales, invalidación dirigida, rollback que no destruye otras operaciones confirmadas, limpieza al desmontar o navegar y recuperación tras reconexión.
 
-- `PendingLikeIntent`, `PendingPinIntent`, `PendingPollVoteIntent`
-- `baselineLikedByViewer`, `baselineLikeCount`, `intendedLikedByViewer`
-- `clearLikeDebounceTimer`, `schedulePendingLikeIntentFlush`, `flushPendingLikeIntent`
-- `applyMessageLikeState`, `applyMessagePinState`, `updateMessagePoll`
-- `getOptimisticPollVote`, `getOptimisticPinnedAt`
+Reglas que no se negocian:
 
-Keep these names in English even when surrounding product copy is localized.
+- **Timeout no es fallo.** Si la respuesta se perdió, la operación pudo ejecutarse en el servidor. Resolver primero el resultado (consulta de estado, id de operación o clave de idempotencia) antes de repetir una mutación con efectos secundarios.
+- **Abortar no es deshacer.** Cancelar el request del cliente no revierte una escritura que ya llegó al servidor.
+- **Una UI rápida no justifica un éxito falso.** Si la clase es pending-first o server-confirmed, el resultado de negocio se muestra recién con la confirmación.
+- Sin reintentos automáticos ilimitados ni una política universal de debounce: cada operación decide según su semántica.
+- Ningún estado deja al usuario trabado sin una salida.
 
-## Avoid
+## 5. Implementar con las primitivas del proyecto
 
-- Do not debounce the visual state update.
-- Do not use stale visible state as rollback data after multiple clicks.
-- Do not overwrite a newer user intent with an older server response.
-- Do not use a full page refresh as the default reconciliation strategy.
-- Do not mock platform/UI libraries just to test this pattern; test observable behavior at the component or use-case boundary.
-- Do not return raw provider or database errors to the UI.
+Reusar lo que el proyecto ya tiene: `useOptimistic` y Actions de React, `onMutate`/rollback/`cancelQueries`/invalidación de TanStack Query, `mutate` de SWR, la caché y las server actions del framework real ([primitivas](references/framework-primitives.md)). No instalar librerías nuevas ni construir un gestor de estado propio si las primitivas existentes alcanzan. El contrato del servidor devuelve lo mínimo para reconciliar y es seguro ante reintentos y concurrencia ([contrato del servidor](references/concurrency-reconciliation.md#contrato-del-servidor)).
+
+## 6. Verificar con tests de comportamiento
+
+Cubrir con tests lo que la clasificación promete, siguiendo la estrategia de testing del proyecto ([checklist](references/concurrency-reconciliation.md#checklist-de-tests)): feedback inmediato o pending según la clase, última intención con clicks rápidos, rollback al baseline, respuesta vieja descartada, doble envío sin efectos duplicados, resultado desconocido que consulta antes de repetir y limpieza al desmontar. No mockear las librerías de UI o de plataforma para probarlo: probar el comportamiento observable en el borde del componente o del caso de uso.
+
+## Compatibilidad entre agentes
+
+La skill solo necesita leer y editar código y correr los tests del proyecto, igual en Claude Code, Codex y Hermes. La cobertura incremental necesita `node` en `PATH` y el CLI de `skill-coverage` instalado junto al plugin (fila «Registrar cobertura de skills» de [`agent-capabilities.md`](../../references/agent-capabilities.md)); sin ellos la skill corre igual y lo reporta en **Limitaciones del agente**. Si hace falta recorrer estados en un navegador, usar el mecanismo de la fila «Verificar en un navegador» del mismo archivo.
+
+## Formato del reporte
+
+En modo liviano, una línea por operación tocada: `<operación> → <clase>: <decisión o hallazgo>`, o la línea de no aplicabilidad. En modo completo:
+
+```markdown
+## Operaciones
+| Operación | Tipo | Clase | Motivo |
+
+## Transiciones y concurrencia
+<por operación: estados revisados, protección contra respuestas viejas y doble disparo, rollback y reconciliación>
+
+## Verificación
+<tests ejecutados y resultado>
+
+## Cobertura
+<solo con registro: por unidad, decisión de `check`, resultado de `record` y pendientes>
+
+## Limitaciones del agente
+<solo si faltó una herramienta: qué se omitió y cómo verificarlo>
+```
+
+## Límites con otras skills
+
+- `ui-ux-flow-patterns`: qué ve el usuario en cada estado, canales de feedback, copy y accesibilidad del feedback.
+- `nextjs-route-ui-boundaries`: boundaries de ruta y reparto server/client en Next.js.
+- `async-operation-error-handling`: jobs, batches, polling, éxito parcial, reintentos distribuidos y contratos de operación entre capas.
+- `error-observability-diagnostics`: logs, correlación y diagnóstico de errores. La cobertura de `skill-coverage` registra qué revisó una skill; no es observabilidad de producción.

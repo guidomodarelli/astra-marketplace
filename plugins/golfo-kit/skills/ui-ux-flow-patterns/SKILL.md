@@ -3,7 +3,7 @@ name: ui-ux-flow-patterns
 description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading y skeletons, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), pending, reintento y recuperación de operaciones async, feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, códigos SMS u OTP, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
 license: MIT
 metadata:
-  version: "1.4.0"
+  version: "1.4.1"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "ux, ui, empty-state, loading, error-state, toast, feedback, components, flows"
@@ -109,7 +109,7 @@ Solo en modo completo:
 ## Límites con otras skills
 
 - `nextjs-route-ui-boundaries`: en Next.js, **dónde** van `loading.tsx`, `error.tsx` y los `<Suspense>` y qué parte renderiza el server; esta skill decide **qué muestran**. En un proyecto Next.js con App Router, cargar las dos juntas.
-- `optimistic-action-mutations`: implementación de toggles y acciones optimistas con rollback.
+- `optimistic-action-mutations`: complementaria en todo cambio de UI; decide si cada acción es optimistic, pending-first o confirmada por el servidor, y su concurrencia, rollback y reconciliación. Esta skill decide qué ve el usuario en cada uno de esos estados.
 - `async-operation-error-handling`: errores de jobs, batches, polling y éxito parcial a través de las capas (service, API, client); esta skill decide qué ve y puede hacer el usuario en cada estado de la operación.
 - `semantic-html-a11y`: semántica, roles y foco de los controles.
 - `mobile-first-responsive-layout`: cómo se adapta cada estado a pantallas chicas.

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Optimistic Action Mutations"
-  short_description: "Apply reusable optimistic mutation patterns for fast UI actions."
-  default_prompt: "Apply optimistic action mutation patterns to a fast user interaction."
+  display_name: "Ciclo de vida de acciones y optimistic UI"
+  short_description: "Evalúa cada acción de UI: optimistic, pending o confirmada por servidor"
+  default_prompt: "Usa $optimistic-action-mutations para evaluar las operaciones que toca este cambio de UI, clasificar cada una como optimistic, pending-first o server-confirmed y proteger concurrencia, rollback y reconciliación."
