@@ -265,6 +265,77 @@
           "description": "Declara Limitaciones del agente"
         }
       ]
+    },
+    {
+      "id": "coverage-copy-change-skips-measurement",
+      "description": "Si check dice skip porque los cambios no agregaron carga, no vuelve a medir.",
+      "input": "Usando measured-performance-optimization: en el flujo de checkout de la academia cambié textos y estilos de la pantalla. El repo tiene registro de cobertura y `node ~/golfo-kit/tools/skill-coverage/skill-coverage.mjs check --unit academy.home.checkout --skill measured-performance-optimization` devolvió:\n\n```\ncoverage: CURRENT (state verified, freshness current)\ndecision: SKIP\n  - verified coverage is current\n  - 3 change(s) not relevant to measured-performance-optimization\nignored changes:\n  modified: components/academy/academy-home/index.tsx › ACADEMY_HOME_COPY.checkoutButton — same load (copy, style, types or refactor)\n```\n\n¿Tengo que medir algo? No ejecutes nada.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no (hace falta|es necesario|corresponde|ten(e|é)s que|hay que)[^.]{0,40}(medir|volver a medir|re-?medir)|sin (volver a )?medir",
+          "description": "No vuelve a medir"
+        },
+        {
+          "type": "regex",
+          "pattern": "no agrega(n)? carga|misma carga|copy|estilos",
+          "description": "Justifica que los cambios no agregan carga"
+        }
+      ]
+    },
+    {
+      "id": "coverage-incremental-measures-whole-flow",
+      "description": "Con check incremental por una request nueva, mide el flujo completo antes (commit base) y después, y registra la medición con before/after.",
+      "input": "Usando measured-performance-optimization: agregué una validación remota antes de guardar un proveedor. Después de implementarla, el check de cobertura dio:\n\n```\ncoverage: STALE (state verified, freshness stale)\ndecision: INCREMENTAL (mode incremental)\nrelevant changes:\n  modified: components/academy/academy-management/index.tsx › ProvidersSection › handleSubmit — adds load: +1 requests, +1 awaited steps\nsuggested scope:\n  - measure the complete flow /[slug]/academia/gestionar: before = revision 4f2a9c1e7b3d (last measured), after = working tree\n```\n\nNo ejecutes nada: decime cómo medís y cómo dejás registrada la cobertura.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "flujo completo|todo el flujo|complete flow",
+          "description": "Mide el flujo completo, no solo el handler"
+        },
+        {
+          "type": "regex",
+          "pattern": "4f2a9c1|commit base|revisi(ó|o)n base",
+          "description": "Toma como antes la revisión base registrada"
+        },
+        {
+          "type": "regex",
+          "pattern": "mismas condiciones|mismo (build|modo)|condiciones comparables|throttling",
+          "description": "Mide en condiciones comparables"
+        },
+        {
+          "type": "regex",
+          "pattern": "before.{0,160}after|after.{0,160}before",
+          "description": "Registra la medición con antes y después"
+        },
+        {
+          "type": "regex",
+          "pattern": "begin.{0,80}mode|record.{0,80}result",
+          "description": "Usa begin/record del protocolo"
+        }
+      ]
+    },
+    {
+      "id": "coverage-cannot-measure-records-partial",
+      "description": "Si no hay forma de medir, no registra verified: partial con la limitación, igual que Sin medir.",
+      "input": "Usando measured-performance-optimization: sumé un polling cada 10 s al panel de solicitudes (unidad academy.manage.verifications.list). En este entorno no puedo levantar la app ni correr Lighthouse ni Playwright. No ejecutes nada: ¿qué dejás registrado en la cobertura y en el reporte?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "partial|parcial",
+          "description": "Registra partial"
+        },
+        {
+          "type": "regex",
+          "pattern": "limitation|sin medir",
+          "description": "Declara lo que no se pudo medir"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca)[^.]{0,60}(verified|verificad)|no inventar|sin inventar|no (estimar|estimes)",
+          "description": "No acredita sin mediciones reales"
+        }
+      ]
     }
   ]
 }

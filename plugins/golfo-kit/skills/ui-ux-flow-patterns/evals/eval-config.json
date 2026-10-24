@@ -440,6 +440,151 @@
           "description": "Declara Limitaciones del agente"
         }
       ]
+    },
+    {
+      "id": "coverage-skip-still-reviews-the-change",
+      "description": "Con cobertura vigente (check = skip) para la unidad, no vuelve a revisar toda la unidad pero sí revisa el cambio puntual en modo liviano y lo registra con begin/evidence/record.",
+      "input": "Usando ui-ux-flow-patterns en mi app Next.js: el repo tiene .golfo/skill-coverage/ y corrí `node ~/golfo-kit/tools/skill-coverage/skill-coverage.mjs check --unit academy.manage.providers.save --skill ui-ux-flow-patterns`, que devolvió:\n\n```\ncoverage: CURRENT (state verified, freshness current)\ndecision: SKIP\n  - verified coverage is current\nbaseline: verified full at 4f2a9c1e7b3d (ancestor) · skill 1.3.0\n```\n\nAhora me piden cambiar el texto del botón \"Guardar\" de ProvidersSection por \"Guardar proveedor\" y deshabilitarlo mientras guarda. No ejecutes nada: decime qué revisás, qué no, y qué comandos de cobertura corrés al terminar.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "resto.{0,80}verificad|no (vuelvo|volver|hace falta|es necesario).{0,20}(revisar|recorrer)|sin (volver a )?(revisar|recorrer) (toda|la unidad)",
+          "description": "No vuelve a revisar toda la unidad porque la cobertura está vigente"
+        },
+        {
+          "type": "regex",
+          "pattern": "pending|doble (env(i|í)o|click|clic)|deshabilit",
+          "description": "Igual revisa el cambio puntual: pending y doble envío"
+        },
+        {
+          "type": "regex",
+          "pattern": "lightweight|modo liviano",
+          "description": "Registra el cambio con begin en modo lightweight"
+        },
+        {
+          "type": "regex",
+          "pattern": "record.{0,100}result",
+          "description": "Cierra con record"
+        },
+        {
+          "type": "regex",
+          "pattern": "evidence.{0,80}exec|kind test",
+          "description": "Registra los tests como evidencia ejecutada"
+        }
+      ]
+    },
+    {
+      "id": "coverage-incremental-scope-only-changed-handler",
+      "description": "Con check incremental que señala solo ReviewQueueRow/decide, acota la revisión a ese handler y su contexto de estados, sin revisar la página entera, y registra en modo incremental.",
+      "input": "Usando ui-ux-flow-patterns: en la página \"Gestionar academia\" (un solo archivo con ProvidersSection, ReviewQueueSection y MembersSection) corrí el check de cobertura y salió:\n\n```\nui-ux-flow-patterns on academy.manage.verifications.decide\n  coverage: STALE (state verified, freshness stale)\n  decision: INCREMENTAL (mode incremental)\n  relevant changes:\n    modified: components/academy/academy-management/index.tsx › ReviewQueueRow › decide — visible or interactive code changed\n  suggested scope:\n    - components/academy/academy-management/index.tsx › ReviewQueueRow › decide — the action of this handler: pending state, double submit, feedback channel, error recovery and stale errors, with its component states as context\n```\n\nEl resto de las unidades de la página está CURRENT. Revisá la UX que corresponda. No ejecutes nada: decime el alcance y cómo lo cerrás.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "decide|rechaz|revoc|verific",
+          "description": "Se enfoca en la acción de decidir solicitudes"
+        },
+        {
+          "type": "regex",
+          "pattern": "(ProvidersSection|MembersSection|resto|otras secciones).{0,120}(CURRENT|vigente|no se (tocan|revisan)|fuera del alcance)|no (reviso|revisar|recorro|toco) (toda la p(a|á)gina|el resto|las otras)",
+          "description": "No revisa las otras secciones vigentes"
+        },
+        {
+          "type": "regex",
+          "pattern": "pending|doble (env(i|í)o|clic|click)|error[^.]{0,40}(viejo|stale|limpi)|conflict|409",
+          "description": "Revisa el contexto de estados del handler"
+        },
+        {
+          "type": "regex",
+          "pattern": "mode[ =]incremental|modo incremental|begin.{0,80}incremental|decisi(o|ó)n.{0,10}incremental",
+          "description": "Registra en modo incremental"
+        },
+        {
+          "type": "regex",
+          "pattern": "kind browser|navegador|playwright",
+          "description": "Recorre los estados en un navegador como evidencia"
+        }
+      ]
+    },
+    {
+      "id": "coverage-explicit-full-audit-ignores-cache",
+      "description": "Ante un pedido explícito de auditoría completa, fuerza el análisis completo aunque la cobertura esté vigente.",
+      "input": "Usando ui-ux-flow-patterns: quiero una auditoría completa de UX del checkout de la academia, de punta a punta, aunque el registro de .golfo/skill-coverage diga que academy.home.checkout está CURRENT desde la semana pasada. No ejecutes nada: decime qué comandos de cobertura usás y en qué modo trabajás.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "force-full",
+          "description": "Usa check --force-full"
+        },
+        {
+          "type": "regex",
+          "pattern": "modo completo|mode[ =]full",
+          "description": "Trabaja en modo completo"
+        },
+        {
+          "type": "regex",
+          "pattern": "matriz de estados|state matrix",
+          "description": "Produce la matriz de estados del modo completo"
+        }
+      ]
+    },
+    {
+      "id": "coverage-no-browser-records-partial",
+      "description": "Si no hubo navegador para recorrer los estados, no registra verified: registra partial con la limitación.",
+      "input": "Usando ui-ux-flow-patterns terminé el rediseño de la sección \"Proveedores de verificación\" (unidad academy.manage.providers.save, sin cobertura previa). Corrí los tests de vitest y pasaron, pero en esta sesión no hay ningún navegador ni Playwright disponible, así que no pude recorrer los estados. No ejecutes nada: ¿cómo cerrás el registro de cobertura?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "partial|parcial",
+          "description": "Registra el resultado como partial"
+        },
+        {
+          "type": "regex",
+          "pattern": "limitation|limitaci(o|ó)n",
+          "description": "Declara la falta de navegador como limitación"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca)[^.]{0,60}verified|no (puedo|se puede|corresponde)[^.]{0,40}(verificad|verified)",
+          "description": "Explica que no puede quedar verified"
+        }
+      ]
+    },
+    {
+      "id": "skeleton-shape-and-exit-states",
+      "description": "Diseña el skeleton de una tabla: misma forma que el contenido, toolbar real, sin volver al skeleton al filtrar, accesible y con salida a vacío o error.",
+      "input": "Usando ui-ux-flow-patterns: mi tabla de pagos (`PaymentsTable`, columnas Fecha, Integrante, Monto y Estado, 20 filas por página, con buscador y filtro por estado arriba) muestra un spinner centrado que tapa toda la página en la carga inicial y cada vez que filtro. Quiero usar skeletons. No ejecutes nada: decime cómo tiene que ser el skeleton y cuándo no usarlo.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(misma|mismas|igual).{0,40}(forma|columnas|estructura|alturas)|columnas.{0,60}(Fecha|Monto|Estado)",
+          "description": "El skeleton reproduce la forma real de la tabla"
+        },
+        {
+          "type": "regex",
+          "pattern": "(buscador|filtros?|toolbar|encabezado).{0,80}(real|visible|usable|siempre|desde el inicio|no se esquematiza)",
+          "description": "La toolbar y los filtros se renderizan reales"
+        },
+        {
+          "type": "regex",
+          "pattern": "(filtr|recarg|paginad).{0,140}(no hay que usarlo|no (volver|vuelve|mostrar|uses?|usar|usarlo)|(datos|filas) anteriores|mantener|manten(e|é))|volver al skeleton",
+          "description": "No vuelve al skeleton al filtrar o recargar"
+        },
+        {
+          "type": "regex",
+          "pattern": "aria-busy",
+          "description": "Marca la región con aria-busy"
+        },
+        {
+          "type": "regex",
+          "pattern": "prefers-reduced-motion|reduced motion|movimiento reducido",
+          "description": "Respeta prefers-reduced-motion"
+        },
+        {
+          "type": "regex",
+          "pattern": "(vac(i|í)o|error).{0,80}(skeleton|cargando|termina|reemplaza|sale)|(skeleton|cargando).{0,80}(vac(i|í)o|error)",
+          "description": "El skeleton termina en datos, vacío o error"
+        }
+      ]
     }
   ]
 }
