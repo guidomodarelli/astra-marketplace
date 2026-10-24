@@ -83,7 +83,7 @@ export function createProjectIndex({ projectRoot, config, git }) {
     analyze(filePath) {
       if (analyses.has(filePath)) return analyses.get(filePath);
       const source = this.readSource(filePath);
-      const analysis = source === undefined ? undefined : analyzeModule({ parser, path: filePath, source });
+      const analysis = source === undefined ? undefined : analyzeModule({ parser, path: filePath, resolver, source });
       analyses.set(filePath, analysis);
       return analysis;
     },

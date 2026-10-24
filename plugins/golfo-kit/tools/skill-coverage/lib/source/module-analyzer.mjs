@@ -16,10 +16,12 @@
  *   affects the code that reads it.
  *
  * Hashes cover the token stream, not the raw text: formatting and comments
- * never invalidate coverage. Each part also lists the identifiers it
- * references (`Name`, `Name.member`, or `/inner` for a sibling inner
- * function), the literal specifiers it loads with `import()` and the load
- * signals used by performance policies.
+ * never invalidate coverage. A part that consumes package or builtin imports
+ * also hashes their identity (`local=source#imported`), so pointing a binding
+ * at another export or subpath changes only the parts that use it. Each
+ * part also lists the identifiers it references (`Name`, `Name.member`, or
+ * `/inner` for a sibling inner function), the literal specifiers it loads
+ * with `import()` and the load signals used by performance policies.
  */
 import path from 'node:path';
 
@@ -177,9 +179,11 @@ function bindingNames(pattern) {
 /**
  * Analyzes a module. Never throws: parse failures degrade to whole-file analysis.
  *
- * @param {{ path: string, source: string, parser: { parse: Function } | null }} input
+ * @param {{ path: string, source: string, parser: { parse: Function } | null, resolver?: { resolve: Function } }} input
+ *   `resolver` tells project files apart from packages and builtins, whose
+ *   import identities are part of the hashes (without it, every import is).
  */
-export function analyzeModule({ path: filePath, source, parser }) {
+export function analyzeModule({ path: filePath, source, parser, resolver }) {
   if (!isSourceFile(filePath)) return fileLevelAnalysis(filePath, source, 'not a JavaScript or TypeScript module');
   if (!parser) return fileLevelAnalysis(filePath, source, 'no Babel parser available in the project');
   let ast;
@@ -198,15 +202,16 @@ export function analyzeModule({ path: filePath, source, parser }) {
     return fileLevelAnalysis(filePath, source, `parse error: ${error.message.split('\n')[0]}`);
   }
   if (ast.errors?.length) return fileLevelAnalysis(filePath, source, `parse error: ${String(ast.errors[0].message ?? ast.errors[0]).split('\n')[0]}`);
-  return symbolLevelAnalysis(filePath, source, ast);
+  return symbolLevelAnalysis(filePath, source, ast, resolver);
 }
 
 /**
  * @param {string} filePath
  * @param {string} source
  * @param {any} ast
+ * @param {{ resolve: Function } | undefined} resolver
  */
-function symbolLevelAnalysis(filePath, source, ast) {
+function symbolLevelAnalysis(filePath, source, ast, resolver) {
   const tokens = ast.tokens.filter((token) => typeof token.type !== 'string');
   const tokenText = (token) => {
     const text = source.slice(token.start, token.end);
@@ -467,6 +472,51 @@ function symbolLevelAnalysis(filePath, source, ast) {
     return Object.keys(counters).length ? counters : undefined;
   };
 
+  /**
+   * Identities (`local=source#imported`) of the import bindings that
+   * `references` consume and that the traversal cannot follow. Import
+   * declarations are not part of any token range and a package or builtin
+   * is traversed only by name and version, so without them
+   * `import { Check as Icon }` → `import { X as Icon }` (or a change of
+   * subpath) would leave every fingerprint unchanged. Bindings to project
+   * files are left out: the traversal already keys them by target path and
+   * symbol, and their specifiers change when code is moved between files.
+   *
+   * @param {string[]} references
+   * @returns {string[]}
+   */
+  const importIdentities = (references) => {
+    const identities = new Set();
+    for (const reference of references) {
+      if (reference.startsWith('/')) continue;
+      const [localName] = reference.split('.');
+      const binding = declarations.has(localName) ? undefined : imports.get(localName);
+      if (!binding || resolver?.resolve(filePath, binding.source).kind === 'file') continue;
+      identities.add(`${localName}=${binding.source}#${binding.imported}`);
+    }
+    return [...identities].sort();
+  };
+
+  /**
+   * One hashed part: its token hash combined with the identity of the
+   * imports it consumes (unchanged when it consumes none), plus references,
+   * literal runtime loads and load signals.
+   *
+   * @param {string} tokenHash Hash of the part's own tokens.
+   * @param {any[]} nodes Nodes the part covers.
+   * @param {{ skip?: Set<any>, innerNames?: Set<string> }} [options]
+   */
+  const createPart = (tokenHash, nodes, options = {}) => {
+    const references = collectReferences(nodes, options);
+    const identities = importIdentities(references);
+    return {
+      hash: identities.length ? entryHash(`${tokenHash}\u0000${identities.join('\u0000')}`) : tokenHash,
+      dynamicImportSources: collectDynamicImportSources(nodes, options.skip),
+      references,
+      signals: collectSignals(nodes, options.skip),
+    };
+  };
+
   const rangeOf = (node) => [node.start, node.end];
   const symbols = new Map();
 
@@ -504,19 +554,9 @@ function symbolLevelAnalysis(filePath, source, ast) {
         const innerNames = new Set(inners.map((inner) => inner.name));
         const innerNodes = new Set(inners.map((inner) => inner.node));
         for (const inner of inners) {
-          parts.set(`${name}/${inner.name}`, {
-            hash: hashRanges([rangeOf(inner.node)]),
-            dynamicImportSources: collectDynamicImportSources([inner.node]),
-            references: collectReferences([inner.node], { innerNames }),
-            signals: collectSignals([inner.node]),
-          });
+          parts.set(`${name}/${inner.name}`, createPart(hashRanges([rangeOf(inner.node)]), [inner.node], { innerNames }));
         }
-        parts.set(`${name}~shell`, {
-          hash: hashRanges([rangeOf(single.node)], inners.map((inner) => rangeOf(inner.node))),
-          dynamicImportSources: collectDynamicImportSources([single.node], innerNodes),
-          references: collectReferences([single.node], { innerNames, skip: innerNodes }),
-          signals: collectSignals([single.node], innerNodes),
-        });
+        parts.set(`${name}~shell`, createPart(hashRanges([rangeOf(single.node)], inners.map((inner) => rangeOf(inner.node))), [single.node], { innerNames, skip: innerNodes }));
         continue;
       }
     }
@@ -529,38 +569,18 @@ function symbolLevelAnalysis(filePath, source, ast) {
         const memberNodes = new Set(members);
         for (const member of members) {
           const memberName = String(member.key.name ?? member.key.value);
-          parts.set(`${name}.${memberName}`, {
-            hash: hashRanges([rangeOf(member)]),
-            dynamicImportSources: collectDynamicImportSources([member]),
-            references: collectReferences([member]),
-            signals: collectSignals([member]),
-          });
+          parts.set(`${name}.${memberName}`, createPart(hashRanges([rangeOf(member)]), [member]));
         }
-        parts.set(`${name}~frame`, {
-          hash: hashRanges([rangeOf(single.node)], members.map(rangeOf), { dropCommas: true }),
-          dynamicImportSources: collectDynamicImportSources([single.node], memberNodes),
-          references: collectReferences([single.node], { skip: memberNodes }),
-          signals: collectSignals([single.node], memberNodes),
-        });
+        parts.set(`${name}~frame`, createPart(hashRanges([rangeOf(single.node)], members.map(rangeOf), { dropCommas: true }), [single.node], { skip: memberNodes }));
         continue;
       }
     }
 
-    parts.set(name, {
-      hash: hashRanges(declarationNodes.map(rangeOf)),
-      dynamicImportSources: collectDynamicImportSources(declarationNodes),
-      references: collectReferences(declarationNodes),
-      signals: collectSignals(declarationNodes),
-    });
+    parts.set(name, createPart(hashRanges(declarationNodes.map(rangeOf)), declarationNodes));
   }
 
   const shellRanges = [...ast.program.directives.map(rangeOf), ...shellNodes.map(rangeOf)];
-  const moduleShell = {
-    hash: entryHash(`${hashRanges(shellRanges)}\u0000${sideEffectImports.join('\u0000')}`),
-    dynamicImportSources: collectDynamicImportSources(shellNodes),
-    references: collectReferences(shellNodes),
-    signals: collectSignals(shellNodes),
-  };
+  const moduleShell = createPart(entryHash(`${hashRanges(shellRanges)}\u0000${sideEffectImports.join('\u0000')}`), shellNodes);
 
   return {
     analyzer: ANALYZER_VERSION,
