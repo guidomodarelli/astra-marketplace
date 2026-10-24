@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "ui-ux-flow-patterns",
-  "description": "Evalúa decisiones de UI/UX por estado y por flujo: vacíos diferenciados (primera vez vs filtro), carga inicial vs recarga, error por región con reintento, canal de feedback correcto (inline, banner, toast, diálogo), confirmar vs deshacer en acciones destructivas, pending y doble envío en acciones, uploads por archivo y scope negativo en código sin interfaz, validación previa a la acción con feedback junto al campo y limpieza de errores viejos al cambiar de recurso o reintentar.",
+  "description": "Evalúa decisiones de UI/UX por estado y por flujo: vacíos diferenciados (primera vez vs filtro), carga inicial vs recarga, error por región con reintento, canal de feedback correcto (inline, banner, toast, diálogo), confirmar vs deshacer en acciones destructivas, pending y doble envío en acciones, uploads por archivo y scope negativo en código sin interfaz, validación previa a la acción con feedback junto al campo, limpieza de errores viejos y notificaciones obsoletas al cambiar de recurso o reintentar, error de campo frente a error general, fallo de red puntual frente a offline persistente, toast único que evoluciona y toast persistente accionable, ciclo de vida de operaciones async con resultado incierto, upload con éxito parcial y verificación por código SMS/OTP (vencido, reenvío, cooldown) sin callejones.",
   "test_cases": [
     {
       "id": "empty-list-first-use-vs-filtered",
@@ -583,6 +583,425 @@
           "type": "regex",
           "pattern": "(vac(i|í)o|error).{0,80}(skeleton|cargando|termina|reemplaza|sale)|(skeleton|cargando).{0,80}(vac(i|í)o|error)",
           "description": "El skeleton termina en datos, vacío o error"
+        }
+      ]
+    },
+    {
+      "id": "otp-expired-code-not-locked",
+      "description": "Ante un código SMS vencido que hoy bloquea el input con un mensaje rojo fijo, separa código incorrecto de código vencido, trata el vencimiento como condición del proceso y ofrece pedir otro código en el paso, sin depender de un toast.",
+      "input": "En el flujo de solicitud de acceso (React) tenemos el paso de verificación por SMS:\n\n```tsx\nasync function handleVerify() {\n  try {\n    await verifyCode(code);\n    router.push('/acceso/listo');\n  } catch (error) {\n    setError('Código inválido');\n    setLocked(true);\n  }\n}\n// <input disabled={locked} aria-invalid={!!error} className={error ? 'border-red-500' : ''} />\n// {error && <p className=\"text-red-600\">{error}</p>}\n```\n\nEl backend responde `{ code: 'OTP_INVALID', attemptsLeft: 2 }` o `{ code: 'OTP_EXPIRED' }`. Cuando el código vence, el usuario queda con el input bloqueado y el texto rojo para siempre y no sabe qué hacer. No ejecutes nada: decime cómo debería comportarse este paso en cada caso y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(pedir|solicitar|enviar|reenviar|mandar)(me)? (un |otro |nuevo )*c(o|ó)digo|reenviar|resend",
+          "description": "Ofrece una acción visible para pedir otro código cuando venció"
+        },
+        {
+          "type": "regex",
+          "pattern": "condici(o|ó)n del (proceso|flujo|paso|desaf(i|í)o)|no es un error (de formato|del (campo|input|valor))|no (se corrige|se arregla|se resuelve) (editando|corrigiendo|cambiando)",
+          "description": "Trata el código vencido como condición del proceso y no como error de formato del input"
+        },
+        {
+          "type": "regex",
+          "pattern": "(incorrect|no coincide|equivocad|OTP_INVALID).{0,200}(correg|editable|reescrib|volver a (ingresar|escribir|intentar)|intent(a|á) de nuevo|seguir (editando|escribiendo))",
+          "description": "Un código incorrecto todavía vigente deja corregirlo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(solo|s(o|ó)lo|(u|ú)nic).{0,40}toast|toast.{0,100}(opcional|adicional|complement|no (es|alcanza|basta)|nunca (como|sea) (la )?(u|ú)nic)|nunca (puede ser|es|como|sea) (la )?(u|ú)nica salida",
+          "description": "Un toast puede acompañar pero nunca es la única salida"
+        },
+        {
+          "type": "regex",
+          "pattern": "no hay salida|callej(o|ó)n|sin salida|atrapad|setLocked.{0,80}(quitar|eliminar|sacar|no )|(no|nunca).{0,40}(bloque|deshabilit).{0,60}(sin (explica|motivo|salida)|permanente)",
+          "description": "Elimina el bloqueo permanente sin salida"
+        },
+        {
+          "type": "regex",
+          "pattern": "intentos (restantes|que (te )?quedan)|quedan? [0-9]+ intentos|te queda|{attemptsLeft}|attemptsLeft}",
+          "description": "Usa los intentos restantes que informa el backend"
+        }
+      ]
+    },
+    {
+      "id": "otp-resend-success-clears-state",
+      "description": "Durante y después de reenviar un código, el botón muestra pending y evita doble envío; al salir bien limpia el código y los errores anteriores, toma temporizador y desafío del backend, habilita y enfoca el input y descarta respuestas tardías.",
+      "input": "Paso de verificación por SMS en una SPA React. Al apretar 'Reenviar código' llamamos `await resendOtp(phone)`; la respuesta trae `{ challengeId, expiresAt, resendAvailableAt }` pero no la usamos. Después de que vuelve OK, el input sigue con el código viejo, sigue visible el texto 'El código venció' y el contador de 60 s lo arrancamos con un `setInterval` local al hacer click. Si el usuario aprieta dos veces le llegan dos SMS y a veces la verificación del código viejo responde tarde y pisa todo. No ejecutes nada: decime qué tiene que pasar durante y después del reenvío y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(pending|enviando|cargando|spinner|loading|isResending|isPending|deshabilit|disabled).{0,80}(reenv|bot(o|ó)n)|(reenv|bot(o|ó)n).{0,80}(pending|enviando|spinner|loading|deshabilit|disabled)",
+          "description": "El botón Reenviar muestra pending mientras se ejecuta"
+        },
+        {
+          "type": "regex",
+          "pattern": "(limpi|borr|vaci|reset|quit|setCode\\(|setError\\(null\\)).{0,80}(c(o|ó)digo|error|mensaje|input|campo|venci|''|\"\")",
+          "description": "Limpia el código anterior y sus errores al reenviar con éxito"
+        },
+        {
+          "type": "regex",
+          "pattern": "(desde|seg(u|ú)n|a partir de|derivad|calcul|tom(a|á|ar)|usando).{0,60}(expiresAt|resendAvailableAt)|(expiresAt|resendAvailableAt).{0,100}(en lugar|en vez|reemplaz)|fuente de verdad|deriv[a-z]* de .?(expiresAt|resendAvailableAt)|salen del (backend|servidor)",
+          "description": "Deriva temporizador y cooldown del estado real del backend"
+        },
+        {
+          "type": "regex",
+          "pattern": "doble (env(i|í)o|click|clic|toque)|duplicad|segundo (env(i|í)o|click|clic|reenv)|en curso|in[- ]?flight|(ignor|bloque|evit).{0,60}(segundo|otro|nuevo) (click|clic|reenv|env)",
+          "description": "Evita el doble reenvío"
+        },
+        {
+          "type": "regex",
+          "pattern": "(foco|focus|enfoc).{0,80}(input|campo|c(o|ó)digo)|(input|campo).{0,80}(foco|focus|enfoc)",
+          "description": "Habilita y enfoca el input para el código nuevo"
+        },
+        {
+          "type": "regex",
+          "pattern": "challengeId.{0,120}(compar|coincid|vigente|actual|descart|ignor|ref)|(respuesta|response)s? (tard(i|í)a|vieja|anterior|desordenad)|desaf(i|í)o (anterior|viejo|vigente)|(descart|ignor).{0,80}(respuesta|verificaci(o|ó)n).{0,40}(vieja|anterior|tard)",
+          "description": "Descarta respuestas tardías de un desafío anterior"
+        }
+      ]
+    },
+    {
+      "id": "otp-resend-failure-and-cooldown",
+      "description": "Si el reenvío falla no se anuncia un envío falso; con 429 muestra cuándo se podrá reintentar con el botón deshabilitado y explicado, con 5xx ofrece reintentar y siempre conserva una salida alternativa.",
+      "input": "El endpoint de reenvío de código SMS a veces devuelve 429 con `Retry-After: 45` y a veces 500. Hoy en los dos casos mostramos `toast.success('Te enviamos un nuevo código')` porque el handler no mira el status, y además el botón 'Reenviar código' queda deshabilitado sin ningún texto. No ejecutes nada: decime qué debería ver y poder hacer el usuario en cada caso.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(decir|mostrar|indicar|afirmar|anunciar|mentir).{0,60}(envi(o|ó|amos|ado)|(e|é)xito|success)|toast\\.success.{0,120}(falso|incorrect|mentir|enga(n|ñ)|no correspond|err(o|ó)ne|nunca)|falso (positivo|(e|é)xito)|toast\\.success.{0,40}mient|no se envi(o|ó) nada|no (dice|diga|afirma) que se envi|no[* ]{1,4}(dice|diga|afirma) que se envi",
+          "description": "No indica falsamente que se envió el código"
+        },
+        {
+          "type": "regex",
+          "pattern": "(45|Retry-After).{0,120}(segundos|seg|0:45|cuenta regresiva|contador|podr(a|á)s|pod(e|é)s)|(podr(a|á)s|pod(e|é)s) (pedir|solicitar|reenviar|volver).{0,60}(en|dentro)",
+          "description": "Muestra cuándo se podrá volver a pedir el código"
+        },
+        {
+          "type": "regex",
+          "pattern": "(deshabilitad|disabled).{0,140}(motivo|por qu(e|é)|explica|raz(o|ó)n|cu(a|á)ndo|podr(a|á)s|pod(e|é)s)|(motivo|explica|por qu(e|é)|raz(o|ó)n).{0,140}(deshabilitad|disabled)",
+          "description": "Un botón deshabilitado explica por qué y cuándo se habilita"
+        },
+        {
+          "type": "regex",
+          "pattern": "reintentar|volver a intentar|intent(a|á) de nuevo|prob(a|á|ar) de nuevo|retry[^-]|retry$",
+          "description": "Ante un 500 ofrece reintentar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(se )?(habilit|reactiv).{0,80}(sol[oa]|autom(a|á)tic|al (vencer|terminar|llegar a|finalizar))|(al (vencer|terminar|llegar a|finalizar)).{0,80}(habilit|reactiv)",
+          "description": "El botón se habilita solo al vencer la espera"
+        },
+        {
+          "type": "regex",
+          "pattern": "alternativ|llamada|por (email|correo|mail)|cambiar (el )?(n(u|ú)mero|tel(e|é)fono)|soporte|c(o|ó)digos? de respaldo",
+          "description": "Conserva una salida alternativa si el SMS no llega"
+        }
+      ]
+    },
+    {
+      "id": "field-error-vs-form-error",
+      "description": "Separa un error de campo (email ya registrado) de un error general del formulario (registro cerrado, falla del servidor), con su asociación accesible, conservación de datos y limpieza al corregir.",
+      "input": "Formulario de registro (nombre, email, contraseña). El backend puede responder `{ field: 'email', code: 'EMAIL_TAKEN' }`, `{ code: 'REGISTRATIONS_CLOSED' }` (las inscripciones de la cohorte cerraron) o un 500. Hoy los tres casos muestran el texto rojo 'Error al registrar' debajo del campo email. No ejecutes nada: decime dónde va cada error, qué dice, cómo se anuncia y qué pasa con lo que escribió el usuario.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "EMAIL_TAKEN.{0,60}(junto|debajo|al lado|bajo|en el campo|inline)|(ya (est(a|á) )?registrad|en uso|ya existe).{0,100}(junto al|debajo del|al lado del|bajo el|en el) campo|aria-describedby",
+          "description": "El email ya registrado va junto a su campo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(mensaje|error|alerta|aviso) (general|del formulario|de formulario|a nivel (de )?formulario)|(arriba|encima|parte superior|tope) del formulario|form-level|nivel (del|de) formulario",
+          "description": "El registro cerrado y el 500 van en un mensaje general del formulario"
+        },
+        {
+          "type": "regex",
+          "pattern": "no (es|corresponde a|pertenece a) (un error del|ning(u|ú)n|el) campo|no (se corrige|se arregla|se resuelve|depende de) (editando|cambiando|corrigiendo|el)|condici(o|ó)n del (proceso|flujo)|no tiene que ver con el (email|campo)",
+          "description": "Explica que el registro cerrado no se corrige editando un campo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserv|mantener|mantené|preserv|no (se )?(borr|pierd|vaci)).{0,80}(datos|lo (escrito|ingresado)|formulario|campos|inputs?|valores)",
+          "description": "Conserva lo ingresado tras el error"
+        },
+        {
+          "type": "regex",
+          "pattern": "aria-describedby|aria-invalid|role=.?alert|role=.?status|aria-live",
+          "description": "Asocia o anuncia los errores con semántica accesible"
+        },
+        {
+          "type": "regex",
+          "pattern": "(desaparec|limpi|quit|borr|sac).{0,80}(al |cuando (el usuario )?|en cuanto (el usuario )?)(correg|cambi|edit|modific|escrib)",
+          "description": "El error del campo se limpia al corregirlo"
+        }
+      ]
+    },
+    {
+      "id": "transient-network-vs-offline",
+      "description": "Distingue un fallo de red puntual (error junto a la acción o toast con reintento) de una desconexión persistente (banner mientras dure, que se va al reconectar), sin fingir éxito de lo pendiente.",
+      "input": "En nuestra app de tareas (React + TanStack Query), si cualquier fetch falla con `TypeError: Failed to fetch` mostramos un banner rojo 'Sin conexión' arriba de toda la app que nunca se va. Pero muchas veces es un solo request que falló y la conexión está bien, y otras el usuario realmente se quedó sin red en el subte. No ejecutes nada: decime cómo distinguimos los dos casos y qué canal, duración y salida tiene cada uno.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(puntual|transitori|aislad|un solo (request|pedido|fallo)|espor(a|á)dic).{0,160}(toast|inline|junto a|reintentar|retry)|(error|mensaje)[* ]{1,4}junto a la acci(o|ó)n|en el lugar de la acci(o|ó)n",
+          "description": "Un fallo puntual va junto a la acción o en toast con reintento"
+        },
+        {
+          "type": "regex",
+          "pattern": "(persistent|sigue ca(i|í)d|realmente (sin|offline)|offline real|desconexi(o|ó)n (real|persistent|prolongad)).{0,160}banner|banner.{0,160}(persistent|mientras (dure|siga|est(e|é))|hasta que (vuelva|se recupere|reconect))",
+          "description": "La desconexión persistente usa un banner mientras dure"
+        },
+        {
+          "type": "regex",
+          "pattern": "(quit|desaparec|ocult|cerr|sac|remov|se va).{0,80}(reconect|vuelv[ae] la (conexi(o|ó)n|red)|online|recuper)|(reconect|online|recuper).{0,80}(quit|desaparec|ocult|cerr|sac|remov|se va)",
+          "description": "El banner se quita al reconectar"
+        },
+        {
+          "type": "regex",
+          "pattern": "navigator\\.onLine|evento[s]? .?(online|offline)|addEventListener\\(.(online|offline)|fallos? consecutiv|heartbeat|ping|onlineManager",
+          "description": "Detecta la desconexión con señales reales y no con un solo fallo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,40}(fing|simul|mostrar).{0,40}(e|é)xito|pendientes? de sincroniz|encolad|cola de|queue|paused",
+          "description": "Marca lo pendiente sin fingir éxito"
+        }
+      ]
+    },
+    {
+      "id": "single-toast-loading-success-error",
+      "description": "Una exportación async usa un único toast que evoluciona de loading a éxito o error, con reintento que actualiza el mismo toast, error persistente con acción y éxito con la acción de descargar, más pending en el botón.",
+      "input": "Botón 'Exportar reporte' (tarda entre 3 y 20 s, usamos sonner). Al hacer click llamamos `toast('Exportando…')`, después `toast.success('Listo')` o `toast.error('Falló')` (que se va en 4 s), y si el usuario reintenta se acumulan 3 o 4 toasts en pantalla. Mientras tanto el botón sigue clickeable. No ejecutes nada: decime cómo lo dejarías y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(mismo|un (solo|(u|ú)nico)) toast|toast\\.promise|(actualiz|reemplaz|reutiliz).{0,60}(toast|id)|toastId|\\{ ?id:",
+          "description": "Usa un único toast que evoluciona de loading a éxito o error"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reintent|retry).{0,140}(mismo toast|mismo id|actualiz|reemplaz|no (apil|acumul|sum|cre))|(no (se )?(apil|acumul|duplic)).{0,80}toast",
+          "description": "El reintento actualiza el mismo toast en vez de apilar otro"
+        },
+        {
+          "type": "regex",
+          "pattern": "error.{0,140}(no se (descart|cierr|va) sol|persistent|duration: ?Infinity|sin (auto)?descart|hasta que)|(persistent|Infinity).{0,80}error",
+          "description": "El toast de error con acción no se descarta solo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(acci(o|ó)n|action|bot(o|ó)n).{0,60}(reintentar|retry)|(reintentar|retry).{0,40}(acci(o|ó)n|action|bot(o|ó)n)",
+          "description": "El error ofrece la acción Reintentar"
+        },
+        {
+          "type": "regex",
+          "pattern": "descargar|download",
+          "description": "El éxito ofrece descargar el archivo generado"
+        },
+        {
+          "type": "regex",
+          "pattern": "(bot(o|ó)n|control).{0,80}(pending|deshabilit|disabled|exportando|spinner|loading)|doble (click|clic|env(i|í)o)",
+          "description": "El botón muestra pending y no acepta un segundo click"
+        }
+      ]
+    },
+    {
+      "id": "persistent-dismissible-actionable-toast",
+      "description": "Un error accionable fuera de contexto usa un toast persistente con X accesible y Reintentar, alcanzable con teclado y anunciado sin robar el foco, que no es la única forma de ver ni recuperar la invitación fallida.",
+      "input": "Al enviar una invitación desde un drawer, el drawer se cierra enseguida y si después falla el POST mostramos `toast.error('No se pudo enviar la invitación')` que dura 4 segundos y no tiene botones. Usuarios con lector de pantalla y que navegan con teclado nos dicen que no llegan a hacer nada. No ejecutes nada: rediseñá ese feedback y explicá por qué.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no se (descart|cierr|va)|no desaparec|sin (auto)?descart|persistent|duration: ?Infinity|hasta que (el usuario )?(lo )?(cierr|act)",
+          "description": "El toast no se descarta solo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(X|cerrar|close).{0,100}(accesible|aria-label|nombre accesible|bot(o|ó)n real|teclado|Escape)|aria-label=.?(Cerrar|Close)",
+          "description": "Tiene cierre con una X accesible"
+        },
+        {
+          "type": "regex",
+          "pattern": "reintentar|retry|volver a enviar|reenviar (la )?invitaci(o|ó)n",
+          "description": "Ofrece una acción concreta para reintentar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(teclado|Tab|keyboard|F6|atajo).{0,100}(alcanz|acced|foco|focus|enfoc)|(no|sin) (robar|mover|quitar) (el )?foco",
+          "description": "La acción es alcanzable con teclado sin robar el foco"
+        },
+        {
+          "type": "regex",
+          "pattern": "role=.?status|aria-live=.?polite|live region|regi(o|ó)n viva",
+          "description": "Se anuncia con una live region polite"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no (sea|es|como) (la )?(u|ú)nic|tambi(e|é)n|adem(a|á)s).{0,120}(lista|fila|invitaci(o|ó)n|estado|pendiente|fallid)|(fila|lista|invitaci(o|ó)n).{0,80}(fallid|no enviad|con error|pendiente)",
+          "description": "El toast no es la única forma de ver o recuperar la invitación fallida"
+        }
+      ]
+    },
+    {
+      "id": "save-button-pending-double-submit",
+      "description": "El botón Guardar muestra pending con tamaño estable y nombre accesible, ignora un segundo envío mientras hay uno en curso, se rehabilita al fallar y muestra el error conservando los datos.",
+      "input": "Formulario de perfil en React:\n\n```tsx\n<button onClick={async () => { await saveProfile(form); toast.success('Guardado'); }}>Guardar</button>\n```\n\nLos usuarios hacen doble click y se mandan dos requests, el botón no cambia mientras espera y si `saveProfile` falla no se ve nada. No ejecutes nada: arreglalo y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "Guardando|spinner|isPending|isSaving|aria-busy|pending",
+          "description": "El botón muestra estado pending"
+        },
+        {
+          "type": "regex",
+          "pattern": "(ancho|tama(n|ñ)o|width|min-w|layout).{0,60}(estable|fijo|mismo|conserv|no (salte|cambie|cambia))|(no|sin) (salto|layout shift)|conserva su (ancho|lugar|tama(n|ñ)o)|no cambia (de|su) (ancho|tama(n|ñ)o)",
+          "description": "Mantiene estable el tamaño del botón"
+        },
+        {
+          "type": "regex",
+          "pattern": "(ref|useRef|flag|bandera|guard|en curso|in[- ]?flight|isSubmitting|isSaving|isPending).{0,140}(doble|segundo|dos veces|ignor|return)|(doble|segundo).{0,80}(ref|useRef|flag|guard|ignor)|useTransition|useActionState",
+          "description": "Ignora un segundo envío mientras hay uno en curso"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserv|mantener|mantené|preserv|no (se )?(borr|pierd)).{0,80}(datos|lo (escrito|ingresado)|formulario|campos|form|valores)|(datos|lo (escrito|ingresado)|formulario|campos|valores).{0,40}(se )?(conserv|mantien|preserv)|lo (escrito|ingresado) no se (perdi|pierd)",
+          "description": "Conserva los datos tras el error"
+        },
+        {
+          "type": "regex",
+          "pattern": "volver a habilit|rehabilit|se habilit|vuelve a (estar )?habilit|finally|setIsSaving\\(false\\)|setSaving\\(false\\)|setIsPending\\(false\\)",
+          "description": "Desbloquea el botón al terminar o fallar"
+        },
+        {
+          "type": "regex",
+          "pattern": "nombre accesible|aria-label|aria-busy|aria-disabled|aria-live|role=.?(status|alert)|lector de pantalla",
+          "description": "El pending y el error son accesibles"
+        }
+      ]
+    },
+    {
+      "id": "upload-progress-retry-partial",
+      "description": "Un uploader de varios archivos muestra progreso real por archivo, cancelación y reintento solo del fallido conservando la selección, y un resumen de éxito parcial en vez de un error global.",
+      "input": "Uploader de adjuntos (hasta 10 archivos) en Vue 3. Hoy subimos todo con un `Promise.all`, mostramos un spinner global 'Subiendo…' que tapa el formulario y si uno solo falla mostramos 'Error al subir' y el usuario tiene que volver a elegir todos los archivos. No ejecutes nada: decime cómo debería ser este flujo, estado por estado.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(progreso|progress).{0,80}(por archivo|de cada archivo|cada archivo|individual|onUploadProgress|bytes)|(por archivo|cada archivo).{0,80}(progreso|progress)",
+          "description": "Muestra progreso real por archivo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reintentar|retry).{0,80}(fallid|el que fall|los que fall|ese archivo|individual|por archivo)|reintentar (solo )?(los )?fallidos",
+          "description": "Reintenta solo el archivo fallido"
+        },
+        {
+          "type": "regex",
+          "pattern": "[0-9]+ de [0-9]+|parcial|partial|allSettled",
+          "description": "Resume el éxito parcial del lote"
+        },
+        {
+          "type": "regex",
+          "pattern": "(conserv|mantener|mantené|no (volver a )?(eleg|seleccion)|sin (volver a )?(eleg|seleccion)).{0,80}(archivo|selecci(o|ó)n)|(no|sin) (rehacer|volver a subir) (el lote|todo|los (exitosos|que (ya )?(subieron|salieron)))|(archivos?|selecci(o|ó)n|File).{0,60}(se )?conserv|conserva el .?File|no re-?sube (los )?exitosos",
+          "description": "Conserva la selección y no rehace el lote"
+        },
+        {
+          "type": "regex",
+          "pattern": "cancel(ar)?.{0,60}(por archivo|cada archivo|individual|ese archivo|AbortController)|AbortController",
+          "description": "Permite cancelar por archivo"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,40}(barra|progreso).{0,40}(falsa|ficticia|simulad|por tiempo)|progreso real|determinad",
+          "description": "Usa progreso real y no una barra ficticia"
+        }
+      ]
+    },
+    {
+      "id": "non-idempotent-uncertain-result",
+      "description": "Ante el timeout de un pago, trata el resultado como incierto, consulta el estado antes de permitir repetir, no reintenta automáticamente, usa clave de idempotencia y bloquea Pagar de nuevo mientras no se sabe.",
+      "input": "En el checkout, si `POST /payments` tarda más de 30 s lo cortamos por timeout y mostramos 'Hubo un error, intentá de nuevo' con un botón que vuelve a llamar `POST /payments`. Algunos clientes terminaron con dos cobros. No ejecutes nada: decime qué cambiarías en la UX y en el manejo de este estado.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "incierto|no sabemos si|no (pudimos|podemos|se puede) confirmar|desconocid|unknown|indeterminad",
+          "description": "Trata el timeout como resultado incierto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(consult|verific|comprob|chequ).{0,80}(estado|status).{0,140}(antes|previo)|antes de (reintentar|volver a (cobrar|pagar|llamar|intentar|enviar))",
+          "description": "Consulta el estado antes de volver a ejecutar"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|nunca).{0,60}(reintent|repetir|volver a (llamar|cobrar|enviar|ejecutar)).{0,80}(autom(a|á)tic|a ciegas|sin (consultar|verificar|comprobar|saber))",
+          "description": "No repite automáticamente la mutación no idempotente"
+        },
+        {
+          "type": "regex",
+          "pattern": "idempoten",
+          "description": "Usa una clave de idempotencia"
+        },
+        {
+          "type": "regex",
+          "pattern": "(deshabilit|bloque|ocult|sacar|quitar|no mostrar|no ofrecer|reemplaz).{0,80}(pagar de nuevo|reintentar|bot(o|ó)n|volver a pagar|intent(a|á) de nuevo)",
+          "description": "No ofrece Pagar de nuevo mientras el resultado es incierto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(comprobar|verificar|consultar|ver) (el )?(estado|pago)",
+          "description": "Ofrece la acción de comprobar el estado"
+        }
+      ]
+    },
+    {
+      "id": "stale-notifications-cleared-on-context-change",
+      "description": "Al cambiar de pedido limpia banner, toast persistente y error del pedido anterior antes del nuevo request y descarta la respuesta tardía del pedido anterior para que no pise el detalle actual.",
+      "input": "Panel maestro-detalle de pedidos (React): el usuario elige un pedido en la lista lateral y se carga su detalle. Si el pedido A falló al cargar, queda el banner 'No pudimos cargar el pedido' y un toast persistente con 'Reintentar' aun cuando el usuario ya eligió el pedido B. Además, a veces la respuesta lenta de A llega después y pinta los datos de A sobre la selección de B. No ejecutes nada: decime cómo lo arreglás y mostrame el código.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(limpi|borr|quit|resete|reset|setError\\(null\\)).{0,80}(error|banner|mensaje).{0,100}(antes|al (cambiar|elegir|seleccionar))|(antes|al (cambiar|elegir|seleccionar)).{0,100}(limpi|borr|quit|reset).{0,60}(error|banner|mensaje)|cerrar.{0,100}(toasts?|mensajes|banner).{0,120}antes de que (empiece|arranque|salga)",
+          "description": "Limpia el error del pedido anterior antes del nuevo request"
+        },
+        {
+          "type": "regex",
+          "pattern": "(cerr|descart|dismiss|quit|elimin).{0,60}toast|toast\\.dismiss",
+          "description": "Cierra el toast persistente obsoleto"
+        },
+        {
+          "type": "regex",
+          "pattern": "(descart|ignor|cancel|abort).{0,80}(respuesta|response|request|petici(o|ó)n|pedido (anterior|A|viejo))|AbortController|(id|requestId|orderId|selectedId).{0,80}(vigente|actual|coincid|compar)|race condition",
+          "description": "Descarta la respuesta tardía del pedido anterior"
+        },
+        {
+          "type": "regex",
+          "pattern": "(por|atad[oa] al?|asociad[oa] al?|clave|key) (pedido|id|recurso|orderId)|key=\\{|queryKey|orderId ?!==? ?orderId|atad[oa] a(l)? .{0,20}pedido|id de su pedido|selected[A-Za-z]*Id",
+          "description": "Ata el estado y el error al pedido seleccionado"
+        }
+      ]
+    },
+    {
+      "id": "no-toast-when-ui-shows-result",
+      "description": "Caso negativo: cuando mover una tarjeta, tildar una subtarea o renombrar una columna ya muestra el resultado en la UI, no agrega toasts de éxito; reserva el feedback para el error con rollback y para anunciarlo a lectores.",
+      "input": "En nuestro tablero kanban, cuando el usuario arrastra una tarjeta de 'To do' a 'Doing' la tarjeta se mueve y además mostramos `toast.success('Tarea movida a Doing')`. Lo mismo al marcar una subtarea como completada (el checkbox se tilda y mostramos 'Subtarea completada'). El PM quiere que agreguemos también un toast al renombrar una columna inline. No ejecutes nada: ¿está bien este feedback? ¿Qué harías?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no hace falta|sobra|innecesari|ruido|redundante|quitar|sacar|eliminar|no agregar|no sumar|evitar).{0,60}toast|toast.{0,60}(sobra|innecesari|ruido|redundante|no (hace falta|aporta))",
+          "description": "Señala que los toasts de éxito sobran"
+        },
+        {
+          "type": "regex",
+          "pattern": "(cambio|la UI|la tarjeta|el checkbox|la columna|el t(i|í)tulo|el nombre).{0,100}(es|ya es|funciona como|alcanza como|basta como|act(u|ú)a como).{0,20}(el )?feedback|cambio directo|ya (se ve|es visible|muestra el resultado)",
+          "description": "Reconoce que el propio cambio de la UI es el feedback"
+        },
+        {
+          "type": "regex",
+          "pattern": "(si falla|error|fall(a|o)|rechaz).{0,140}(revert|rollback|vuelv[ae]|volver|deshac|toast de error|restaur)",
+          "description": "Mantiene feedback para el error con rollback"
+        },
+        {
+          "type": "regex",
+          "pattern": "aria-live|role=.?status|lector(es)? de pantalla|anunci",
+          "description": "Considera anunciar el cambio a tecnologías de asistencia"
         }
       ]
     }
