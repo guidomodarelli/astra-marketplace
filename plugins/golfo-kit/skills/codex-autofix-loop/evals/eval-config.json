@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "codex-autofix-loop",
-  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop no pregunta nada y usa 3 rondas por defecto, salvo que el pedido indique otro tope, y con `sin límite` no corta por rondas. Además evalúa que, al terminar la última ronda permitida, el loop no pide otra review y mergea sin preguntar tras el gate de CI (reintentando con `finalMergePending` si la CI está pendiente), y que se lanza solo al abrir un PR hacia la rama de integración, salvo capas intermedias de un stack.",
+  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop no pregunta nada y usa 3 rondas por defecto, salvo que el pedido indique otro tope, y con `sin límite` no corta por rondas. Además evalúa que, al terminar la última ronda permitida, el loop no pide otra review y mergea sin preguntar tras el gate de CI (reintentando con `finalMergePending` si la CI está pendiente), y que se lanza solo al abrir un PR hacia la rama de integración, salvo capas intermedias de un stack. Por último evalúa el timeout de ronda: si Codex no publica la review de `lastReviewedSha` a tiempo, repostea `@codex review` una vez sin consumir el tope de rondas, al segundo vencimiento avisa y se auto-cancela sin mergear, y relanzar le da a la ronda un reintento más.",
   "test_cases": [
     {
       "id": "third-test-only-round-merges",
@@ -828,6 +828,183 @@
             "corro gh pr merge"
           ],
           "description": "No ejecuta el merge en esta vuelta"
+        }
+      ]
+    },
+    {
+      "id": "round-timeout-first-expiry-reposts-review",
+      "description": "La review de la ronda 1 lleva 50 min en `running` sin publicarse: vence por primera vez, repostea `@codex review`, reinicia el reloj y no suma a `reviewRounds` ni mergea.",
+      "input": "Usando codex-autofix-loop: el loop corre para el PR #42 de `acme/widgets` con `MAX_REVIEW_ROUNDS` = 3. En `.codex-autofix/processed-42.json` tengo `reviewRounds: 1`, `lastReviewedSha: 9f8e7d6` (el head actual), `reviewRequestedAt` de hace 50 minutos y `reviewTimeoutRetries: 0`. Codex le puso 👀 al `@codex review`, pero su resumen `codex-review-state:v1` sigue con `code_review.status: \"running\"` para `9f8e7d6` y no publicó ninguna review ni receipt. No hay ids en `inFlight` y la CI está verde. No ejecutes nada, describí qué harías en esta vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "venc|expir|timeout|45 ?min",
+          "description": "Reconoce que la ronda venció por el timeout"
+        },
+        {
+          "type": "regex",
+          "pattern": "gh pr comment.{0,80}@codex review|(re-?poste|repost|vuelvo a postear|poste|pido|public|dispar)[a-záéíóú]*[^.]{0,60}@codex review",
+          "description": "Repostea `@codex review` una vez"
+        },
+        {
+          "type": "regex",
+          "pattern": "reviewTimeoutRetries[^.\\n]{0,40}(1|uno)",
+          "description": "Registra el reintento en `reviewTimeoutRetries`"
+        },
+        {
+          "type": "regex",
+          "pattern": "reviewRequestedAt[^.\\n]{0,80}(ahora|now|reinici|actualiz|nuev)|(reinici|arranc|resete)[a-z]*[^.\\n]{0,40}(reloj|timer|contador de tiempo)",
+          "description": "Reinicia el reloj de la ronda"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no (sum|increment|toc|cambi|consum|avanz)[a-z]*[^.\\n]{0,60}(reviewRounds|tope|ronda))|reviewRounds[^.\\n]{0,60}(queda|sigue|se mantiene|mantengo|dejo|sin cambi)[^.\\n]{0,20}(en )?1",
+          "description": "No consume el tope de rondas"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "así que mergeo",
+            "entonces mergeo",
+            "procedo a mergear",
+            "procedo con el merge",
+            "ejecuto gh pr merge",
+            "corro gh pr merge",
+            "mergeo el PR ahora"
+          ],
+          "description": "No mergea por el timeout"
+        }
+      ]
+    },
+    {
+      "id": "round-timeout-not-expired-keeps-waiting",
+      "description": "Con 20 min desde el `@codex review` y la review en `running`, la ronda no venció: no repostea ni avisa, sigue esperando.",
+      "input": "Usando codex-autofix-loop: el loop corre para el PR #42 de `acme/widgets`. `reviewRounds: 2`, `lastReviewedSha: 4c5d6e7` (el head actual), `reviewRequestedAt` de hace 20 minutos y `reviewTimeoutRetries: 0`. El resumen `codex-review-state:v1` de Codex dice `code_review.status: \"running\"` para `4c5d6e7` y el `@codex review` tiene 👀 del bot. No hay comentarios nuevos de Codex ni ids en `inFlight`. No ejecutes nada, describí qué harías en esta vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no|todav[ií]a no|a[uú]n no)[^.\\n]{0,40}(venc|expir)|20 (min|minutos)[^.\\n]{0,80}45|menos de 45|faltan[^.\\n]{0,20}25",
+          "description": "Reconoce que la ronda todavía no venció"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca) (repost|re-?poste|vuelvo a postear|poste|pido|public|dispar)[a-záéíóú]*[^.\\n]{0,60}(@codex review|review)",
+          "description": "No repostea `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "(sigo|sigue|seguir|queda|dejo|continúo|continuo)[^.]{0,50}esper|no hago nada|no (toco|cambio|modifico)[^.]{0,40}(reloj|reviewRequestedAt|reviewTimeoutRetries)",
+          "description": "Sigue esperando la review sin tocar el estado del timeout"
+        }
+      ]
+    },
+    {
+      "id": "round-timeout-second-expiry-cancels-without-merge",
+      "description": "En la última ronda, tras un reintento por timeout, la review vuelve a vencer con CI verde: avisa con una línea, marca `reviewTimedOut`, auto-cancela y no mergea ni repostea.",
+      "input": "Usando codex-autofix-loop: el loop corre en Claude Code para el PR #42 de `acme/widgets` con `MAX_REVIEW_ROUNDS` = 3. El JSON tiene `reviewRounds: 3`, `lastReviewedSha: 1a2b3c4` (el head actual), `reviewTimeoutRetries: 1` y `reviewRequestedAt` de hace 50 minutos: ya reposteé `@codex review` una vez por timeout. Codex sigue sin publicar la review de `1a2b3c4` (el resumen dice `running`). No quedan hallazgos abiertos ni ids en `inFlight` y `gh pr checks` da todo verde. No ejecutes nada, describí qué harías en esta vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no public[óo][^.\\n]{0,40}review|PushNotification",
+          "description": "Avisa que Codex no publicó la review"
+        },
+        {
+          "type": "regex",
+          "pattern": "auto-?cancel|CronDelete|cancel[oa]?r? el loop|corto el loop|detengo el loop",
+          "description": "Auto-cancela el loop"
+        },
+        {
+          "type": "regex",
+          "pattern": "reviewTimedOut[^.\\n]{0,20}true",
+          "description": "Marca `reviewTimedOut: true` para que relanzar dé otro reintento"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin|nunca) (mergeo|mergear|mergea|mergees|hago (el )?merge|corro gh pr merge|ejecuto gh pr merge)|sin mergear|no (dispara|habilita|lleva)[^.]{0,30}merge",
+          "description": "Declara que no mergea aunque la CI esté verde"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "así que mergeo",
+            "entonces mergeo",
+            "procedo a mergear",
+            "procedo con el merge",
+            "ejecuto gh pr merge",
+            "corro gh pr merge",
+            "mergeo el PR ahora",
+            "finalMergePending: true"
+          ],
+          "description": "No mergea ni marca el merge final"
+        }
+      ]
+    },
+    {
+      "id": "relaunch-after-round-timeout-grants-retry",
+      "description": "Al relanzar un loop que se auto-canceló por timeout, resetea `reviewTimedOut` y `reviewTimeoutRetries`, conserva el resto del JSON y repostea `@codex review` con un reloj nuevo sin sumar a `reviewRounds`.",
+      "input": "Usando codex-autofix-loop: volvé a lanzar el loop de Codex para el PR #42 de `acme/widgets`. Hace dos horas se auto-canceló con el aviso «PR #42: Codex no publicó la review en 90 min». El `.codex-autofix/processed-42.json` existente tiene `reviewRounds: 1`, `lastReviewedSha: 9f8e7d6` (el head actual), `reviewTimeoutRetries: 1`, `reviewTimedOut: true` y `reviewRequestedAt` de hace 2 horas. Codex sigue sin publicar esa review. No ejecutes nada, describí cómo preparás el estado y qué hace la primera vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "reviewTimedOut[^.\\n]{0,40}false",
+          "description": "Vuelve `reviewTimedOut` a `false`"
+        },
+        {
+          "type": "regex",
+          "pattern": "reviewTimeoutRetries[^.\\n]{0,40}0",
+          "description": "Vuelve `reviewTimeoutRetries` a 0"
+        },
+        {
+          "type": "regex",
+          "pattern": "conserv|manten|no (lo )?(borr|piso|reinici|sobrescrib)",
+          "description": "Conserva el resto del estado del JSON"
+        },
+        {
+          "type": "regex",
+          "pattern": "gh pr comment.{0,80}@codex review|(re-?poste|repost|vuelvo a postear|poste|pido|public|dispar)[a-záéíóú]*[^.]{0,60}@codex review",
+          "description": "La primera vuelta repostea `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no (sum|increment|toc|cambi|consum)[a-z]*[^.\\n]{0,60}(reviewRounds|tope|ronda))|reviewRounds[^.\\n]{0,60}(queda|sigue|se mantiene|mantengo|dejo)[^.\\n]{0,20}(en )?1",
+          "description": "No suma a `reviewRounds`"
+        }
+      ]
+    },
+    {
+      "id": "single-round-mode-evaluates-round-timeout",
+      "description": "En modo D, una invocación que encuentra la ronda vencida por primera vez repostea `@codex review`, reinicia el reloj y termina indicando cómo relanzar, sin esperar.",
+      "input": "Usando codex-autofix-loop: estoy en Codex CLI y te pido una sola ronda, sin ocupar la sesión esperando. El JSON del PR #42 de `acme/widgets` tiene `reviewRounds: 2`, `lastReviewedSha: 7e6d5c4` (el head actual), `reviewRequestedAt` de hace una hora y `reviewTimeoutRetries: 0`. Codex no publicó ninguna review ni receipt de `7e6d5c4`. No hay hallazgos nuevos ni ids en `inFlight`. No ejecutes nada, describí qué hace esta invocación y cómo termina.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "venc|expir|timeout",
+          "description": "Detecta el vencimiento con la hora de la invocación"
+        },
+        {
+          "type": "regex",
+          "pattern": "gh pr comment.{0,80}@codex review|(re-?poste|repost|vuelvo a postear|poste|pido|public|dispar)[a-záéíóú]*[^.]{0,60}@codex review",
+          "description": "Repostea `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "reviewTimeoutRetries[^.\\n]{0,40}(1|uno)",
+          "description": "Registra el reintento"
+        },
+        {
+          "type": "regex",
+          "pattern": "relanz|volv[eé] a invocar|invoc[aá] (de nuevo|otra vez)",
+          "description": "Termina indicando cómo relanzar"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "sigo escuchando el PR",
+            "quedo escuchando el PR",
+            "armo un cron",
+            "armo el Monitor"
+          ],
+          "description": "No promete escucha continua"
         }
       ]
     }
