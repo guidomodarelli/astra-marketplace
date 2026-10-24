@@ -21,7 +21,7 @@ La descripción pide cargarla en cada cambio de un flujo de UI. Es una instrucci
 - **Activación.** Cualquier creación, modificación, corrección o refactor de un flujo de UI o de la lógica que lo alimenta (handler, hook, caché, query, route handler, server action, contrato de API que una pantalla consume), aunque el pedido no mencione optimismo. Que el cambio "solo agregue un botón" no la deja afuera: ese botón es una operación nueva con su propio ciclo de vida.
 - **Evaluación.** Listar las operaciones que el cambio agrega o toca (lecturas, mutaciones, operaciones prolongadas) y las transiciones afectadas. Solo esas: una pantalla que el cambio no toca no se vuelve a auditar.
 - **Aplicación.** Clasificar cada operación ([decisión](references/optimistic-decision.md)) y aplicar el patrón que corresponde con las primitivas que el proyecto ya tiene ([primitivas](references/framework-primitives.md)). El optimismo se implementa solo donde la clasificación lo permite.
-- **No aplicabilidad.** Si el cambio no agrega ni modifica operaciones (copy, estilos, layout, un componente de presentación sin datos ni acciones) o todas sus operaciones son lecturas sin oportunidad real de optimismo, terminar con una línea que lo justifique («sin operaciones nuevas ni modificadas: no aplica») y seguir. No agregar estado, abstracciones ni tests para cumplir con la skill.
+- **No aplicabilidad.** Si el cambio no agrega ni modifica operaciones (copy, estilos, layout, un componente de presentación sin datos ni acciones), terminar con una línea que lo justifique («sin operaciones nuevas ni modificadas: no aplica») y seguir. Un cambio que solo toca lecturas (GET, búsqueda, refetch, paginación) no es «no aplica»: el optimismo no corresponde, pero antes de cerrar se revisan los checks de lectura del [catálogo](references/action-catalog.md#lectura-y-obtención-de-datos) (estado de carga, respuestas fuera de orden o de parámetros viejos, cancelación, conservar los datos previos) y se cierra con la línea «solo lecturas: sin optimismo; checks de lectura revisados». No agregar estado, abstracciones ni tests para cumplir con la skill.
 
 Un cambio mínimo produce una evaluación mínima. **No en**: jobs, migraciones, scripts CLI, workers o endpoints sin ninguna pantalla que los consuma, ni documentación sin código.
 
@@ -30,7 +30,7 @@ Un cambio mínimo produce una evaluación mínima. **No en**: jobs, migraciones,
 ## Modos
 
 - **Modo liviano** (cambio puntual: un botón, un handler, un campo, un endpoint). Para cada operación que el cambio toca, responder en el mismo trabajo:
-  1. ¿Qué tipo de operación es y qué clase le corresponde (optimistic, pending-first o server-confirmed)? ([catálogo](references/action-catalog.md), [decisión](references/optimistic-decision.md))
+  1. ¿Qué tipo de operación es y qué clase le corresponde (optimistic, pending-first o server-confirmed)? Una lectura no lleva clase: se revisa con los checks de lectura del catálogo. ([catálogo](references/action-catalog.md), [decisión](references/optimistic-decision.md))
   2. ¿Se protege del doble disparo y de la respuesta vieja que pisa un estado nuevo? ([concurrencia](references/concurrency-reconciliation.md))
   3. ¿Qué pasa ante error, timeout y resultado desconocido? ¿Hay rollback al baseline confirmado sin destruir otras operaciones? ¿Hay salida para el usuario?
   4. ¿Qué se limpia al cambiar de ruta, de entidad o al desmontar?
@@ -45,7 +45,7 @@ Si el repositorio tiene `.golfo/skill-coverage/`, seguí el [protocolo de cobert
 - **Decisión de `check`.** `skip`: la cobertura verificada sigue vigente para el resto de la unidad, pero lo que vos agregás o tocás se evalúa igual. `incremental`: solo el alcance que lista `check` (cada parte con su foco: handler, render, contrato del servidor, configuración de tiempos) más su contexto necesario. `full`: el inventario completo de operaciones de la unidad. Un pedido de auditoría completa usa `check --force-full`.
 - **Modo de `begin`** igual al que usaste: `lightweight`, `incremental` o `full`.
 - **Evidencia** después de `begin`: `review` con las operaciones evaluadas y su clase, y `test` con `--exec` de los tests de comportamiento que corriste (rollback, respuesta vieja, doble disparo). Sin tests ejecutables, registrá la falta con `--limitation` y el resultado queda `partial`. No hay evidencia que inventar: solo lo que se ejecutó o revisó en la sesión.
-- **No aplica.** Si la unidad no tiene mutaciones ni oportunidad de optimismo, registrá `record --result not-applicable --summary "<motivo>"`, nunca `applicable: false` en la unidad ([por qué](../../references/skill-coverage.md#políticas-por-skill)): el registro se reevalúa cuando se agrega una mutación.
+- **No aplica.** Si la unidad no tiene operaciones (ni lecturas ni mutaciones), registrá `record --result not-applicable --summary "<motivo>"`, nunca `applicable: false` en la unidad ([por qué](../../references/skill-coverage.md#políticas-por-skill)): el registro se reevalúa cuando se agrega una operación. Una unidad de solo lecturas no es `not-applicable`: registrá `review` con los checks de lectura revisados y `test` con los tests que corriste (o la falta con `--limitation`), como cualquier otra unidad.
 - Sin registro o sin unidad para el código, la skill corre igual y no inventa cobertura.
 
 ## 1. Inventariar las operaciones
@@ -86,7 +86,7 @@ La skill solo necesita leer y editar código y correr los tests del proyecto, ig
 
 ## Formato del reporte
 
-En modo liviano, una línea por operación tocada: `<operación> → <clase>: <decisión o hallazgo>`, o la línea de no aplicabilidad. En modo completo:
+En modo liviano, una línea por operación tocada: `<operación> → <clase>: <decisión o hallazgo>`, o la línea de no aplicabilidad o de solo lecturas. En modo completo:
 
 ```markdown
 ## Operaciones
