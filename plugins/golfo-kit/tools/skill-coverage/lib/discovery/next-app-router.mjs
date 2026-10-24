@@ -24,6 +24,8 @@ import { computeUnitInputs } from '../impact/unit-inputs.mjs';
 const PAGE_FILE_PATTERN = /(?:^|\/)page\.[cm]?[jt]sx?$/;
 const ROUTE_FILE_PATTERN = /(?:^|\/)route\.[cm]?[jt]sx?$/;
 const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+/** Route exports every page or route handler shares: their name alone never identifies a moved entry. */
+const ROUTE_EXPORT_SYMBOLS = new Set(['default', ...HTTP_METHODS]);
 const ACTION_SIGNALS = ['projectCalls', 'fetch', 'database', 'awaitInLoop'];
 const DATA_LOADING_SIGNALS = ['fetch', 'projectCalls', 'database', 'awaits'];
 const DISCOVERY_DEPTH = 4;
@@ -286,20 +288,27 @@ export function discoverUnits(context, options = {}) {
     return analysis.symbols.has(name) || analysis.localExports.has(name) || analysis.reExports.has(name);
   };
 
-  // Reuse existing ids; report units whose primary entry moved.
-  const relocations = [];
+  // Reuse existing ids; report units whose primary entry moved. A move needs
+  // a symbol name that identifies the entry (not a shared route export) and a
+  // one-to-one match: an ambiguous proposal stays a new unit instead of
+  // rewriting an existing one.
+  const moveCandidates = [];
   for (const proposal of proposals) {
     const primary = proposal.entries[0];
     proposal.existingId = existingByEntry.get(`${primary.path}#${primary.symbol}`) ?? null;
-    if (!proposal.existingId) {
-      for (const unit of existingUnits) {
-        const moved = unit.entries.find((entry) => isFunctionalEntry(entry) && entry.symbol === primary.symbol && entry.path !== primary.path && !declaresSymbol(entry.path, entry.symbol));
-        if (moved) {
-          proposal.existingId = unit.id;
-          relocations.push({ from: moved.path, symbol: primary.symbol, to: primary.path, unitId: unit.id });
-        }
-      }
+    if (proposal.existingId || ROUTE_EXPORT_SYMBOLS.has(primary.symbol.split(/[/.~]/)[0])) continue;
+    for (const unit of existingUnits) {
+      const moved = unit.entries.find((entry) => isFunctionalEntry(entry) && entry.symbol === primary.symbol && entry.path !== primary.path && !declaresSymbol(entry.path, entry.symbol));
+      if (moved) moveCandidates.push({ from: moved.path, proposal, unitId: unit.id });
     }
+  }
+  const candidateCount = (matches) => moveCandidates.filter(matches).length;
+  const relocations = [];
+  for (const candidate of moveCandidates) {
+    const { from, proposal, unitId } = candidate;
+    if (candidateCount((other) => other.proposal === proposal) !== 1 || candidateCount((other) => other.unitId === unitId) !== 1) continue;
+    proposal.existingId = unitId;
+    relocations.push({ from, symbol: proposal.entries[0].symbol, to: proposal.entries[0].path, unitId });
   }
 
   // Registered ids and the ids of proposals that match a unit are reserved
