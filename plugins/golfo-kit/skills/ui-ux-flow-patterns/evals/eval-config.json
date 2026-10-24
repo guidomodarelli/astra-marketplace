@@ -608,12 +608,12 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(solo|s(o|ó)lo|(u|ú)nic).{0,40}toast|toast.{0,100}(opcional|adicional|complement|no (es|alcanza|basta)|nunca (como|sea) (la )?(u|ú)nic)",
+          "pattern": "(no|nunca).{0,60}(solo|s(o|ó)lo|(u|ú)nic).{0,40}toast|toast.{0,100}(opcional|adicional|complement|no (es|alcanza|basta)|nunca (como|sea) (la )?(u|ú)nic)|nunca (puede ser|es|como|sea) (la )?(u|ú)nica salida",
           "description": "Un toast puede acompañar pero nunca es la única salida"
         },
         {
           "type": "regex",
-          "pattern": "callej(o|ó)n|sin salida|atrapad|setLocked.{0,80}(quitar|eliminar|sacar|no )|(no|nunca).{0,40}(bloque|deshabilit).{0,60}(sin (explica|motivo|salida)|permanente)",
+          "pattern": "no hay salida|callej(o|ó)n|sin salida|atrapad|setLocked.{0,80}(quitar|eliminar|sacar|no )|(no|nunca).{0,40}(bloque|deshabilit).{0,60}(sin (explica|motivo|salida)|permanente)",
           "description": "Elimina el bloqueo permanente sin salida"
         },
         {
@@ -640,7 +640,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(desde|seg(u|ú)n|a partir de|derivad|calcul|tom(a|á|ar)|usando).{0,60}(expiresAt|resendAvailableAt)|(expiresAt|resendAvailableAt).{0,100}(en lugar|en vez|reemplaz)|fuente de verdad",
+          "pattern": "(desde|seg(u|ú)n|a partir de|derivad|calcul|tom(a|á|ar)|usando).{0,60}(expiresAt|resendAvailableAt)|(expiresAt|resendAvailableAt).{0,100}(en lugar|en vez|reemplaz)|fuente de verdad|deriv[a-z]* de .?(expiresAt|resendAvailableAt)|salen del (backend|servidor)",
           "description": "Deriva temporizador y cooldown del estado real del backend"
         },
         {
@@ -667,7 +667,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(decir|mostrar|indicar|afirmar|anunciar|mentir).{0,60}(envi(o|ó|amos|ado)|(e|é)xito|success)|toast\\.success.{0,120}(falso|incorrect|mentir|enga(n|ñ)|no correspond|err(o|ó)ne|nunca)|falso (positivo|(e|é)xito)|toast\\.success.{0,40}mient|no se envi(o|ó) nada|no (dice|diga|afirma) que se envi",
+          "pattern": "(no|nunca).{0,60}(decir|mostrar|indicar|afirmar|anunciar|mentir).{0,60}(envi(o|ó|amos|ado)|(e|é)xito|success)|toast\\.success.{0,120}(falso|incorrect|mentir|enga(n|ñ)|no correspond|err(o|ó)ne|nunca)|falso (positivo|(e|é)xito)|toast\\.success.{0,40}mient|no se envi(o|ó) nada|no (dice|diga|afirma) que se envi|no[* ]{1,4}(dice|diga|afirma) que se envi",
           "description": "No indica falsamente que se envió el código"
         },
         {
