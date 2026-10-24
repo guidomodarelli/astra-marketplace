@@ -6,6 +6,7 @@
   {"query": "Tengo que agregar una server action para archivar cursos en `src/modules/courses/...` y un route handler `app/api/courses/[id]/archive/route.ts`. Es Next.js App Router, armalo", "should_trigger": true},
   {"query": "cambié next.config.ts para activar cacheComponents y ahora el build se queja de que una página lee cookies() fuera de Suspense, ayudame", "should_trigger": true},
   {"query": "Creá un hook `useTribeMembers` en `hooks/` para el componente cliente de miembros que monta `app/(platform)/[slug]/members/page.tsx`, hoy trae los datos con useEffect", "should_trigger": true},
+  {"query": "el check de skill-coverage para la unidad platform.members.list dio SKIP, pero ahora agrego un loading.tsx en app/(platform)/members y muevo la página al route group (admin); next 16 app router", "should_trigger": true},
   {"query": "Escribí una migración SQL que agregue la columna archived_at a courses con su índice y la policy de RLS correspondiente", "should_trigger": false},
   {"query": "El job de cron que manda el resumen diario de admisiones por mail tarda 40s; perfilalo y decime qué query es la lenta", "should_trigger": false},
   {"query": "Refactorizá `scripts/dev-portless.mjs` para separar la verificación de DNS en un módulo propio, sin cambiar el comportamiento", "should_trigger": false},
