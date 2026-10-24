@@ -4,7 +4,7 @@ description: "Ship current branch changes end-to-end: create a feature/* branch 
 allowed-tools: Bash(git:*) Bash(gh:*)
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
   author: "Guido Modarelli"
   category: "git-workflow"
   tags: "git, branch, commit, push, pull-request"
@@ -21,10 +21,10 @@ Ejecutar únicamente cierre solicitado: inspeccionar estado, crear/reutilizar br
 
 - No iniciar code review, security audit, dependency audit, performance review ni análisis adicional salvo pedido explícito.
 - No ejecutar tests, builds, linters o scanners adicionales. Hooks Git obligatorios pueden ejecutarse como parte de commit; no lanzar validaciones aparte.
-- No invocar skills, agentes o workflows ajenos al flujo, excepto `pr-description-template`. Si una regla de mayor prioridad obliga una invocación, limitarla a determinar aplicabilidad; no expandir alcance.
+- No invocar skills, agentes o workflows ajenos al flujo, excepto `pr-description-template` y, tras crear el PR, `codex-autofix-loop` (ver paso 6). Si una regla de mayor prioridad obliga una invocación, limitarla a determinar aplicabilidad; no expandir alcance.
 - No modificar código, dependencias o configuración para corregir problemas descubiertos durante cierre.
 - Si hook, commit, push o creación PR falla por contenido del repositorio, detener y reportar blocker; no aplicar fixes automáticos.
-- No crear ni actualizar Jira, review comments, approvals, merge, labels ni estado del PR.
+- No crear ni actualizar Jira, review comments, approvals, merge, labels ni estado del PR. Los fixes y el merge posteriores son del loop de Codex, no de esta skill.
 - Writes permitidos: branch local, index Git, commit, push y creación/title/body del PR solicitado.
 - Si una acción no es requisito directo para cierre pedido, omitirla.
 
@@ -164,6 +164,7 @@ gh pr create --title "<english subject>" --body-file <tmp-body.md> --base "$BASE
   ```
 
 - Capture the returned PR URL.
+- Right after the PR is created, launch the Codex auto-fix loop for it without asking, following the «Arranque automático al abrir un PR» section of [codex-autofix-loop](../codex-autofix-loop/SKILL.md) (it also lists when not to launch it).
 
 ### 7. Report the summary table (Spanish)
 
@@ -176,6 +177,7 @@ Always close with a Markdown table summarizing the run:
 | Commit | `<short-hash>` — `<subject>` |
 | Push | OK → `origin/<feature-branch>` |
 | PR | `<pr-url>` (o motivo si no se creó) |
+| Loop Codex | Lanzado (tope `<R>` rondas) \| No lanzado — `<motivo>` |
 
 If any step was skipped or failed, show its real status in the table (e.g. `PR | No creado — gh no autenticado`) instead of reporting success.
 

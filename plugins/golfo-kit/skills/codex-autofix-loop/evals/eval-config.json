@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "codex-autofix-loop",
-  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop no pregunta nada y usa 3 rondas por defecto, salvo que el pedido indique otro tope, y con `sin límite` no corta por rondas.",
+  "description": "Evalúa el tope de rondas de solo tests del loop de auto-fix de Codex: `testOnlyRounds` cuenta rondas consecutivas cuyo rango `lastReviewedSha..HEAD` solo toca tests o evals, se resetea a 0 ante cualquier archivo fuera de esos patrones, y al llegar a 3 no pide otro `@codex review`, pasa el gate de CI y mergea con squash, reintentando en las vueltas siguientes si la CI está pendiente o el merge falla, aunque `MAX_REVIEW_ROUNDS` esté subido. También evalúa el tope general de rondas: al lanzar el loop no pregunta nada y usa 3 rondas por defecto, salvo que el pedido indique otro tope, y con `sin límite` no corta por rondas. Además evalúa que, al terminar la última ronda permitida, el loop no pide otra review y mergea sin preguntar tras el gate de CI (reintentando con `finalMergePending` si la CI está pendiente), y que se lanza solo al abrir un PR hacia la rama de integración, salvo capas intermedias de un stack.",
   "test_cases": [
     {
       "id": "third-test-only-round-merges",
@@ -363,7 +363,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(poste|pid|public|dispar)[a-zéá]*[^.]{0,40}@codex review",
+          "pattern": "(poste|pid|public|dispar)[a-zéá]*[^.]{0,40}@codex review|gh pr comment.{0,80}@codex review",
           "description": "Pide otro `@codex review`"
         },
         {
@@ -557,6 +557,168 @@
             "background=true"
           ],
           "description": "No arma crons ni procesos en background"
+        }
+      ]
+    },
+    {
+      "id": "final-round-merges-without-asking",
+      "description": "Con `MAX_REVIEW_ROUNDS` = 3 y `reviewRounds` = 3, la review de la última ronda dejó un hallazgo realista que ya se fixeó: no pide otra review, pasa el gate de CI y mergea sin preguntar, atado al head.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`, `MAX_REVIEW_ROUNDS` = 3 y `reviewRounds` vale 3, `testOnlyRounds` vale 0. La review de Codex de esa tercera ronda dejó un hallazgo realista en `src/cart.ts`; el subagente ya lo fixeó y pusheó, hice el closeout y no quedan ids en `inFlight`. `gh pr checks` da todo verde. No ejecutes nada, describí qué harías ahora en el paso de cierre de la ronda y si le consultarías algo al usuario.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(^|[^[:alpha:]])(no|nunca|sin) (voy a |vamos a |se |lo |va a )?(postea|posteo|postear|publico|publica|publicar|pido|pide|pedir|lanzo|lanza|lanzar|dispar|solicit)[a-z]*[^.]{0,40}(review|revisi|@codex)|(won.t|will not|do not|don.t|never|skip|skipping|without|not) (post|request|trigger|ask for)[a-z]*[^.]{0,40}(review|@codex)",
+          "description": "Decide explícitamente no pedir otro `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "gate de CI|CI gate|gh pr checks|checks?[^.]{0,40}(verde|green|pas|ok)|(verde|green)[^.]{0,30}(CI|checks?)",
+          "description": "Pasa por el gate de CI antes de mergear"
+        },
+        {
+          "type": "regex",
+          "pattern": "gh pr merge.{0,120}--squash",
+          "description": "Mergea con `gh pr merge --squash`"
+        },
+        {
+          "type": "contains",
+          "value": "match-head-commit",
+          "description": "Ata el merge al head que pasó el gate"
+        },
+        {
+          "type": "contains",
+          "value": "finalMergePending",
+          "description": "Persiste `finalMergePending` para reintentar el merge"
+        },
+        {
+          "type": "regex",
+          "pattern": "sin (pregunt|consult|confirm|pedir confirm)|no (le )?(voy a |hace falta |necesito )?(pregunt|consult)|sin esperar (aprobaci|revisi|confirm)|no (uso|usar[ií]a|uso el) `?AskUserQuestion|no (espero|esperar[ií]a) aprobaci|prohíbe preguntar|(pregunt|consult)[a-z]* algo[^.]{0,40}\bNo\b",
+          "description": "Declara que mergea sin preguntar"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "¿Querés que mergee",
+            "¿querés que mergee",
+            "¿Mergeo",
+            "¿mergeo",
+            "te pregunto si",
+            "le pregunto si",
+            "le preguntaría si",
+            "should I merge",
+            "Should I merge"
+          ],
+          "description": "No pide confirmación para mergear"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "no convergió",
+            "sin mergear",
+            "no mergeo",
+            "no voy a mergear",
+            "no mergear"
+          ],
+          "description": "No corta el loop sin mergear"
+        }
+      ]
+    },
+    {
+      "id": "final-merge-pending-ci-retries",
+      "description": "Con `finalMergePending` en true y checks pendientes, en una vuelta sin fixes no pide review ni mergea: deja el loop vivo y reintenta.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`. En `.codex-autofix/processed-42.json` tengo `reviewRounds: 3` (igual a `MAX_REVIEW_ROUNDS`) y `finalMergePending: true`. En esta vuelta no hubo comentarios nuevos ni ids en `inFlight`, y `gh pr checks` sale con código 8 (checks pendientes). No ejecutes nada, describí qué harías en esta vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(^|[^[:alpha:]])(no|nunca|sin) (voy a |vamos a |se |lo |va a )?(postea|posteo|postear|publico|publica|publicar|pido|pide|pedir|lanzo|lanza|lanzar|dispar|solicit)[a-z]*[^.]{0,40}(review|revisi|@codex)|(won.t|will not|do not|don.t|never|skip|skipping|without|not) (post|request|trigger|ask for)[a-z]*[^.]{0,40}(review|@codex)",
+          "description": "Decide explícitamente no pedir otro `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin) (mergeo|mergear|mergea|merge)|esper[a-z]*[^.]{0,60}(checks|CI)|pendientes?[^.]{0,80}(reintent|próxima vuelta|siguiente vuelta)",
+          "description": "No mergea con checks pendientes"
+        },
+        {
+          "type": "regex",
+          "pattern": "reintent|próxima vuelta|siguiente vuelta|loop (queda |sigue )?vivo|dej[oa] el loop vivo",
+          "description": "Deja el loop vivo para reintentar el merge final"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "¿Querés que mergee",
+            "¿querés que mergee",
+            "¿Mergeo",
+            "¿mergeo",
+            "te pregunto si",
+            "le pregunto si",
+            "le preguntaría si",
+            "should I merge",
+            "Should I merge"
+          ],
+          "description": "No pide confirmación para mergear"
+        }
+      ]
+    },
+    {
+      "id": "opening-pr-launches-loop",
+      "description": "Recién abierto un PR con `gh pr create` hacia `develop`, lanza el loop en el mismo turno sin preguntar y con el tope por defecto.",
+      "input": "Acabo de correr `gh pr create --base develop --head feature/cart-totals` en `acme/widgets` y devolvió https://github.com/acme/widgets/pull/57 (no es draft). Nadie mencionó el loop de Codex. Teniendo disponible codex-autofix-loop, no ejecutes nada: describí qué hacés a continuación con ese PR, con qué tope de rondas y si le preguntás algo al usuario.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "codex-autofix-loop|loop de (auto-?fix de )?Codex",
+          "description": "Lanza el loop de Codex para el PR nuevo"
+        },
+        {
+          "type": "regex",
+          "pattern": "#?57",
+          "description": "Lo lanza para el PR recién creado"
+        },
+        {
+          "type": "regex",
+          "pattern": "(default|por defecto|predeterminad)[^.]{0,60}(3|tres)|(3|tres)[^.]{0,60}(default|por defecto|predeterminad|rondas)",
+          "description": "Usa el tope por defecto de 3 rondas"
+        },
+        {
+          "type": "regex",
+          "pattern": "sin (pregunt|consult|esperar)|no (le )?(voy a |hace falta |necesito )?(pregunt|consult)|autom[aá]tic",
+          "description": "Lo lanza sin preguntar"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "¿Querés que lance",
+            "¿querés que lance",
+            "¿Lanzo el loop",
+            "¿lanzo el loop",
+            "si querés, lanzo",
+            "si querés lanzo",
+            "te pregunto si lanzo"
+          ],
+          "description": "No ofrece el loop como pregunta"
+        }
+      ]
+    },
+    {
+      "id": "stacked-layer-skips-auto-launch",
+      "description": "Al abrir una capa intermedia de un stack (base = otra rama de feature) no lanza el loop y explica por qué.",
+      "input": "Acabo de abrir con `gh pr create --base feature/search-backend --head feature/search-frontend` el PR #203 de `acme/widgets`, una capa intermedia de un stack. Teniendo disponible codex-autofix-loop, no ejecutes nada: ¿lanzás el loop de Codex para este PR ahora? Explicá en pocas líneas.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no (lo )?(lanzo|lanzar|lanza|arranco|inicio)|no se lanza|todav[ií]a no|no corresponde",
+          "description": "No lanza el loop para la capa intermedia"
+        },
+        {
+          "type": "regex",
+          "pattern": "parent|capa (de abajo|anterior|base)|stack",
+          "description": "Explica que mergearla antes que su parent rompe el stack"
+        },
+        {
+          "type": "regex",
+          "pattern": "(base|apunt|retarget|cambi)[^.]{0,80}(develop|main|master|rama de integraci|rama default)",
+          "description": "Lo lanza cuando la base pase a la rama de integración"
         }
       ]
     }

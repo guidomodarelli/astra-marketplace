@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "skill": "feature-branch-pr",
-  "description": "Evalúa el cierre branch + commit + push + PR: crear feature/* solo desde una rama default, reutilizar ramas no default, detenerse si ya hay PR abierto, base por fallback remoto develop → master → main, body con pr-description-template, bloqueos sin fixes ni bypass y tabla resumen final en español.",
+  "description": "Evalúa el cierre branch + commit + push + PR: crear feature/* solo desde una rama default, reutilizar ramas no default, detenerse si ya hay PR abierto, base por fallback remoto develop → master → main, body con pr-description-template, bloqueos sin fixes ni bypass y tabla resumen final en español, y lanzamiento automático del loop de Codex tras crear el PR.",
   "test_cases": [
     {
       "id": "default-branch-creates-feature-branch",
@@ -171,6 +171,33 @@
             "origin/feature/export-csv"
           ],
           "description": "Reporta el resultado del push"
+        }
+      ]
+    },
+    {
+      "id": "pr-created-launches-codex-loop",
+      "description": "Tras crear el PR hacia develop, lanza codex-autofix-loop sin preguntar y lo reporta en la fila «Loop Codex» de la tabla.",
+      "input": "Usando feature-branch-pr: estoy en `feature/cart-totals` (no es rama default), con cambios sin commitear en `src/cart/totals.ts`, existe `origin/develop` y no hay PR abierto. Subí los cambios y creá el PR. No ejecutes git ni gh: describí el plan paso a paso, qué hacés justo después de que `gh pr create` devuelve la URL, y mostrá la tabla resumen final con valores de ejemplo.",
+      "assertions": [
+        {
+          "type": "contains",
+          "value": "codex-autofix-loop",
+          "description": "Lanza codex-autofix-loop después de crear el PR"
+        },
+        {
+          "type": "regex",
+          "pattern": "sin (pregunt|consult|esperar)|no (le )?(voy a |hace falta |necesito )?(pregunt|consult)|autom[aá]tic",
+          "description": "Lo lanza sin preguntar"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\| *Loop Codex *\\|",
+          "description": "Reporta el loop en la tabla resumen"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\| *Rama *\\|",
+          "description": "Mantiene la tabla resumen en español"
         }
       ]
     }
