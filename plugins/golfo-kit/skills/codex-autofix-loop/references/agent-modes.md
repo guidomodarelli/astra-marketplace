@@ -21,7 +21,7 @@ Viven en el estado del PR (`.codex-autofix/processed-<PR>.json`) y en comprobaci
 
 - **Dedup por PR**: `processedCommentIds`, `inFlight`, `delegationReplyIds` y `outcomes` se leen y escriben igual. El loop principal sigue siendo el único escritor.
 - **Tope de rondas** (`reviewRounds` contra `{{MAX_REVIEW_ROUNDS}}`) y **tope de solo tests** (`testOnlyRounds`): persisten entre invocaciones, así que relanzar no los resetea.
-- **Gates de merge**: review limpia de Codex para el head actual y GATE DE CI del paso (5-bis), evaluados en el momento del merge. Nunca se mergea con CI roja, checks pendientes ni hallazgos abiertos.
+- **Gates de merge**: review limpia de Codex para el head actual (o un corte del loop: convergencia, tope de solo tests o fin de la última ronda) y GATE DE CI del paso (5-bis), evaluados en el momento del merge. Nunca se mergea con CI roja ni checks pendientes, y ningún merge se le consulta al usuario. Fuera del merge por fin de la última ronda, que tolera hallazgos `failed` y los reporta, tampoco se mergea con hallazgos abiertos. `finalMergePending` persiste entre invocaciones igual que los topes.
 - **Guard de auto-cancelación**: el paso «GUARD» corre primero en cada vuelta.
 
 ## Modo A — Monitor + cron (Claude Code)
@@ -67,7 +67,7 @@ Corré el prompt **una sola vez**, sin el paso (0) ni el paso (7):
 
 - **Bloqueado en este modo**: armar monitores o crons, `/loop`, `sleep` en bucle, procesos en background que sobrevivan al turno, y frases como «sigo escuchando». Si te descubrís a punto de esperar un evento futuro, cortá la ronda.
 - **Subagentes**: si la sesión tiene subagentes con espera (`spawn_agent` + `wait_agent` en Codex), lanzalos y **esperalos dentro del turno**; si no, aplicá `fix-in-ephemeral-clone` en contexto, grupo por grupo. Ningún subagente local queda vivo al terminar. Los pedidos `@codex fix` sí quedan en `inFlight`, porque se reconcilian contra GitHub en la próxima invocación.
-- **Merge**: igual que el original, solo si en esta ronda se cumplen la review limpia del head y el GATE DE CI. Con checks pendientes no esperes: terminá y dejalo para la próxima invocación.
+- **Merge**: igual que el original, solo si en esta ronda se cumplen la review limpia del head (o un corte del loop, como el fin de la última ronda con `finalMergePending`) y el GATE DE CI. Con checks pendientes no esperes: terminá y dejalo para la próxima invocación.
 - **Cierre**: el mensaje final incluye la línea de resumen del paso (6-bis), qué quedó pendiente (por ejemplo «`@codex review` posteado, esperando a Codex») y cómo relanzar: «volvé a invocar `codex-autofix-loop` para el PR {{PR}} cuando Codex responda».
 - **Avisos**: cada `PushNotification` se reemplaza por una línea del mensaje final.
 
