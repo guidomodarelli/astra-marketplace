@@ -4,7 +4,7 @@ description: "Provides the standard PR title and concise description template (c
 allowed-tools: Bash(gh:*) Bash(git:*) Bash(bash:*) Bash(jq:*)
 license: MIT
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
   author: "Guido Modarelli"
   category: "git-workflow"
   tags: "pull-request, template, description, screenshots"
@@ -28,6 +28,7 @@ Run only the actions needed to compose, apply, or verify the title and body of t
 - Allowed writes: create the PR when the calling flow asks for it, edit only the title/body of the explicitly requested PR, and upload its screenshots to the `pr-assets` branch with [scripts/upload-pr-image.sh](scripts/upload-pr-image.sh).
 - In `traceability-only` mode, the only allowed write is the delegated body-only backlink; do not re-template the PR.
 - Skip any action that is not a direct requirement of the requested description.
+- Exception: after a successful `gh pr create`, hand the new PR to [`codex-autofix-loop`](../codex-autofix-loop/SKILL.md) as described in its «Arranque automático al abrir un PR» section, without asking. That loop owns the later fixes and the merge; this skill does not run them.
 
 ## Direct application
 

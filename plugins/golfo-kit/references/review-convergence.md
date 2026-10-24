@@ -7,6 +7,7 @@ Leer este archivo antes de operar un loop review → fix → review: `review-fix
 - Una ronda es una review completa seguida de sus fixes.
 - Tope por defecto: **3 rondas** por target. Cada skill lo expone como variable propia.
 - Al alcanzar el tope con findings `Important` todavía abiertos, no lanzar otra ronda ni mergear. Reportar que el loop no convergió, listar lo pendiente y recomendar **reconsiderar el enfoque** del cambio en vez de seguir parchando.
+- Excepción: `codex-autofix-loop` termina la última ronda (fixea sus findings) y mergea sin preguntar tras el gate de CI, en vez de cortar sin mergear. Ver su «Tope de rondas».
 - El tope no se resetea por cambiar de provider ni por reiniciar la sesión: el contador vive en el estado del loop.
 
 ## Re-review solo del delta
