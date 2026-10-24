@@ -15,6 +15,11 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
   const evaluation = coverage.evaluation;
   const relevantChanges = evaluation?.relevantChanges ?? [];
   const ignoredChanges = evaluation?.ignoredChanges ?? [];
+  // Across analyzers, symbol impact cannot be compared: changed files join the
+  // scope as whole files next to the analyzer-independent changes.
+  const analyzerChanged = Boolean(coverage.attempt) && coverage.attempt.baseline.analyzer !== current.analyzer;
+  const fileChanges = (evaluation?.changedFiles ?? []).map((filePath) => ({ change: 'modified', key: `${filePath}#*`, reason: 'file changed; symbol impact unknown' }));
+  const defaultScopeChanges = analyzerChanged ? [...relevantChanges, ...fileChanges] : relevantChanges;
   const scopeContext = { baselineCommit: coverage.attempt?.baseline.commit, history: evaluation?.history, unit };
   // An incremental run after a rules change must also re-check the unit
   // against those rules, not only the code that changed.
@@ -26,7 +31,7 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
     if (decision === DECISIONS.incremental) return [...definitionScope, ...policy.suggestScope(decision, changesForScope, scopeContext)];
     return [];
   };
-  const result = (decision, reasons, changesForScope = relevantChanges) => ({
+  const result = (decision, reasons, changesForScope = defaultScopeChanges) => ({
     decision,
     ignoredChanges,
     mode: decision === DECISIONS.full ? 'full' : decision === DECISIONS.incremental ? 'incremental' : null,
@@ -55,8 +60,14 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
     return { ...decision, suggestedScope: [...pendingScope, ...decision.suggestedScope] };
   }
 
+  // Verified evidence that no longer meets the policy is collected again in
+  // the mode it was recorded with, whose requirements it now lacks.
+  if (attempt.result === 'verified' && evaluation.evidenceGaps?.length) {
+    const decision = result(attempt.mode === 'full' ? DECISIONS.full : DECISIONS.incremental, [...reasons, `verified ${attempt.mode} coverage lacks evidence the current policy requires: run it again collecting that evidence`]);
+    return { ...decision, suggestedScope: [...evaluation.evidenceGaps.map((gap) => `evidence required by the current policy: ${gap}`), ...decision.suggestedScope] };
+  }
+
   if (coverage.freshness === FRESHNESS.unknown) {
-    const fileChanges = evaluation.changedFiles.map((filePath) => ({ change: 'modified', key: `${filePath}#*`, reason: 'file changed; symbol impact unknown' }));
     if (!fileChanges.length && evaluation.definitionStatus !== 'unknown') return result(DECISIONS.full, [...reasons, 'coverage cannot be compared reliably']);
     return result(DECISIONS.incremental, [...reasons, 'coverage cannot be confirmed: reviewing every changed file conservatively'], fileChanges.length ? fileChanges : relevantChanges);
   }
@@ -86,7 +97,7 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
   };
   const previousKeys = Object.keys(attempt.baseline.inputs);
   const currentKeys = Object.keys(current.inputs);
-  const removedEntry = unit.entries.find((entry) => hasEntryKey(previousKeys, entry) && !hasEntryKey(currentKeys, entry));
+  const removedEntry = !analyzerChanged && unit.entries.find((entry) => hasEntryKey(previousKeys, entry) && !hasEntryKey(currentKeys, entry));
   if (removedEntry) return result(DECISIONS.full, [...reasons, `entry ${removedEntry.path}#${removedEntry.symbol ?? '*'} no longer exists: update the unit entries and analyze it again`]);
   const totalParts = Object.keys(current.inputs).filter((key) => splitInputKey(key).path !== null).length || 1;
   const changedParts = relevantChanges.filter((change) => splitInputKey(change.key).path !== null).length;

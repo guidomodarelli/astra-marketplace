@@ -6,7 +6,26 @@
  */
 import { FRESHNESS } from '../constants.mjs';
 import { diffFiles, diffInputs } from '../impact/input-diff.mjs';
+import { missingEvidence } from '../policies/base-policy.mjs';
 import { compareVersions } from '../support.mjs';
+
+/** Input key prefixes whose value does not depend on the module analyzer (package versions, unresolved imports). */
+const ANALYZER_INDEPENDENT_INPUT_PREFIXES = ['pkg:', 'unresolved:'];
+
+/**
+ * Keeps the analyzer-independent inputs present in both maps. Each analyzer
+ * follows imports at a different granularity, so only keys reached by both
+ * closures are comparable; adding or removing an import changes a file,
+ * which the file comparison already reports.
+ *
+ * @param {Record<string, string>} inputs
+ * @param {Record<string, string>} otherInputs
+ * @returns {Record<string, string>}
+ */
+function sharedAnalyzerIndependentInputs(inputs, otherInputs) {
+  return Object.fromEntries(Object.entries(inputs)
+    .filter(([key]) => key in otherInputs && ANALYZER_INDEPENDENT_INPUT_PREFIXES.some((prefix) => key.startsWith(prefix))));
+}
 
 /**
  * Compares one stored attempt with the present.
@@ -22,22 +41,31 @@ export function evaluateAttempt({ attempt, current, definition, policy, git }) {
   let ignoredChanges = [];
   let changedFiles = [];
 
-  if (baseline.analyzer !== current.analyzer) {
-    changedFiles = diffFiles(baseline.files, current.files);
-    codeFreshness = changedFiles.length ? FRESHNESS.unknown : FRESHNESS.current;
+  const analyzerChanged = baseline.analyzer !== current.analyzer;
+  changes = analyzerChanged
+    ? diffInputs(sharedAnalyzerIndependentInputs(baseline.inputs, current.inputs), sharedAnalyzerIndependentInputs(current.inputs, baseline.inputs))
+    : diffInputs(baseline.inputs, current.inputs);
+  const context = { currentSignals: current.signals ?? {}, previousSignals: baseline.signals ?? {}, signalsRecorded: baseline.signals !== undefined };
+  for (const change of changes) {
+    const classification = policy.classifyChange(change, context);
+    const classified = { ...change, reason: classification.reason };
+    (classification.relevant ? relevantChanges : ignoredChanges).push(classified);
+  }
+  changedFiles = diffFiles(baseline.files, current.files);
+  if (analyzerChanged) {
+    codeFreshness = relevantChanges.length ? FRESHNESS.stale : changedFiles.length ? FRESHNESS.unknown : FRESHNESS.current;
     reasons.push(`recorded with ${baseline.analyzer} and evaluated with ${current.analyzer}: compared file by file`);
     if (changedFiles.length) reasons.push(`files changed and symbol impact cannot be compared: ${changedFiles.join(', ')}`);
   } else {
-    changes = diffInputs(baseline.inputs, current.inputs);
-    const context = { currentSignals: current.signals ?? {}, previousSignals: baseline.signals ?? {}, signalsRecorded: baseline.signals !== undefined };
-    for (const change of changes) {
-      const classification = policy.classifyChange(change, context);
-      const classified = { ...change, reason: classification.reason };
-      (classification.relevant ? relevantChanges : ignoredChanges).push(classified);
-    }
-    changedFiles = diffFiles(baseline.files, current.files);
     codeFreshness = relevantChanges.length ? FRESHNESS.stale : FRESHNESS.current;
   }
+
+  // Evidence requirements can grow after a run (config.skills.<skill>.evidence):
+  // a verified attempt stays accredited only while its evidence meets them.
+  const evidenceGaps = attempt.result === 'verified'
+    ? missingEvidence(attempt.evidence ?? [], policy.evidenceRequirements(attempt.mode), policy.validateEvidence)
+    : [];
+  if (evidenceGaps.length) reasons.push(`evidence requirements changed: ${evidenceGaps.join('; ')}`);
 
   let definitionStatus;
   let definitionChangedFiles = [];
@@ -56,7 +84,7 @@ export function evaluateAttempt({ attempt, current, definition, policy, git }) {
   }
 
   let freshness;
-  if (codeFreshness === FRESHNESS.stale || definitionStatus === 'changed' || definitionStatus === 'major-change') freshness = FRESHNESS.stale;
+  if (codeFreshness === FRESHNESS.stale || evidenceGaps.length || definitionStatus === 'changed' || definitionStatus === 'major-change') freshness = FRESHNESS.stale;
   else if (codeFreshness === FRESHNESS.unknown || definitionStatus === 'unknown') freshness = FRESHNESS.unknown;
   else freshness = FRESHNESS.current;
 
@@ -70,6 +98,7 @@ export function evaluateAttempt({ attempt, current, definition, policy, git }) {
     changes,
     definitionChangedFiles,
     definitionStatus,
+    evidenceGaps,
     freshness,
     history: git.relationToHead(baseline.commit),
     ignoredChanges,
