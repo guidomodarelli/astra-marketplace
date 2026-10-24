@@ -333,7 +333,7 @@ validate_eval_config() {
 validate_assertion_contains() {
     local response="$1"
     local value="$2"
-    if echo "$response" | grep -qi "$value"; then
+    if printf '%s\n' "$response" | grep -qi -- "$value"; then
         return 0
     fi
     return 1
@@ -351,7 +351,7 @@ validate_assertion_contains_any() {
     for k in $(seq 0 $((values_count - 1))); do
         local v
         v=$(jq -r ".test_cases[$case_idx].assertions[$assert_idx].values[$k]" "$config_file")
-        if echo "$response" | grep -qi "$v"; then
+        if printf '%s\n' "$response" | grep -qi -- "$v"; then
             return 0
         fi
     done
@@ -432,7 +432,7 @@ validate_assertion_not_contains_any() {
 validate_assertion_regex() {
     local response="$1"
     local pattern="$2"
-    if echo "$response" | grep -qiE "$pattern"; then
+    if printf '%s\n' "$response" | grep -qiE -- "$pattern"; then
         return 0
     fi
     return 1

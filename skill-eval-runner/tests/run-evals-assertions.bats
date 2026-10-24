@@ -54,6 +54,53 @@ run_mixed_action_assertion() {
     run_eval_runner
 }
 
+write_dash_prefixed_config() {
+    local config_file="${SKILL_DIR}/evals/eval-config.json"
+
+    cat > "$config_file" <<JSON
+{
+  "skill": "${SKILL_NAME}",
+  "test_cases": [
+    {
+      "id": "dash-prefixed-values",
+      "input": "Describe the merge command",
+      "assertions": [
+        { "type": "contains", "value": "--match-head-commit", "description": "Contains a flag" },
+        { "type": "contains_any", "values": ["--rebase", "--squash"], "description": "Contains one of the flags" },
+        { "type": "regex", "pattern": "--delete-branch( |$)", "description": "Matches a flag pattern" }
+      ]
+    }
+  ]
+}
+JSON
+}
+
+run_dash_prefixed_assertions() {
+    local response="$1"
+    local response_file="${TEST_ROOT}/response.txt"
+
+    write_dash_prefixed_config
+    printf '%s\n' "$response" > "$response_file"
+    CLAUDE_RESPONSE_FILE="$response_file"
+    run_eval_runner
+}
+
+@test "matches contains, contains_any and regex values that start with dashes" {
+    run_dash_prefixed_assertions 'gh pr merge 42 --squash --delete-branch --match-head-commit abc1234'
+
+    [ "$status" -eq 0 ]
+    run jq -e 'select(.event == "summary" and .passed == 1 and .failed == 0)' <<< "$output"
+    [ "$status" -eq 0 ]
+}
+
+@test "still fails dash-prefixed values that are absent from the response" {
+    run_dash_prefixed_assertions 'gh pr merge 42 --merge'
+
+    [ "$status" -eq 1 ]
+    run jq -e 'select(.event == "summary" and .passed == 0 and .failed == 1)' <<< "$output"
+    [ "$status" -eq 0 ]
+}
+
 @test "rejects manual continuation after automatic step" {
     run_mixed_action_assertion $'1. [AUTO] Validate generated files.\n   [MANUAL] Decide project permissions.'
 
