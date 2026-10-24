@@ -27,6 +27,7 @@ const HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'
 const ACTION_SIGNALS = ['projectCalls', 'fetch', 'database', 'awaitInLoop'];
 const DATA_LOADING_SIGNALS = ['fetch', 'projectCalls', 'database', 'awaits'];
 const DISCOVERY_DEPTH = 4;
+const UNIT_FILE_EXISTS_REASON = 'a unit file with this id already exists in the registry';
 
 /**
  * @param {string} text
@@ -72,6 +73,20 @@ function hasSignal(signals, names) {
  */
 function isFunctionalEntry(entry) {
   return entry.follow !== false;
+}
+
+/**
+ * First id free of collisions: `baseId`, then `baseId-2`, `baseId-3`, ...
+ *
+ * @param {string} baseId
+ * @param {Set<string>} usedIds Registered ids and ids already given in this pass.
+ * @returns {string}
+ */
+function firstFreeId(baseId, usedIds) {
+  if (!usedIds.has(baseId)) return baseId;
+  let suffix = 2;
+  while (usedIds.has(`${baseId}-${suffix}`)) suffix += 1;
+  return `${baseId}-${suffix}`;
 }
 
 /**
@@ -273,7 +288,6 @@ export function discoverUnits(context, options = {}) {
 
   // Reuse existing ids; report units whose primary entry moved.
   const relocations = [];
-  const seenIds = new Map();
   for (const proposal of proposals) {
     const primary = proposal.entries[0];
     proposal.existingId = existingByEntry.get(`${primary.path}#${primary.symbol}`) ?? null;
@@ -286,9 +300,17 @@ export function discoverUnits(context, options = {}) {
         }
       }
     }
-    const count = seenIds.get(proposal.id) ?? 0;
-    seenIds.set(proposal.id, count + 1);
-    if (count) proposal.id = `${proposal.id}-${count + 1}`;
+  }
+
+  // Registered ids and the ids of proposals that match a unit are reserved
+  // before naming new proposals, so a new route never takes the id of an
+  // existing unit, whatever the page order.
+  const usedIds = new Set(existingUnits.map((unit) => unit.id));
+  for (const proposal of proposals) if (proposal.existingId) usedIds.add(proposal.id);
+  for (const proposal of proposals) {
+    if (proposal.existingId) continue;
+    proposal.id = firstFreeId(proposal.id, usedIds);
+    usedIds.add(proposal.id);
   }
   return { errors, proposals, relocations };
 }
@@ -299,11 +321,12 @@ export function discoverUnits(context, options = {}) {
  *
  * @param {any} context
  * @param {{ proposals: any[], relocations: any[] }} discovery
- * @returns {{ created: string[], relocated: string[] }}
+ * @returns {{ created: string[], relocated: string[], skipped: { id: string, reason: string }[] }}
  */
 export function writeDiscoveredUnits(context, discovery) {
   const created = [];
   const relocated = [];
+  const skipped = [];
   context.registry.initialize();
   for (const proposal of discovery.proposals) {
     if (proposal.existingId) continue;
@@ -319,6 +342,7 @@ export function writeDiscoveredUnits(context, discovery) {
       schemaVersion: SCHEMA_VERSION,
     };
     if (context.registry.saveUnit(unit)) created.push(unit.id);
+    else skipped.push({ id: unit.id, reason: UNIT_FILE_EXISTS_REASON });
   }
   for (const relocation of discovery.relocations) {
     const unit = context.registry.loadUnit(relocation.unitId);
@@ -326,5 +350,5 @@ export function writeDiscoveredUnits(context, discovery) {
     context.registry.saveUnit(unit, { overwrite: true });
     relocated.push(relocation.unitId);
   }
-  return { created, relocated };
+  return { created, relocated, skipped };
 }

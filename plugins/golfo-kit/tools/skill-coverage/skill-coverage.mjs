@@ -211,7 +211,8 @@ const COMMANDS = {
       }
       for (const relocation of discovery.relocations) lines.push(`  moved: ${relocation.unitId} ${relocation.symbol} ${relocation.from} → ${relocation.to}`);
       for (const error of discovery.errors) lines.push(`  invalid unit: ${error}`);
-      if (written) lines.push(`Created ${written.created.length} unit(s); updated ${written.relocated.length} moved unit(s). No coverage was recorded.`);
+      for (const skippedUnit of written?.skipped ?? []) lines.push(`  not saved: ${skippedUnit.id} (${skippedUnit.reason})`);
+      if (written) lines.push(`Created ${written.created.length} unit(s); updated ${written.relocated.length} moved unit(s); skipped ${written.skipped.length}. No coverage was recorded.`);
       else lines.push('Nothing written: review the proposals and run with --write to save the new ones.');
       return lines.join('\n');
     });
