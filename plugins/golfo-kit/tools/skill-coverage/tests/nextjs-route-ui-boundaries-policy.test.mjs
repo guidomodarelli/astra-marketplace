@@ -206,6 +206,16 @@ describe('nextjs-route-ui-boundaries policy', () => {
     assert.ok(check.relevantChanges.some((change) => change.key.startsWith('middleware.ts#') && change.reason.startsWith('project configuration')));
   });
 
+  test('the layout wrapping a parallel slot fallback is part of the routes that render the slot', () => {
+    fixture.write('app/@panel/default.tsx', 'export default function NoPanel() {\n  return null;\n}\n');
+    fixture.write('app/@panel/layout.tsx', 'export default function PanelLayout({ children }) {\n  return <aside>{children}</aside>;\n}\n');
+    verifyNextjs(fixture, PRICING, { mode: 'incremental' });
+    fixture.replace('app/@panel/layout.tsx', 'export default function PanelLayout', '"use client";\n\nexport default function PanelLayout');
+    const check = fixture.check(PRICING, NEXTJS_SKILL);
+    assert.equal(check.freshness, 'stale');
+    assert.ok(check.relevantChanges.some((change) => change.key === 'app/@panel/layout.tsx#<module>'));
+  });
+
   test('verified coverage stays current and --force-full still forces a full audit', () => {
     for (const unitId of ALL_UNITS) {
       const check = fixture.check(unitId, NEXTJS_SKILL);

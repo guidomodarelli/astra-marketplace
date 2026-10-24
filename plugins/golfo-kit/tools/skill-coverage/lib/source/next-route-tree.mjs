@@ -151,11 +151,15 @@ export function routeContextFiles(index, unit) {
         if (found) segmentFiles.add(found);
       }
       // Parallel route slots rendered by this segment's layout fall back to
-      // their `default` file on a hard navigation.
+      // their `default` file on a hard navigation, wrapped by the slot's own
+      // layout and boundaries.
       for (const child of listing.keys()) {
         if (path.posix.dirname(child) !== directory || !path.posix.basename(child).startsWith('@')) continue;
-        const slotDefault = conventionFile(index, child, 'default');
-        if (slotDefault) segmentFiles.add(slotDefault);
+        if (!conventionFile(index, child, 'default')) continue;
+        for (const name of NEXT_SEGMENT_FILES) {
+          const found = conventionFile(index, child, name);
+          if (found) segmentFiles.add(found);
+        }
       }
     }
   }
