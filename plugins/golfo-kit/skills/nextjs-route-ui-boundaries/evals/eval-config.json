@@ -508,7 +508,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|ninguno) (cambian|afectan|mueven|tocan|alteran)[^.]{0,60}(boundar|decisi|layout|server|cliente|ruta)|sin (impacto|efecto) (en|sobre) (los )?(boundar|decisi|la ruta)|(irrelevantes|no relevantes) para",
+          "pattern": "(no|ninguno) (cambian|afectan|mueven|tocan|alteran)[^.]{0,60}(boundar|decisi|layout|server|cliente|ruta)|sin (impacto|efecto) (en|sobre) (los )?(boundar|decisi|la ruta)|(irrelevantes|no relevantes) para|ninguno de (sus|los) [^.]{0,40}aplica|no (agrega|agregaste|introduce|introducen) [^.]{0,20}(use client|await|boundar)",
           "description": "Justifica que los cambios no mueven decisiones de boundaries"
         }
       ]
