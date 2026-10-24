@@ -148,7 +148,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(anticip|mostrar|desbloque|activ).{0,60}(antes|hasta)|(é|e)xito falso|falso (é|e)xito",
+          "pattern": "(no|nunca).{0,60}(anticip|mostrar|desbloque|activ).{0,60}(antes|hasta)|(é|e)xito falso|falso (é|e)xito|nunca (puede )?anticipar (el )?(é|e)xito|no aparece .{0,60}(activado|features)",
           "description": "No anticipa el éxito ni desbloquea antes de la confirmación"
         },
         {
@@ -313,7 +313,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(abort|cancel).{0,120}(no (deshace|revierte|cancela)|igual (se )?(guard|aplic))|(sigue|continúa|continua).{0,40}(en el servidor|guard)",
+          "pattern": "(abort|cancel).{0,120}(no (deshace|revierte|cancela)|igual (se )?(guard|aplic))|(sigue|continúa|continua).{0,40}(en el servidor|guard)|abortar no es deshacer|el servidor lo aplica igual|no cancela ni deshace",
           "description": "Reconoce que el guardado de A pudo completarse en el servidor"
         }
       ]
@@ -441,12 +441,12 @@
         },
         {
           "type": "regex",
-          "pattern": "(reintentar|retry).{0,60}(fallid|los que fallaron|solo)",
+          "pattern": "(reintentar|retry).{0,60}(fallid|los que fallaron|solo)|(seleccionad|quedan)[a-z]* para reintentar|(reintentar|retry)[^.]{0,40}(esos|estos) ids",
           "description": "Ofrece reintentar solo los fallidos"
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(volver a mostrar|restaurar|revertir|rollback).{0,40}(los 20|todos)|sin (revertir|restaurar) (los )?(archivados|exitosos)|(rollback|revert|restaur)[^.]{0,60}solo (estos|los|esos) ids|(reinsert|restaur|revert|rollback)[a-z]*[^.]{0,30}solo (esos|estos|los) ids",
+          "pattern": "(no|nunca).{0,60}(volver a mostrar|restaurar|revertir|rollback).{0,40}(los 20|todos)|sin (revertir|restaurar) (los )?(archivados|exitosos)|(rollback|revert|restaur)[^.]{0,60}solo (estos|los|esos) ids|(reinsert|restaur|revert|rollback)[a-z]*[^.]{0,30}solo (esos|estos|los) ids|solo (esos|estos|los) ids|(reinsert|restaur)[a-z]*[^.]{0,40}solo los (mensajes )?(que fallaron|rechazad)",
           "description": "No revierte los que sí se archivaron"
         }
       ]
@@ -532,7 +532,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(único|unico|global|un solo) .?(isSaving|flag).{0,120}(problema|no (sirve|alcanza|permite|se puede)|por (tarea|entidad)|reemplaz)|nunca un flag global|no hay .?isSaving.? global|en (lugar|vez) de un (flag|isSaving)",
+          "pattern": "(único|unico|global|un solo) .?(isSaving|flag).{0,120}(problema|no (sirve|alcanza|permite|se puede)|por (tarea|entidad)|reemplaz)|nunca un flag global|no hay .?isSaving.? global|en (lugar|vez) de un (flag|isSaving)|en (vez|lugar) de .?isSaving|isSaving.?\\. No distingue",
           "description": "Señala el problema del flag global"
         }
       ]
