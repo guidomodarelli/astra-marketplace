@@ -721,6 +721,86 @@
           "description": "Lo lanza cuando la base pase a la rama de integración"
         }
       ]
+    },
+    {
+      "id": "final-round-terminal-failure-still-merges",
+      "description": "En la última ronda, el fix de un hallazgo falla: queda `failed` terminal, no se reintenta y el loop llega igual al merge final tras el gate de CI.",
+      "input": "Usando codex-autofix-loop: PR #42 de `acme/widgets`, `MAX_REVIEW_ROUNDS` = 3 y `reviewRounds` vale 3. La review de Codex de esa ronda ya terminó y dejó dos hallazgos: el de `src/cart.ts` se fixeó y cerró, y el subagente del de `src/tax.ts` falló con `CONCURRENT_PUSH_RETRY_EXHAUSTED`. No quedan ids en `inFlight` y `gh pr checks` da todo verde. No ejecutes nada, describí qué harías con el hallazgo fallido y con el PR en esta vuelta y en la siguiente.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "terminal",
+          "description": "Marca la falla como terminal"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no|sin) (lo )?(vuelvo a |voy a )?(reintent|relanz|volver a intentar)|no se reintenta",
+          "description": "No reintenta el hallazgo fallido"
+        },
+        {
+          "type": "contains",
+          "value": "finalMergePending",
+          "description": "Llega al merge final pendiente"
+        },
+        {
+          "type": "regex",
+          "pattern": "gh pr merge.{0,120}--squash",
+          "description": "Mergea con squash"
+        },
+        {
+          "type": "regex",
+          "pattern": "(list|notific|PushNotification|avis)[a-z]*[^.]{0,80}(tax|fall|failed)|(tax|failed)[^.]{0,80}(list|notific|PushNotification|avis)",
+          "description": "Reporta el hallazgo fallido en el aviso final"
+        }
+      ]
+    },
+    {
+      "id": "missing-initial-review-gets-requested",
+      "description": "PR abierto hace 10 minutos sin ninguna review ni resumen de Codex y sin `@codex review`: el loop pide la review inicial sin sumar a `reviewRounds`.",
+      "input": "Usando codex-autofix-loop: el loop está corriendo para el PR #42 de `acme/widgets`, que se abrió hace 10 minutos. `reviewRounds` vale 0. Codex no publicó ninguna review, ni el resumen `codex-review-state:v1`, ni receipt, y nadie comentó `@codex review`. No hay comentarios de Codex ni ids en `inFlight`. No ejecutes nada, describí qué harías en esta vuelta.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "gh pr comment.{0,80}@codex review|(poste|pid|public|dispar)[a-zéá]*[^.]{0,40}@codex review",
+          "description": "Pide la review inicial con `@codex review`"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no (sum|increment|toc|cambi)[a-z]*[^.]{0,40}reviewRounds)|reviewRounds[^.]{0,60}(queda|sigue|se mantiene)[^.]{0,20}(en )?0|ronda 0",
+          "description": "No cuenta la review inicial como ronda"
+        },
+        {
+          "type": "not_contains_any",
+          "values": [
+            "espero indefinidamente",
+            "sigo esperando sin hacer nada",
+            "no hago nada en esta vuelta"
+          ],
+          "description": "No se queda esperando sin pedir la review"
+        }
+      ]
+    },
+    {
+      "id": "stack-in-progress-defers-loop",
+      "description": "Mientras stacked-pr publica las capas, no lanza el loop en la capa base hasta que todas estén publicadas y el golden validado.",
+      "input": "Usando codex-autofix-loop: estoy armando un stack con stacked-pr. Acabo de abrir con `gh pr create --base develop --head feature/search-contracts` el PR #201 de `acme/widgets`, la capa base; todavía faltan publicar las capas `feature/search-backend` y `feature/search-frontend`. No ejecutes nada: ¿lanzás ahora el loop de Codex para #201? Explicá en pocas líneas.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "no (lo )?(lanzo|lanzar|lanza|arranco|inicio)|todav[ií]a no|no corresponde|despu[eé]s|recién",
+          "description": "No lanza el loop todavía"
+        },
+        {
+          "type": "regex",
+          "pattern": "(borr|elimin|delete)[a-z]*[^.]{0,80}(rama|branch|base)|(rama|branch|base)[^.]{0,80}(borr|elimin|delete)",
+          "description": "Explica que el merge borraría la rama base de las capas siguientes"
+        },
+        {
+          "type": "regex",
+          "pattern": "golden|todas las capas|capas (est[eé]n )?publicadas",
+          "description": "Lo lanza cuando el stack esté completo y validado"
+        }
+      ]
     }
   ]
 }

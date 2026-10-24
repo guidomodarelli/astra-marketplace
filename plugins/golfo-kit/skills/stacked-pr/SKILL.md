@@ -4,7 +4,7 @@ description: "Gestiona stacked Pull Requests de GitHub con ramas feature/*: divi
 allowed-tools: Bash(git:*) Bash(gh:*) Read Write Edit
 license: MIT
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
   author: "Guido Modarelli"
   category: "git-workflow"
   tags: "git, pull-request, stacked-pr, stack"
@@ -211,7 +211,7 @@ El último PR debe contener todo el cambio intencional y ningún archivo fuera d
 
 ## Merge y rebase posterior
 
-- Al abrir cada PR, aplicá el «Arranque automático al abrir un PR» de [`codex-autofix-loop`](../codex-autofix-loop/SKILL.md): solo la capa cuya base es la rama de integración lanza el loop, que la mergea sin preguntar. Cada capa superior lo lanza cuando, tras el squash de su parent, se le cambia la base a la rama de integración (pasos de abajo).
+- Lanzá el loop de [`codex-autofix-loop`](../codex-autofix-loop/SKILL.md) («Arranque automático al abrir un PR») recién cuando todas las capas estén publicadas y el golden diff validado (ver «Golden diff y cierre»), no al abrir cada PR. El loop mergea sin preguntar y borra la rama, que las capas siguientes necesitan como base. Ahí lo lanza solo la capa cuya base es la rama de integración. Cada capa superior lo lanza cuando, tras el squash de su parent, se le cambia la base a la rama de integración (pasos de abajo).
 - Fusiona bottom-up: primera capa, segunda capa, hasta top.
 - No fusiones child antes de su parent.
 - Tras squash-merge del parent, actualiza base del child:
