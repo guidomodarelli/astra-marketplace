@@ -16,13 +16,23 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
   const relevantChanges = evaluation?.relevantChanges ?? [];
   const ignoredChanges = evaluation?.ignoredChanges ?? [];
   const scopeContext = { baselineCommit: coverage.attempt?.baseline.commit, history: evaluation?.history, unit };
+  // An incremental run after a rules change must also re-check the unit
+  // against those rules, not only the code that changed.
+  const definitionScope = evaluation?.definitionStatus === 'changed'
+    ? evaluation.definitionChangedFiles.map((file) => `re-check the unit against the rules changed in ${policy.skill}/${file}`)
+    : [];
+  const scopeFor = (decision, changesForScope) => {
+    if (decision === DECISIONS.full) return policy.suggestScope(decision, changesForScope, scopeContext);
+    if (decision === DECISIONS.incremental) return [...definitionScope, ...policy.suggestScope(decision, changesForScope, scopeContext)];
+    return [];
+  };
   const result = (decision, reasons, changesForScope = relevantChanges) => ({
     decision,
     ignoredChanges,
     mode: decision === DECISIONS.full ? 'full' : decision === DECISIONS.incremental ? 'incremental' : null,
     reasons,
     relevantChanges,
-    suggestedScope: [DECISIONS.full, DECISIONS.incremental].includes(decision) ? policy.suggestScope(decision, changesForScope, scopeContext) : [],
+    suggestedScope: scopeFor(decision, changesForScope),
   });
 
   if (forceFull) return result(DECISIONS.full, ['full audit requested: previous coverage is not reused']);
@@ -37,6 +47,14 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
 
   if (attempt.result === 'blocked') return result(DECISIONS.full, [...reasons, `previous run was blocked: ${attempt.limitations.join('; ') || 'no detail'}`]);
 
+  const pendingScope = attempt.result === 'partial' ? attempt.pendingChecks.map((check) => `pending from the previous run: ${check}`) : [];
+  // Only a full run can accredit a unit without verified coverage, so a partial
+  // attempt with no verified baseline is continued as a full analysis.
+  if (attempt.result === 'partial' && !coverage.verifiedAttempt) {
+    const decision = result(DECISIONS.full, [...reasons, 'previous run was partial and there is no verified coverage: only a full analysis can accredit the unit']);
+    return { ...decision, suggestedScope: [...pendingScope, ...decision.suggestedScope] };
+  }
+
   if (coverage.freshness === FRESHNESS.unknown) {
     const fileChanges = evaluation.changedFiles.map((filePath) => ({ change: 'modified', key: `${filePath}#*`, reason: 'file changed; symbol impact unknown' }));
     if (!fileChanges.length && evaluation.definitionStatus !== 'unknown') return result(DECISIONS.full, [...reasons, 'coverage cannot be compared reliably']);
@@ -49,8 +67,8 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
   }
 
   if (attempt.result === 'partial') {
-    const pending = attempt.pendingChecks.map((check) => `pending from the previous run: ${check}`);
-    return { ...result(DECISIONS.incremental, [...reasons, 'previous run was partial']), suggestedScope: [...pending, ...policy.suggestScope(DECISIONS.incremental, relevantChanges, scopeContext)] };
+    const decision = result(DECISIONS.incremental, [...reasons, 'previous run was partial']);
+    return { ...decision, suggestedScope: [...pendingScope, ...decision.suggestedScope] };
   }
 
   if (coverage.freshness === FRESHNESS.current) {
@@ -60,10 +78,7 @@ export function decideExecution({ coverage, current, policy, unit, forceFull = f
 
   // Stale verified coverage.
   if (evaluation.definitionStatus === 'changed' && !relevantChanges.length) {
-    return {
-      ...result(DECISIONS.incremental, reasons),
-      suggestedScope: evaluation.definitionChangedFiles.map((file) => `re-check the unit against the rules changed in ${policy.skill}/${file}`),
-    };
+    return { ...result(DECISIONS.incremental, reasons), suggestedScope: definitionScope };
   }
   const hasEntryKey = (keys, entry) => {
     const prefix = `${entry.path}#${entry.symbol && entry.symbol !== '*' ? entry.symbol : ''}`;

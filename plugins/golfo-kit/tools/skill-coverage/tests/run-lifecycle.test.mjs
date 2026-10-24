@@ -65,7 +65,8 @@ describe('run lifecycle', () => {
 
     const check = fixture.check(PROVIDERS);
     assert.equal(check.state, 'partial');
-    assert.equal(check.decision, 'incremental');
+    // Without verified coverage only a full run can accredit the unit.
+    assert.equal(check.decision, 'full');
     assert.ok(check.suggestedScope.some((scope) => scope.startsWith('pending from the previous run')));
   });
 
