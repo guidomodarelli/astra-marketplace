@@ -1,9 +1,9 @@
 ---
 name: ui-ux-flow-patterns
-description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading y skeletons, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
+description: 'UI/UX por flujo: qué componente usar y qué mostrar en cada estado (loading y skeletons, vacío, con datos, error, parcial, sin permiso), cuándo usar toast, banner, inline o diálogo, confirmar o deshacer, validación previa con error junto al campo, limpieza de errores viejos (stale errors), pending, reintento y recuperación de operaciones async, feedback de reporte a soporte y copy de cada estado. Usar siempre, sin pedido explícito, al crear o modificar código visible o interactivo en cualquier stack: pantallas, rediseños, pasos de wizard, listas, tablas, formularios, búsquedas, uploads, códigos SMS u OTP, confirmaciones, acciones destructivas, copy, toasts o avisos, aunque el pedido solo diga mejorar la UX o hable de un solo botón. En un proyecto Next.js con App Router, cargarla junto con nextjs-route-ui-boundaries: esta decide qué muestra cada estado; aquella, boundaries y qué es server o cliente. No en código sin interfaz.'
 license: MIT
 metadata:
-  version: "1.3.0"
+  version: "1.4.0"
   author: "Guido Modarelli"
   category: "frontend"
   tags: "ux, ui, empty-state, loading, error-state, toast, feedback, components, flows"
@@ -26,9 +26,9 @@ Elegir el modo según el alcance:
 
 - **Modo liviano** (cambio puntual: un botón, una columna, un campo, copy). Revisar solo lo que el cambio toca con este checklist y corregir en el mismo trabajo lo que el cambio introduzca:
   1. Si el cambio **trae datos**: ¿tiene estado de carga con la forma del contenido (un [skeleton](references/state-matrix.md#skeleton) si el layout se conoce y la espera supera ~300 ms; nunca en recargas ni acciones), estado vacío y estado de error con reintento? ([state-matrix.md](references/state-matrix.md))
-  2. Si el cambio **ejecuta una acción**: ¿el control muestra pending, evita el doble envío y el resultado llega por el canal correcto? ([feedback-channels.md](references/feedback-channels.md#tabla-de-decisión))
+  2. Si el cambio **ejecuta una acción**: ¿el control muestra pending sin cambiar de ancho, evita el doble envío y el resultado llega por el canal correcto, con la duración, el cierre y la salida de su [ficha](references/feedback-channels.md#ficha-por-canal)? ¿Timeout, error, cancelación y resultado incierto tienen salida, sin reintentar a ciegas una mutación no idempotente? ([operaciones asíncronas](references/state-matrix.md#operaciones-asíncronas))
   3. Si la acción **destruye o es irreversible**: ¿se eligió entre deshacer y confirmar según [la regla](references/feedback-channels.md#confirmar-o-deshacer)? Si el proyecto confirma con una casilla junto al botón, aplicar la [confirmación inline](references/feedback-channels.md#confirmación-inline): etiqueta con recurso e impacto, consentimiento que se desmarca al cambiar de selección y aviso fijo si afecta al recurso en uso.
-  4. Si el cambio **valida input o muestra errores**: ¿la acción se bloquea antes del request, el error queda junto al campo y el error viejo se limpia al cambiar de recurso o reintentar? ([validation-feedback.md](references/validation-feedback.md))
+  4. Si el cambio **valida input o muestra errores**: ¿la acción se bloquea antes del request, el error queda junto al campo y el error viejo se limpia al cambiar de recurso o reintentar? Si lo que falla es una condición del proceso (código vencido, límite, sesión) y no el valor, ¿se muestra en el paso con su acción de salida en lugar de bloquear el campo? ([validation-feedback.md](references/validation-feedback.md))
   5. ¿El feedback nuevo es accesible (live region, foco, no solo color)? ([accesibilidad](references/feedback-channels.md#accesibilidad-del-feedback))
 
   Aplicar lo que salga del checklist directamente en el código. No producir la matriz de estados ni las tablas del [formato del reporte](#formato-del-reporte), que son del modo completo: un cambio puntual se entrega con el formato que pidió el usuario. Si nada aplica, seguir sin reportar nada extra; si algo aplica, sumar una línea por hallazgo al cierre de la tarea. Con registro de cobertura, sumar también una línea con la unidad y el resultado registrado.
@@ -51,15 +51,15 @@ Antes de proponer componentes, leer `DESIGN.md`, `AGENTS.md`/`CLAUDE.md` y las c
 
 ## 1. Identificar el tipo de flujo
 
-Clasificar la pantalla o acción en uno o más tipos de [flow-catalog.md](references/flow-catalog.md) (colección/lista/tabla, búsqueda, detalle, formulario de creación/edición, wizard u onboarding, acción destructiva, upload, dashboard, settings, autenticación, pago, inbox/notificaciones, chat/tiempo real). Cada tipo trae sus componentes típicos, sus estados críticos, los errores comunes y referencias de productos que lo resuelven bien. Leer solo las secciones de los tipos que aplican.
+Clasificar la pantalla o acción en uno o más tipos de [flow-catalog.md](references/flow-catalog.md) (colección/lista/tabla, búsqueda, detalle, formulario de creación/edición, guardado y autosave, edición concurrente, wizard u onboarding, acción destructiva, upload, importación y exportación, dashboard, settings, permisos y límites del plan, autenticación y verificación por código, pago, inbox/notificaciones, chat/tiempo real). Su [índice de escenarios](references/flow-catalog.md#escenarios-de-feedback-y-recuperación) enlaza cada caso con la sección que define su canal, duración, control y salida. Cada tipo trae sus componentes típicos, sus estados críticos, los errores comunes y referencias de productos que lo resuelven bien. Leer solo las secciones de los tipos que aplican.
 
 ## 2. Armar la matriz de estados
 
-Para cada región que trae datos o ejecuta acciones, completar la matriz con los estados de [state-matrix.md](references/state-matrix.md#estados): carga inicial, recarga o refetch, vacío (primera vez, sin resultados por filtro o búsqueda, vaciado por el usuario, sin permiso), con datos (incluido uno solo y muchísimos), parcial, error (total, parcial, de acción), offline o desactualizado. Por cada estado decidir **qué se ve**, **qué puede hacer el usuario** y **cómo sale de ese estado**. Un estado sin salida (un error sin reintento, un vacío sin acción) es un callejón y se corrige.
+Para cada región que trae datos o ejecuta acciones, completar la matriz con los estados de [state-matrix.md](references/state-matrix.md#estados): carga inicial, recarga o refetch, vacío (primera vez, sin resultados por filtro o búsqueda, vaciado por el usuario, sin permiso), con datos (incluido uno solo y muchísimos), parcial, error (total, parcial, de acción), offline o desactualizado. Por cada estado decidir **qué se ve**, **qué puede hacer el usuario** y **cómo sale de ese estado**. Un estado sin salida (un error sin reintento, un vacío sin acción, un control deshabilitado sin motivo) es un callejón y se corrige. Cada acción async recorre además el [ciclo de vida de operaciones](references/state-matrix.md#operaciones-asíncronas) (`idle`, `pending`, `success`, `error` y, si aplican, `cancelled`, `partial_success` o resultado incierto).
 
 ## 3. Elegir el canal de feedback de cada evento
 
-Para cada evento (acción completada, fallo, validación, cambio de estado en segundo plano, aviso persistente) elegir el canal con la [tabla de decisión](references/feedback-channels.md#tabla-de-decisión): inline junto al control, mensaje de formulario, banner, toast, diálogo, badge, página completa o el propio cambio de la UI. La pregunta guía es **dónde está mirando el usuario y cuánto necesita actuar**: lo que requiere acción no se va solo, y lo que solo confirma no interrumpe. Decidir también confirmar o deshacer para cada acción destructiva. Para validación previa, errores viejos y feedback de reporte a soporte, aplicar [validation-feedback.md](references/validation-feedback.md).
+Para cada evento (acción completada, fallo, validación, cambio de estado en segundo plano, aviso persistente) elegir el canal con la [tabla de decisión](references/feedback-channels.md#tabla-de-decisión): inline junto al control, mensaje de formulario, banner, toast, diálogo, badge, página completa o el propio cambio de la UI. La pregunta guía es **dónde está mirando el usuario y cuánto necesita actuar**: lo que requiere acción no se va solo, y lo que solo confirma no interrumpe. No todo éxito o error va en toast. Con el canal elegido, su [ficha](references/feedback-channels.md#ficha-por-canal) fija ubicación, duración, cierre manual, acción de recuperación, controles habilitados, qué limpiar y cómo se anuncia. Decidir también confirmar o deshacer para cada acción destructiva. Para validación previa, errores viejos y feedback de reporte a soporte, aplicar [validation-feedback.md](references/validation-feedback.md).
 
 ## 4. Escribir el copy de cada estado
 
@@ -68,7 +68,7 @@ Cada estado vacío, error y confirmación responde: **qué pasó**, **por qué**
 ## 5. Aplicar y verificar
 
 1. Presentar primero la matriz de estados y el canal elegido por evento; después implementar.
-2. Verificar cada estado de verdad, no solo el feliz: simular la red lenta (throttling o un delay temporal), una respuesta vacía, un error del servidor y un doble clic en cada acción. Si hay dev server, recorrer los estados en el browser con el teclado y con el lector de pantalla o las herramientas de accesibilidad disponibles.
+2. Verificar cada estado de verdad, no solo el feliz: simular la red lenta (throttling o un delay temporal), una respuesta vacía, un error del servidor, un timeout, una respuesta tardía que llega después de cambiar de contexto y un doble clic en cada acción. Si hay dev server, recorrer los estados en el browser con el teclado y con el lector de pantalla o las herramientas de accesibilidad disponibles.
 3. Agregar o actualizar tests de comportamiento para los estados nuevos (render del vacío con su acción, error con reintento que recupera, botón en pending que no envía dos veces), siguiendo la estrategia de testing del proyecto.
 
 ## Compatibilidad entre agentes
@@ -110,7 +110,7 @@ Solo en modo completo:
 
 - `nextjs-route-ui-boundaries`: en Next.js, **dónde** van `loading.tsx`, `error.tsx` y los `<Suspense>` y qué parte renderiza el server; esta skill decide **qué muestran**. En un proyecto Next.js con App Router, cargar las dos juntas.
 - `optimistic-action-mutations`: implementación de toggles y acciones optimistas con rollback.
-- `async-operation-error-handling`: errores de jobs, batches, polling y éxito parcial a través de las capas.
+- `async-operation-error-handling`: errores de jobs, batches, polling y éxito parcial a través de las capas (service, API, client); esta skill decide qué ve y puede hacer el usuario en cada estado de la operación.
 - `semantic-html-a11y`: semántica, roles y foco de los controles.
 - `mobile-first-responsive-layout`: cómo se adapta cada estado a pantallas chicas.
 - `widget-ui-proposals`: mostrar variantes visuales de un estado antes de implementarlo.

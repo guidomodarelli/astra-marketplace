@@ -10,6 +10,9 @@ Fuente única de qué mostrar en cada estado de una región que trae datos o eje
 - [Vacío](#vacío)
 - [Con datos](#con-datos)
 - [Error](#error)
+  - [Errores HTTP](#errores-http)
+- [Operaciones asíncronas](#operaciones-asíncronas)
+  - [Recuperación de operaciones](#recuperación-de-operaciones)
 - [Offline y datos desactualizados](#offline-y-datos-desactualizados)
 - [Copy de los estados](#copy-de-los-estados)
 - [Anti-patrones](#anti-patrones)
@@ -121,13 +124,65 @@ Reglas:
 - **Nunca perder input**: tras un error, el formulario conserva lo escrito y el botón vuelve a estar habilitado.
 - Clasificar antes de mostrar: error de red (reintentar), del usuario (corregir), de permisos (pedir acceso), del servidor (reintentar más tarde). Cada clase tiene un copy y una acción distintos.
 - No mostrar mensajes crudos del proveedor, stack traces ni ids internos; sí un código o id de referencia corto que soporte pueda buscar.
-- Reintentos automáticos solo para operaciones idempotentes y con límite; mostrar que se está reintentando.
+- Reintentos automáticos solo para operaciones idempotentes y con límite; mostrar que se está reintentando ([recuperación de operaciones](#recuperación-de-operaciones)).
+- **Nunca un callejón**: si una acción queda deshabilitada por una restricción legítima (límite de intentos, cooldown, permiso, plan), el motivo y la forma de seguir están a la vista ("Podés pedir otro código en 0:45", "Pedile acceso a un administrador"), no solo el control gris.
+
+### Errores HTTP
+
+El código no se muestra; decide el canal, el copy y la salida. Es un punto de partida: si el backend devuelve un código de dominio más preciso, manda ese.
+
+| Código | Qué significa para el usuario | Canal y salida | Qué se conserva |
+|---|---|---|---|
+| 401 | La sesión venció o no existe | Diálogo o redirección a iniciar sesión que vuelve al mismo lugar; nunca un error genérico | El trabajo en curso (borrador local o reenvío después de reingresar) |
+| 403 | Está identificado pero no puede hacer esto | Región "sin permiso" para contenido; inline o mensaje de sección para una acción, con quién puede dar acceso | Todo; no reintentar |
+| 404 | El recurso no existe o ya no existe | Región o página dedicada con a dónde ir; si desapareció mientras se editaba, mensaje que lo dice y ofrece copiar lo escrito | Lo escrito, para no perderlo |
+| 409 | Conflicto: otro lo cambió, o ya existe | Mensaje de formulario o diálogo que muestra la diferencia y deja elegir (recargar, sobrescribir si se permite, combinar); "ya existe" va junto al campo | Los cambios del usuario |
+| 422 | El servidor rechazó datos válidos en forma | Errores por campo si vienen mapeados; si no, mensaje de formulario | Todo el formulario |
+| 429 | Demasiados intentos | Inline o mensaje de sección con cuándo se puede volver a intentar (de `Retry-After` o del backend); la acción se habilita sola al vencer | Todo; sin reintento automático antes de tiempo |
+| 5xx | Falla del servidor | Error de la región o junto a la acción con "Reintentar"; si persiste, banner y código de referencia | Todo; reintento automático solo si la operación es idempotente |
+| Timeout o sin respuesta | No se sabe si llegó | Para lecturas, error con reintento; para mutaciones, [resultado incierto](#recuperación-de-operaciones) | Todo |
+
+## Operaciones asíncronas
+
+Ciclo de vida de guardar, enviar, eliminar, subir, importar, exportar o lanzar una tarea en segundo plano. Esta sección decide **qué ve y puede hacer el usuario** en cada estado; la propagación de errores entre capas, jobs, batches y polling es de `async-operation-error-handling`.
+
+| Estado | Control que la disparó | Qué se ve | Qué se limpia o conserva |
+|---|---|---|---|
+| `idle` | Habilitado (o deshabilitado con el motivo visible) | Nada extra | — |
+| `pending` | [Pending en el control](#carga); nombre accesible conservado o cambiado al gerundio, con `aria-disabled` para que siga enfocable | Progreso real si es medible; el resto de la pantalla sigue usable salvo lo que la operación invalida | El error anterior de esta operación se quita **al empezar** el intento |
+| `success` | Vuelve a `idle` (o desaparece si la acción ya no aplica) | El resultado por su canal ([tabla de decisión](feedback-channels.md#tabla-de-decisión)) | Inputs que ya se guardaron; marca de "sin guardar" |
+| `error` | Vuelve a habilitarse | Qué no se hizo y cómo seguir, junto a la acción o en la región | **Todo lo ingresado** se conserva |
+| `cancelled` | Vuelve a `idle` en lecturas o si el servidor confirmó la cancelación; si una mutación pudo llegar y no hay confirmación, pasa a `unknown` | Estado anterior a la operación, con un aviso breve solo si hubo efectos parciales ("Se importaron 40 filas antes de cancelar") | Lo que el usuario tenía antes; en mutaciones, el id de la operación hasta confirmar su estado |
+| `partial_success` | Habilitado para reintentar **solo lo fallido** | Cuántos salieron y cuántos no, con acceso a cada fallido y su motivo | Los ítems exitosos quedan hechos; los fallidos siguen seleccionados o listados |
+| `unknown` (resultado incierto) | Deshabilitado para repetir hasta saber; habilitado "Comprobar estado" | "No pudimos confirmar si se envió" con la acción de comprobar | Todo; nunca mostrar éxito ni ofrecer un reintento ciego |
+
+Reglas:
+
+- **Doble envío**: el control deshabilitado no alcanza (Enter, doble toque, otra pestaña); el handler ignora un segundo disparo mientras haya una operación en curso y las mutaciones críticas mandan una clave de idempotencia si el backend la acepta.
+- **El control se libera siempre** al terminar, fallar o cancelar. Si queda deshabilitado por una restricción real (cooldown, permiso), lo dice.
+- **Progreso real o ninguno**: barra determinada solo con progreso medible (bytes, filas, pasos), junto al archivo o proceso; si no se puede medir, indicador indeterminado con texto del paso actual. Nada de barras que avanzan por tiempo ni spinners infinitos: toda espera tiene un timeout que la lleva a error o a resultado incierto.
+- **Procesos largos** (más de ~10 s): cancelar visible, permitir seguir usando la app y avisar al terminar por el canal que corresponda ([tabla de decisión](feedback-channels.md#tabla-de-decisión), paso 8).
+
+### Recuperación de operaciones
+
+| Situación | Qué hacer |
+|---|---|
+| Timeout de lectura | Error de la región con "Reintentar"; conservar los datos previos si los había |
+| Timeout o corte en una mutación | Tratarlo como **resultado incierto**: consultar el estado (por id de operación o clave de idempotencia) antes de ofrecer repetir; si no se puede consultar, decir que no se sabe y cómo verificarlo ("Revisá tus pagos antes de intentar de nuevo") |
+| Error de red puntual | Error junto a la acción con "Reintentar"; banner solo si la conexión sigue caída ([offline](#offline-y-datos-desactualizados)) |
+| Error del servidor | "Reintentar" manual; reintento automático solo para operaciones idempotentes, con límite (2–3 intentos) y espera creciente con jitter, mostrando "Reintentando…" |
+| Cancelación | En lecturas, abortar la petición (`AbortController` o equivalente), volver a `idle` y descartar la respuesta abortada. En una mutación que pudo llegar al servidor, abortar en el cliente no prueba que el servidor se detuvo: volver a `idle` solo si el servidor confirma la cancelación (endpoint de cancelación o estado del job); si no, conservar el id de la operación y pasar a **resultado incierto** con "Comprobar estado" antes de permitir otra ejecución, sin ocultar un resultado que sí se completó |
+| Respuestas duplicadas o desordenadas | Cada intento lleva un id; solo la respuesta del intento vigente actualiza la UI. Una respuesta tardía de un intento viejo, de otro recurso o de otro desafío se descarta sin feedback |
+| Navegación durante la operación | Si la operación sigue en el servidor, dejarla terminar y avisar del resultado por toast; si se perdería trabajo sin guardar, avisar antes de salir; al volver, mostrar el estado real, no el de antes |
+| Mutación no idempotente que falló | Nunca reintentarla automáticamente: si hay riesgo de duplicar (pago, envío, alta), resultado incierto y comprobar antes |
 
 ## Offline y datos desactualizados
 
 - Avisar con un **banner persistente** mientras dure ("Sin conexión. Los cambios se guardarán al reconectar" o "Mostrando datos de hace 2 horas") y quitarlo solo al recuperarse.
+- **Puntual ≠ offline**: una petición que falló con la conexión disponible es un error de esa acción (inline o toast con "Reintentar"), no un banner de "Sin conexión". El banner aparece cuando la conexión sigue caída (evento `offline`, fallos consecutivos o el socket cerrado) y se va solo al volver.
 - Marcar los ítems pendientes de sincronizar y no fingir éxito de algo que no llegó al servidor.
 - Si una acción no puede funcionar offline, deshabilitarla con el motivo visible, no dejar que falle.
+- **Al reconectar**: quitar el banner, anunciar una vez "Conexión restablecida" en `role="status"`, sincronizar lo pendiente (cola con claves de idempotencia) y refrescar los datos sin volver al skeleton; lo que falle al sincronizar queda marcado con su reintento.
 
 ## Copy de los estados
 
@@ -150,3 +205,7 @@ Reglas:
 - Error genérico sin reintento, o que reemplaza toda la pantalla incluida la navegación.
 - Borrar el formulario después de un error.
 - Toast como único lugar donde aparece un error que el usuario necesita resolver.
+- Input bloqueado con un mensaje rojo fijo y ninguna acción para salir (un código vencido sin "Pedir otro código").
+- Un toast de "Guardando…" y otro de "Guardado" para la misma operación, o toasts apilados del mismo error.
+- Barra de progreso que avanza por tiempo, o spinner sin timeout.
+- Reintentar automáticamente un pago, un envío o un alta que puede haberse completado.

@@ -6,6 +6,8 @@
   {"query": "cambiá el copy del modal de 'Cancelar suscripción' en la app de Flutter, ahora dice 'Aceptar / Cancelar' y la gente se confunde", "should_trigger": true},
   {"query": "Agregá un botón 'Reenviar invitación' a cada fila de la lista de invitaciones pendientes (Remix). Tiene que evitar el doble click y avisar si salió bien", "should_trigger": true},
   {"query": "Quiero pulir el onboarding: el uploader de avatar no muestra progreso y si el archivo es muy grande falla en silencio. Es una SPA en Vue 3", "should_trigger": true},
+  {"query": "en el paso de verificación por SMS de la solicitud de acceso, cuando el código vence el input queda bloqueado con un texto rojo y el usuario no puede pedir otro. Es React con react-hook-form, arreglalo", "should_trigger": true},
+  {"query": "Agregá rate limiting al endpoint POST /api/otp/resend en el backend de Express (máximo 3 reenvíos cada 10 minutos por teléfono) con tests de integración", "should_trigger": false},
   {"query": "Escribí una migración SQL que agregue la columna archived_at a courses con su índice y la policy de RLS correspondiente", "should_trigger": false},
   {"query": "El job de cron que manda el resumen diario de admisiones por mail tarda 40s; perfilalo y decime qué query es la lenta", "should_trigger": false},
   {"query": "Refactorizá `scripts/dev-portless.mjs` para separar la verificación de DNS en un módulo propio, sin cambiar el comportamiento", "should_trigger": false},
