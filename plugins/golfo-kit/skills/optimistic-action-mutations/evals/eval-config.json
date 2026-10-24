@@ -195,7 +195,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(reintent|repet|volver a (hacer|enviar|llamar)).{0,80}(autom(a|á)tic|a ciegas|sin (consultar|verificar|comprobar|saber))|bloque[a-z]* (el )?(repetir|reintent)|repetir.{0,40}hasta (saber|confirmar|que se confirme)",
+          "pattern": "(no|nunca).{0,60}(reintent|repet|volver a (hacer|enviar|llamar)).{0,80}(autom(a|á)tic|a ciegas|sin (consultar|verificar|comprobar|saber))|bloque[a-z]* (el )?(repetir|reintent)|repetir.{0,40}hasta (saber|confirmar|que se confirme)|antes de repetir|(misma|mismo) (clave|key|operationKey).{0,80}(reintent|reenv)|reintent.{0,80}(misma|mismo) (clave|key)",
           "description": "No repite la mutación a ciegas"
         }
       ]
@@ -308,7 +308,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(reset|limpi|reinici).{0,80}(estado|formulario|error|mensaje)",
+          "pattern": "(reset|limpi|reinici).{0,80}(estado|formulario|error|mensaje)|key=\\{selected[A-Za-z]*Id\\}|remont",
           "description": "Resetea estado, errores y mensajes al cambiar de entidad"
         },
         {
@@ -357,7 +357,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(decir|mostrar|afirmar|anunciar|indicar).{0,60}(envi(ó|o|amos|ado)|se envió)|hasta (la|que) (respuesta|confirm)",
+          "pattern": "(no|nunca).{0,60}(decir|mostrar|afirmar|anunciar|indicar).{0,60}(envi(ó|o|amos|ado)|se envió)|hasta (la|que) (respuesta|confirm)|hasta (recibir )?(la|que) (respuesta|confirm|responda)|no aparece .{0,40}(te enviamos|enviado)",
           "description": "No afirma que se envió el SMS antes de la respuesta"
         },
         {
@@ -446,7 +446,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(no|nunca).{0,60}(volver a mostrar|restaurar|revertir|rollback).{0,40}(los 20|todos)|sin (revertir|restaurar) (los )?(archivados|exitosos)|(rollback|revert|restaur)[^.]{0,60}solo (estos|los|esos) ids",
+          "pattern": "(no|nunca).{0,60}(volver a mostrar|restaurar|revertir|rollback).{0,40}(los 20|todos)|sin (revertir|restaurar) (los )?(archivados|exitosos)|(rollback|revert|restaur)[^.]{0,60}solo (estos|los|esos) ids|(reinsert|restaur|revert|rollback)[a-z]*[^.]{0,30}solo (esos|estos|los) ids",
           "description": "No revierte los que sí se archivaron"
         }
       ]
@@ -490,7 +490,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(abort|cerrar el modal|cancel).{0,160}(no (cancela|deshace|revierte|detiene)|sigue (en el servidor|corriendo|ejecut))",
+          "pattern": "(abort|cerrar el modal|cancel).{0,160}(no (cancela|deshace|revierte|detiene)|sigue (en el servidor|corriendo|ejecut))|(abortar|abort).{0,20}no es deshacer|el job sigue|sigue en segundo plano",
           "description": "No asume que abortar canceló la importación en el servidor"
         },
         {
